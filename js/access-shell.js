@@ -1,8 +1,6 @@
 import { getRoleBadgeClass, getRoleLabel, getDefaultHomeForRole, logout, requireAuthenticatedUser } from "./auth.js";
 
-const NAV_HIDDEN_BY_ROLE = {
-  technician: new Set(["gantt.html", "materials.html"]),
-};
+const NAV_HIDDEN_BY_ROLE = {};
 
 function parseRoleList(attributeValue) {
   return String(attributeValue ?? "")

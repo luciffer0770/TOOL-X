@@ -231,7 +231,7 @@ function wireEvents() {
 
 function initialize() {
   setActiveNavigation();
-  const currentUser = initializeAccessShell({ allowedRoles: ["planner", "management"] });
+  const currentUser = initializeAccessShell();
   if (!currentUser) return;
   wireEvents();
   initializeProjectToolbar({ onProjectChange: renderForActiveProject });
