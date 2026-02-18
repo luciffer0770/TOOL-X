@@ -167,15 +167,17 @@
               <span id="column-visibility-summary" class="small"></span>
             </div>
             <div id="column-dropdown-panel" class="column-dropdown-panel" hidden>
-              <div class="column-dropdown-actions">
-                <button id="column-select-all-btn" class="ghost">All</button>
-                <button id="column-select-core-btn" class="ghost">Core Only</button>
-                <button id="column-select-none-btn" class="ghost">Clear</button>
+              <div class="column-dropdown-side">
+                <div class="column-dropdown-actions">
+                  <button id="column-select-all-btn" class="ghost">All</button>
+                  <button id="column-select-core-btn" class="ghost">Core Only</button>
+                  <button id="column-select-none-btn" class="ghost">Clear</button>
+                </div>
+                <label class="field">
+                  Search Columns
+                  <input id="column-search-input" type="search" placeholder="Type to filter columns..." />
+                </label>
               </div>
-              <label class="field">
-                Search Columns
-                <input id="column-search-input" type="search" placeholder="Type to filter columns..." />
-              </label>
               <div id="column-chip-group" class="column-list"></div>
             </div>
           </div>
