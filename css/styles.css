@@ -607,7 +607,7 @@ td textarea {
 
 .column-dropdown-panel {
   width: 100%;
-  margin-top: 10px;
+  margin-top: 0;
   border: 1px solid rgba(49, 84, 138, 0.78);
   border-radius: 10px;
   background: rgba(9, 19, 39, 0.98);
@@ -616,6 +616,34 @@ td textarea {
   grid-template-columns: minmax(210px, 290px) 1fr;
   gap: 12px;
   align-items: start;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 40;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px) scaleY(0.98);
+  transform-origin: top;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.column-dropdown-panel.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scaleY(1);
+}
+
+.column-dropdown-panel.is-drop-up {
+  top: auto;
+  bottom: calc(100% + 8px);
+  transform: translateY(6px) scaleY(0.98);
+  transform-origin: bottom;
+}
+
+.column-dropdown-panel.is-drop-up.is-open {
+  transform: translateY(0) scaleY(1);
 }
 
 .column-dropdown-side {

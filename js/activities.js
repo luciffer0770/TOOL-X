@@ -80,6 +80,8 @@ let viewState = {
 
 const uiState = {
   columnPanelOpen: false,
+  columnPanelDropUp: false,
+  columnPanelCloseTimer: null,
   syncingTableScroll: false,
   syncingFloatingScroll: false,
 };
@@ -299,8 +301,51 @@ function applyColumnSearch(searchValue) {
 
 function setColumnPanelOpen(isOpen) {
   uiState.columnPanelOpen = Boolean(isOpen);
-  dom.columnDropdownPanel.hidden = !uiState.columnPanelOpen;
   dom.columnDropdownToggle.setAttribute("aria-expanded", String(uiState.columnPanelOpen));
+  dom.columnDropdownToggle.textContent = `${uiState.columnPanelOpen ? "Hide" : "Select"} Visible Columns ${
+    uiState.columnPanelOpen ? "▲" : "▼"
+  }`;
+
+  if (uiState.columnPanelCloseTimer) {
+    clearTimeout(uiState.columnPanelCloseTimer);
+    uiState.columnPanelCloseTimer = null;
+  }
+
+  if (!uiState.columnPanelOpen) {
+    dom.columnDropdownPanel.classList.remove("is-open");
+    uiState.columnPanelCloseTimer = window.setTimeout(() => {
+      if (!uiState.columnPanelOpen) {
+        dom.columnDropdownPanel.hidden = true;
+      }
+    }, 170);
+    return;
+  }
+
+  dom.columnDropdownPanel.hidden = false;
+  uiState.columnPanelDropUp = shouldDropColumnPanelUpward();
+  dom.columnDropdownPanel.classList.toggle("is-drop-up", uiState.columnPanelDropUp);
+  requestAnimationFrame(() => {
+    dom.columnDropdownPanel.classList.add("is-open");
+  });
+}
+
+function estimateColumnPanelHeight() {
+  if (!dom.columnDropdownPanel.hidden) {
+    return dom.columnDropdownPanel.scrollHeight || 320;
+  }
+  dom.columnDropdownPanel.hidden = false;
+  const estimatedHeight = dom.columnDropdownPanel.scrollHeight || 320;
+  dom.columnDropdownPanel.hidden = true;
+  return estimatedHeight;
+}
+
+function shouldDropColumnPanelUpward() {
+  const toggleRect = dom.columnDropdownToggle.getBoundingClientRect();
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  const spaceBelow = viewportHeight - toggleRect.bottom;
+  const spaceAbove = toggleRect.top;
+  const panelHeight = estimateColumnPanelHeight() + 24;
+  return spaceBelow < panelHeight && spaceAbove > spaceBelow;
 }
 
 function applyVisibilityPreset(mode) {
@@ -561,6 +606,12 @@ function wireEvents() {
     applyVisibilityPreset("none");
   });
 
+  window.addEventListener("resize", () => {
+    if (uiState.columnPanelOpen) {
+      setColumnPanelOpen(true);
+    }
+  });
+
   document.addEventListener("click", (event) => {
     if (!uiState.columnPanelOpen) return;
     const target = event.target;
@@ -675,6 +726,7 @@ function initialize() {
   dom.defaultEditorInput.value = getDefaultEditor();
   dom.mandatoryHint.textContent = `Mandatory import columns: ${IMPORT_REQUIRED_LABELS.join(", ")}`;
   dom.columnDropdownToggle.setAttribute("aria-expanded", "false");
+  dom.columnDropdownToggle.textContent = "Select Visible Columns ▼";
   wireEvents();
   initializeProjectToolbar({
     onProjectChange: () => {
