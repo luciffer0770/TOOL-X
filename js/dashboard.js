@@ -1,6 +1,7 @@
 import { computePortfolioMetrics, getDelayAndRiskRows, getPhaseProgress, groupBy } from "./analytics.js";
 import { formatCurrency, formatHours, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities } from "./storage.js";
+import { initializeProjectToolbar } from "./project-toolbar.js";
 
 let phaseChart;
 let riskChart;
@@ -215,4 +216,5 @@ function render() {
 }
 
 setActiveNavigation();
+initializeProjectToolbar({ onProjectChange: render });
 render();

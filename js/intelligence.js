@@ -1,6 +1,7 @@
 import { computePortfolioMetrics, getDelayAndRiskRows, runScenarioSimulation } from "./analytics.js";
 import { formatHours, notify, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities, updateActivity } from "./storage.js";
+import { initializeProjectToolbar } from "./project-toolbar.js";
 
 const dom = {
   riskKpis: document.querySelector("#risk-kpis"),
@@ -188,6 +189,7 @@ function wireEvents() {
 function initialize() {
   setActiveNavigation();
   wireEvents();
+  initializeProjectToolbar({ onProjectChange: renderAll });
   renderAll();
 }
 

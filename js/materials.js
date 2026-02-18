@@ -1,6 +1,7 @@
 import { getMaterialHealth } from "./analytics.js";
 import { formatDate, formatHours, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities } from "./storage.js";
+import { initializeProjectToolbar } from "./project-toolbar.js";
 
 let ownershipChart;
 let statusChart;
@@ -58,6 +59,17 @@ function renderKpis() {
     `,
     )
     .join("");
+}
+
+function clearCharts() {
+  if (ownershipChart) {
+    ownershipChart.destroy();
+    ownershipChart = null;
+  }
+  if (statusChart) {
+    statusChart.destroy();
+    statusChart = null;
+  }
 }
 
 function renderCharts() {
@@ -214,8 +226,15 @@ function wireEvents() {
 
 function initialize() {
   setActiveNavigation();
+  wireEvents();
+  initializeProjectToolbar({ onProjectChange: renderForActiveProject });
+  renderForActiveProject();
+}
+
+function renderForActiveProject() {
   health = getMaterialHealth(getActivities());
   if (!health.enriched.length) {
+    clearCharts();
     renderEmptyState(dom.kpiHost, "No material-linked activities available. Add data in Activity Master.");
     dom.tableSummary.textContent = "0 material lines";
     dom.tableBody.innerHTML = `<tr><td colspan="11"><div class="empty-state">No material records to display.</div></td></tr>`;
@@ -225,7 +244,6 @@ function initialize() {
   renderKpis();
   renderCharts();
   populateFilters();
-  wireEvents();
   renderTable();
 }
 

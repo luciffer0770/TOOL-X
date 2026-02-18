@@ -1,20 +1,50 @@
 import { COLUMN_SCHEMA, generateActivityId, sanitizeActivity } from "./schema.js";
 
 const STORAGE_KEY = "industrial_planning_intelligence_state_v1";
+const PROJECT_ID_PATTERN = /^PRJ-(\d{4,})$/;
 
-function baseState() {
+function createDefaultVisibility() {
   const defaultVisibility = {};
   COLUMN_SCHEMA.forEach((column) => {
     defaultVisibility[column.key] = true;
   });
+  return defaultVisibility;
+}
 
+function createProject(id, name, activities = []) {
   return {
-    activities: [],
+    id,
+    name,
+    activities: activities.map((activity) => sanitizeActivity(activity)),
+  };
+}
+
+function baseState() {
+  const defaultProjectId = "PRJ-0001";
+  return {
+    projects: [createProject(defaultProjectId, "Project 1", [])],
+    activeProjectId: defaultProjectId,
     settings: {
-      tableColumnVisibility: defaultVisibility,
+      tableColumnVisibility: createDefaultVisibility(),
       defaultEditor: "Planner",
     },
   };
+}
+
+function getNextProjectId(projects) {
+  let max = 0;
+  projects.forEach((project) => {
+    const match = PROJECT_ID_PATTERN.exec(project.id || "");
+    if (match) {
+      max = Math.max(max, Number(match[1]));
+    }
+  });
+  return `PRJ-${String(max + 1).padStart(4, "0")}`;
+}
+
+function normalizeProjectName(rawName, index) {
+  const trimmed = String(rawName ?? "").trim();
+  return trimmed || `Project ${index + 1}`;
 }
 
 function readRawState() {
@@ -30,24 +60,79 @@ function readRawState() {
 }
 
 function normalizeState(state) {
-  const normalized = baseState();
-  if (Array.isArray(state.activities)) {
-    normalized.activities = state.activities.map((activity) => sanitizeActivity(activity));
+  const defaults = baseState();
+  let normalizedProjects = [];
+
+  if (Array.isArray(state.projects) && state.projects.length) {
+    state.projects.forEach((project, index) => {
+      let id = String(project?.id ?? "").trim();
+      if (!id || normalizedProjects.some((entry) => entry.id === id)) {
+        id = getNextProjectId(normalizedProjects);
+      }
+      const name = normalizeProjectName(project?.name, index);
+      const rawActivities = Array.isArray(project?.activities)
+        ? project.activities
+        : Array.isArray(project?.items)
+          ? project.items
+          : [];
+      normalizedProjects.push(createProject(id, name, rawActivities));
+    });
+  } else if (Array.isArray(state.activities)) {
+    // Migration path from older single-project state.
+    normalizedProjects = [createProject(defaults.projects[0].id, defaults.projects[0].name, state.activities)];
+  } else {
+    normalizedProjects = defaults.projects;
   }
-  normalized.settings = {
-    ...normalized.settings,
+
+  if (!normalizedProjects.length) {
+    normalizedProjects = defaults.projects;
+  }
+
+  let activeProjectId = String(state.activeProjectId ?? "").trim();
+  if (!normalizedProjects.some((project) => project.id === activeProjectId)) {
+    activeProjectId = normalizedProjects[0].id;
+  }
+
+  const settings = {
+    ...defaults.settings,
     ...(state.settings ?? {}),
   };
 
-  normalized.settings.tableColumnVisibility = {
-    ...baseState().settings.tableColumnVisibility,
+  settings.tableColumnVisibility = {
+    ...createDefaultVisibility(),
     ...(state.settings?.tableColumnVisibility ?? {}),
   };
-  return normalized;
+
+  return {
+    projects: normalizedProjects,
+    activeProjectId,
+    settings,
+  };
 }
 
 function writeState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function getActiveProjectIndex(state) {
+  let index = state.projects.findIndex((project) => project.id === state.activeProjectId);
+  if (index === -1) {
+    state.activeProjectId = state.projects[0].id;
+    index = 0;
+  }
+  return index;
+}
+
+function getActiveProjectRecord(state) {
+  return state.projects[getActiveProjectIndex(state)];
+}
+
+function ensureUniqueActivityId(activities, candidateId) {
+  const activityIds = new Set(activities.map((activity) => activity.activityId));
+  if (!candidateId || activityIds.has(candidateId)) {
+    return generateActivityId(activities);
+  }
+  return candidateId;
 }
 
 export function getState() {
@@ -58,37 +143,126 @@ export function saveState(nextState) {
   writeState(normalizeState(nextState));
 }
 
+export function getProjects() {
+  const state = getState();
+  return state.projects.map((project) => ({
+    id: project.id,
+    name: project.name,
+    activityCount: project.activities.length,
+    isActive: project.id === state.activeProjectId,
+  }));
+}
+
+export function getActiveProject() {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  return {
+    id: project.id,
+    name: project.name,
+    activities: project.activities.map((activity) => sanitizeActivity(activity)),
+  };
+}
+
+export function setActiveProject(projectId) {
+  const state = getState();
+  const index = state.projects.findIndex((project) => project.id === projectId);
+  if (index === -1) return false;
+  state.activeProjectId = projectId;
+  saveState(state);
+  return true;
+}
+
+export function addProject(projectName) {
+  const state = getState();
+  const id = getNextProjectId(state.projects);
+  const name = normalizeProjectName(projectName, state.projects.length);
+  const project = createProject(id, name, []);
+  state.projects.push(project);
+  state.activeProjectId = project.id;
+  saveState(state);
+  return project;
+}
+
+export function renameProject(projectId, projectName) {
+  const state = getState();
+  const index = state.projects.findIndex((project) => project.id === projectId);
+  if (index === -1) return null;
+  state.projects[index].name = normalizeProjectName(projectName, index);
+  saveState(state);
+  return state.projects[index];
+}
+
+export function deleteProject(projectId) {
+  const state = getState();
+  if (state.projects.length <= 1) {
+    return {
+      deleted: false,
+      reason: "At least one project must remain.",
+    };
+  }
+
+  const nextProjects = state.projects.filter((project) => project.id !== projectId);
+  if (nextProjects.length === state.projects.length) {
+    return {
+      deleted: false,
+      reason: "Project not found.",
+    };
+  }
+
+  state.projects = nextProjects;
+  if (!state.projects.some((project) => project.id === state.activeProjectId)) {
+    state.activeProjectId = state.projects[0].id;
+  }
+  saveState(state);
+  return {
+    deleted: true,
+    activeProjectId: state.activeProjectId,
+  };
+}
+
 export function getActivities() {
-  return getState().activities;
+  return getActiveProject().activities;
 }
 
 export function saveActivities(activities) {
   const state = getState();
-  state.activities = activities.map((activity) => sanitizeActivity(activity));
+  const project = getActiveProjectRecord(state);
+  project.activities = activities.map((activity) => sanitizeActivity(activity));
   saveState(state);
 }
 
 export function clearAllActivities() {
   const state = getState();
-  state.activities = [];
+  const project = getActiveProjectRecord(state);
+  project.activities = [];
   saveState(state);
 }
 
 export function addActivity(activity) {
   const state = getState();
+  const project = getActiveProjectRecord(state);
   const sanitized = sanitizeActivity(activity);
-  const existingIds = new Set(state.activities.map((entry) => entry.activityId));
-  if (!sanitized.activityId || existingIds.has(sanitized.activityId)) {
-    sanitized.activityId = generateActivityId(state.activities);
-  }
-  state.activities.push(sanitized);
+  sanitized.activityId = ensureUniqueActivityId(project.activities, sanitized.activityId);
+  project.activities.push(sanitized);
+  saveState(state);
+  return sanitized;
+}
+
+export function insertActivityAt(index, activity) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  const sanitized = sanitizeActivity(activity);
+  sanitized.activityId = ensureUniqueActivityId(project.activities, sanitized.activityId);
+  const clampedIndex = Math.max(0, Math.min(Number.isFinite(Number(index)) ? Number(index) : 0, project.activities.length));
+  project.activities.splice(clampedIndex, 0, sanitized);
   saveState(state);
   return sanitized;
 }
 
 export function upsertActivities(incomingActivities) {
   const state = getState();
-  const byId = new Map(state.activities.map((activity) => [activity.activityId, activity]));
+  const project = getActiveProjectRecord(state);
+  const byId = new Map(project.activities.map((activity) => [activity.activityId, activity]));
   incomingActivities.forEach((incoming) => {
     const sanitized = sanitizeActivity(incoming);
     if (!sanitized.activityId) {
@@ -96,29 +270,31 @@ export function upsertActivities(incomingActivities) {
     }
     byId.set(sanitized.activityId, { ...byId.get(sanitized.activityId), ...sanitized });
   });
-  state.activities = [...byId.values()].map((activity) => sanitizeActivity(activity));
+  project.activities = [...byId.values()].map((activity) => sanitizeActivity(activity));
   saveState(state);
-  return state.activities;
+  return project.activities;
 }
 
 export function updateActivity(activityId, patch) {
   const state = getState();
-  const index = state.activities.findIndex((activity) => activity.activityId === activityId);
+  const project = getActiveProjectRecord(state);
+  const index = project.activities.findIndex((activity) => activity.activityId === activityId);
   if (index === -1) return null;
-  const existing = state.activities[index];
+  const existing = project.activities[index];
   const updated = sanitizeActivity({
     ...existing,
     ...patch,
     lastModifiedDate: patch.lastModifiedDate ?? new Date().toISOString().slice(0, 10),
   });
-  state.activities[index] = updated;
+  project.activities[index] = updated;
   saveState(state);
   return updated;
 }
 
 export function deleteActivity(activityId) {
   const state = getState();
-  state.activities = state.activities.filter((activity) => activity.activityId !== activityId);
+  const project = getActiveProjectRecord(state);
+  project.activities = project.activities.filter((activity) => activity.activityId !== activityId);
   saveState(state);
 }
 

@@ -13,13 +13,16 @@ import {
   mapRowToActivity,
 } from "./schema.js";
 import { debounce, notify, setActiveNavigation, toCsv, triggerDownload } from "./common.js";
+import { initializeProjectToolbar } from "./project-toolbar.js";
 import {
   addActivity,
   clearAllActivities,
   deleteActivity,
+  getActiveProject,
   getActivities,
   getColumnVisibility,
   getDefaultEditor,
+  insertActivityAt,
   saveActivities,
   saveColumnVisibility,
   setDefaultEditor,
@@ -189,17 +192,20 @@ function filterActivities() {
 function renderTable() {
   const columns = getVisibleColumns();
   const filteredRows = filterActivities();
-  dom.stats.textContent = `${filteredRows.length} shown of ${viewState.activities.length} activities`;
+  const activeProject = getActiveProject();
+  dom.stats.textContent = `${activeProject.name}: ${filteredRows.length} shown of ${viewState.activities.length} activities`;
+  const orderMap = new Map(viewState.activities.map((activity, index) => [activity.activityId, index + 1]));
 
   dom.tableHead.innerHTML = `
     <tr>
-      <th>Actions</th>
+      <th>#</th>
+      <th>Row Actions</th>
       ${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}
     </tr>
   `;
 
   if (!filteredRows.length) {
-    dom.tableBody.innerHTML = `<tr><td colspan="${columns.length + 1}"><div class="empty-state">No activities match current filters.</div></td></tr>`;
+    dom.tableBody.innerHTML = `<tr><td colspan="${columns.length + 2}"><div class="empty-state">No activities match current filters.</div></td></tr>`;
     return;
   }
 
@@ -207,9 +213,12 @@ function renderTable() {
     .map(
       (row) => `
       <tr data-id="${escapeHtml(row.activityId)}">
+        <td>${orderMap.get(row.activityId) ?? "-"}</td>
         <td>
           <div class="cell-actions">
-            <button class="ghost" data-delete="${escapeHtml(row.activityId)}">Delete</button>
+            <button class="ghost" data-insert-above="${escapeHtml(row.activityId)}">Insert Above</button>
+            <button class="ghost" data-insert-below="${escapeHtml(row.activityId)}">Insert Below</button>
+            <button class="danger" data-delete="${escapeHtml(row.activityId)}">Delete</button>
           </div>
         </td>
         ${columns.map((column) => `<td>${buildControl(column, row)}</td>`).join("")}
@@ -232,7 +241,7 @@ function renderColumnVisibility() {
 }
 
 function refreshFromStorage() {
-  viewState.activities = getActivities().sort((left, right) => (left.activityId || "").localeCompare(right.activityId || ""));
+  viewState.activities = getActivities();
   viewState.visibility = getColumnVisibility();
   populateFilterOptions();
   renderColumnVisibility();
@@ -450,8 +459,35 @@ function wireEvents() {
 
   dom.tableBody.addEventListener("click", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const activityId = target.dataset.delete;
+    if (!(target instanceof Element)) return;
+    const button = target.closest("button");
+    if (!button) return;
+
+    if (button.dataset.insertAbove || button.dataset.insertBelow) {
+      const referenceId = button.dataset.insertAbove || button.dataset.insertBelow;
+      const referenceIndex = viewState.activities.findIndex((activity) => activity.activityId === referenceId);
+      if (referenceIndex === -1) return;
+      const insertIndex = button.dataset.insertBelow ? referenceIndex + 1 : referenceIndex;
+      const referenceActivity = viewState.activities[referenceIndex] ?? createEmptyActivity();
+      const inserted = insertActivityAt(insertIndex, {
+        ...createEmptyActivity(),
+        phase: referenceActivity.phase,
+        priority: referenceActivity.priority,
+        resourceDepartment: referenceActivity.resourceDepartment,
+        materialOwnership: referenceActivity.materialOwnership,
+        materialStatus: referenceActivity.materialStatus,
+        lastModifiedBy: dom.defaultEditorInput.value || "Planner",
+        lastModifiedDate: new Date().toISOString().slice(0, 10),
+      });
+      notify(
+        `Inserted ${inserted.activityId} ${button.dataset.insertBelow ? "below" : "above"} ${referenceId}.`,
+        "success",
+      );
+      refreshFromStorage();
+      return;
+    }
+
+    const activityId = button.dataset.delete;
     if (!activityId) return;
     if (!confirm(`Delete activity ${activityId}?`)) return;
     deleteActivity(activityId);
@@ -480,6 +516,15 @@ function initialize() {
   dom.defaultEditorInput.value = getDefaultEditor();
   dom.mandatoryHint.textContent = `Mandatory import columns: ${IMPORT_REQUIRED_LABELS.join(", ")}`;
   wireEvents();
+  initializeProjectToolbar({
+    onProjectChange: () => {
+      viewState.search = "";
+      viewState.status = "";
+      viewState.phase = "";
+      dom.searchInput.value = "";
+      refreshFromStorage();
+    },
+  });
   refreshFromStorage();
 }
 

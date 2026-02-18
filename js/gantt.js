@@ -1,6 +1,7 @@
 import { enrichActivities, getCriticalPath, getTimelineBounds, parseDate } from "./analytics.js";
 import { formatDate, formatHours, notify, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities } from "./storage.js";
+import { initializeProjectToolbar } from "./project-toolbar.js";
 
 const dom = {
   phaseFilter: document.querySelector("#phase-filter"),
@@ -165,15 +166,20 @@ function wireEvents() {
   });
 }
 
-function initialize() {
-  setActiveNavigation();
+function loadProjectActivities() {
   activities = enrichActivities(getActivities());
   bounds = getTimelineBounds(activities);
   dom.rangeStart.value = bounds.min.toISOString().slice(0, 10);
   dom.rangeEnd.value = bounds.max.toISOString().slice(0, 10);
   populateFilters();
-  wireEvents();
   renderGantt();
+}
+
+function initialize() {
+  setActiveNavigation();
+  wireEvents();
+  initializeProjectToolbar({ onProjectChange: loadProjectActivities });
+  loadProjectActivities();
 }
 
 initialize();

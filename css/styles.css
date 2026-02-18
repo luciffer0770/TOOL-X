@@ -247,6 +247,13 @@ button:hover {
   filter: brightness(1.08);
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+}
+
 button.ghost {
   background: rgba(11, 23, 42, 0.75);
 }
@@ -312,7 +319,30 @@ td textarea {
 
 .cell-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cell-actions button {
+  padding: 6px 8px;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.project-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 340px) auto 1fr;
+  gap: 10px;
+  align-items: end;
+}
+
+.project-select-field {
+  max-width: 340px;
+}
+
+.project-toolbar .small {
+  justify-self: end;
+  text-align: right;
 }
 
 .badge {
@@ -576,5 +606,16 @@ td textarea {
   .top-bar {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 980px) {
+  .project-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .project-toolbar .small {
+    justify-self: start;
+    text-align: left;
   }
 }
