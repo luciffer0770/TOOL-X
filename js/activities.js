@@ -15,7 +15,7 @@ import {
 import { debounce, notify, setActiveNavigation, toCsv, triggerDownload } from "./common.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
-import { canEditActivityField, canImportExportData, canModifyActivityStructure } from "./auth.js";
+import { canEditActivityField, canImportExportData, canManageProjects, canModifyActivityStructure } from "./auth.js";
 import {
   addActivity,
   clearAllActivities,
@@ -387,8 +387,9 @@ function applyVisibilityPreset(mode) {
 
 function applyRoleRestrictions() {
   const canModify = canModifyActivityStructure(currentUser);
+  const canManage = canManageProjects(currentUser);
   const canImportExport = canImportExportData(currentUser);
-  const lockedMessage = "Current role can update status and delay root cause only.";
+  const lockedMessage = "This role has limited edit permissions.";
 
   if (!canModify) {
     const minimumVisibility = {
@@ -407,8 +408,6 @@ function applyRoleRestrictions() {
   [
     dom.addButton,
     dom.addEmptyButton,
-    dom.loadSampleButton,
-    dom.clearButton,
     dom.columnDropdownToggle,
     dom.columnSelectAllButton,
     dom.columnSelectCoreButton,
@@ -428,6 +427,16 @@ function applyRoleRestrictions() {
     button.disabled = !canImportExport;
     if (!canImportExport) {
       button.title = lockedMessage;
+    } else {
+      button.title = "";
+    }
+  });
+
+  [dom.loadSampleButton, dom.clearButton].forEach((button) => {
+    if (!button) return;
+    button.disabled = !canManage;
+    if (!canManage) {
+      button.title = "Restricted to planning and management roles.";
     } else {
       button.title = "";
     }
@@ -620,7 +629,7 @@ function wireEvents() {
   });
 
   dom.loadSampleButton.addEventListener("click", () => {
-    if (!canModifyActivityStructure(currentUser)) {
+    if (!canManageProjects(currentUser)) {
       notify("This role cannot replace project data.", "warning");
       return;
     }
@@ -660,7 +669,7 @@ function wireEvents() {
   });
 
   dom.clearButton.addEventListener("click", () => {
-    if (!canModifyActivityStructure(currentUser)) {
+    if (!canManageProjects(currentUser)) {
       notify("This role cannot clear activities.", "warning");
       return;
     }

@@ -148,7 +148,8 @@ export function canManageProjects(roleOrUser) {
 }
 
 export function canModifyActivityStructure(roleOrUser) {
-  return canManageProjects(roleOrUser);
+  const role = toRole(roleOrUser);
+  return role === "planner" || role === "management" || role === "technician";
 }
 
 export function canImportExportData(roleOrUser) {
@@ -158,7 +159,18 @@ export function canImportExportData(roleOrUser) {
 export function canEditActivityField(roleOrUser, field) {
   const role = toRole(roleOrUser);
   if (role === "technician") {
-    return field === "activityStatus" || field === "delayReason";
+    const executionFields = new Set([
+      "actualStartDate",
+      "actualEndDate",
+      "actualDurationHours",
+      "activityStatus",
+      "completionPercentage",
+      "delayReason",
+      "manualOverrideDuration",
+      "overrideReason",
+      "remarks",
+    ]);
+    return executionFields.has(field);
   }
   return true;
 }
