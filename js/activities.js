@@ -52,6 +52,13 @@ const dom = {
   tableHead: document.querySelector("#activities-head"),
   tableBody: document.querySelector("#activities-body"),
   columnChipGroup: document.querySelector("#column-chip-group"),
+  columnDropdownToggle: document.querySelector("#column-dropdown-toggle"),
+  columnDropdownPanel: document.querySelector("#column-dropdown-panel"),
+  columnVisibilitySummary: document.querySelector("#column-visibility-summary"),
+  columnSearchInput: document.querySelector("#column-search-input"),
+  columnSelectAllButton: document.querySelector("#column-select-all-btn"),
+  columnSelectCoreButton: document.querySelector("#column-select-core-btn"),
+  columnSelectNoneButton: document.querySelector("#column-select-none-btn"),
   mandatoryHint: document.querySelector("#mandatory-columns-hint"),
   searchInput: document.querySelector("#search-input"),
   statusFilter: document.querySelector("#status-filter"),
@@ -66,6 +73,10 @@ let viewState = {
   search: "",
   status: "",
   phase: "",
+};
+
+const uiState = {
+  columnPanelOpen: false,
 };
 
 function escapeHtml(value) {
@@ -232,12 +243,61 @@ function renderColumnVisibility() {
   dom.columnChipGroup.innerHTML = COLUMN_SCHEMA.map((column) => {
     const checked = viewState.visibility[column.key] !== false;
     return `
-      <label class="chip">
+      <label class="column-option" data-column-label="${escapeHtml(String(column.label).toLowerCase())}">
         <input type="checkbox" data-column="${column.key}" ${checked ? "checked" : ""} />
-        ${escapeHtml(column.label)}
+        <span>${escapeHtml(column.label)}</span>
       </label>
     `;
   }).join("");
+  updateColumnVisibilitySummary();
+  applyColumnSearch(dom.columnSearchInput.value || "");
+  setColumnPanelOpen(uiState.columnPanelOpen);
+}
+
+function updateColumnVisibilitySummary() {
+  const visibleCount = COLUMN_SCHEMA.filter((column) => viewState.visibility[column.key] !== false).length;
+  dom.columnVisibilitySummary.textContent = `${visibleCount} of ${COLUMN_SCHEMA.length} columns visible`;
+}
+
+function applyColumnSearch(searchValue) {
+  const query = String(searchValue ?? "").trim().toLowerCase();
+  dom.columnChipGroup.querySelectorAll(".column-option").forEach((node) => {
+    const label = node.dataset.columnLabel || "";
+    node.classList.toggle("is-hidden", Boolean(query) && !label.includes(query));
+  });
+}
+
+function setColumnPanelOpen(isOpen) {
+  uiState.columnPanelOpen = Boolean(isOpen);
+  dom.columnDropdownPanel.hidden = !uiState.columnPanelOpen;
+  dom.columnDropdownToggle.setAttribute("aria-expanded", String(uiState.columnPanelOpen));
+}
+
+function applyVisibilityPreset(mode) {
+  const nextVisibility = {};
+  COLUMN_SCHEMA.forEach((column) => {
+    if (mode === "all") {
+      nextVisibility[column.key] = true;
+      return;
+    }
+    if (mode === "core") {
+      nextVisibility[column.key] = IMPORT_REQUIRED_KEYS.includes(column.key);
+      return;
+    }
+    nextVisibility[column.key] = false;
+  });
+
+  if (mode === "none") {
+    nextVisibility.activityId = true;
+  }
+
+  saveColumnVisibility(nextVisibility);
+  viewState.visibility = {
+    ...viewState.visibility,
+    ...nextVisibility,
+  };
+  renderColumnVisibility();
+  renderTable();
 }
 
 function refreshFromStorage() {
@@ -439,9 +499,52 @@ function wireEvents() {
     const target = event.target;
     if (!(target instanceof HTMLInputElement) || !target.dataset.column) return;
     const key = target.dataset.column;
+    const visibleCount = COLUMN_SCHEMA.filter((column) => viewState.visibility[column.key] !== false).length;
+    if (!target.checked && viewState.visibility[key] !== false && visibleCount <= 1) {
+      target.checked = true;
+      notify("At least one column should remain visible.", "warning");
+      return;
+    }
     saveColumnVisibility({ [key]: target.checked });
     viewState.visibility[key] = target.checked;
+    updateColumnVisibilitySummary();
     renderTable();
+  });
+
+  dom.columnDropdownToggle.addEventListener("click", () => {
+    setColumnPanelOpen(!uiState.columnPanelOpen);
+  });
+
+  dom.columnSearchInput.addEventListener("input", (event) => {
+    applyColumnSearch(event.target.value || "");
+  });
+
+  dom.columnSelectAllButton.addEventListener("click", () => {
+    applyVisibilityPreset("all");
+  });
+
+  dom.columnSelectCoreButton.addEventListener("click", () => {
+    applyVisibilityPreset("core");
+  });
+
+  dom.columnSelectNoneButton.addEventListener("click", () => {
+    applyVisibilityPreset("none");
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!uiState.columnPanelOpen) return;
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    const withinPanel = dom.columnDropdownPanel.contains(target) || dom.columnDropdownToggle.contains(target);
+    if (!withinPanel) {
+      setColumnPanelOpen(false);
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && uiState.columnPanelOpen) {
+      setColumnPanelOpen(false);
+    }
   });
 
   dom.searchInput.addEventListener("input", (event) => {
@@ -515,6 +618,7 @@ function initialize() {
   setActiveNavigation();
   dom.defaultEditorInput.value = getDefaultEditor();
   dom.mandatoryHint.textContent = `Mandatory import columns: ${IMPORT_REQUIRED_LABELS.join(", ")}`;
+  dom.columnDropdownToggle.setAttribute("aria-expanded", "false");
   wireEvents();
   initializeProjectToolbar({
     onProjectChange: () => {

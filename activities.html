@@ -158,10 +158,27 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Column Visibility</h2>
-          <span class="panel-subtitle">All columns remain editable; choose what is visible in grid</span>
+          <span class="panel-subtitle">Compact selector for visible grid columns</span>
         </div>
         <div class="panel-body">
-          <div id="column-chip-group" class="chip-group"></div>
+          <div class="column-visibility-wrap">
+            <div class="column-visibility-toolbar">
+              <button id="column-dropdown-toggle" class="ghost">Select Visible Columns</button>
+              <span id="column-visibility-summary" class="small"></span>
+            </div>
+            <div id="column-dropdown-panel" class="column-dropdown-panel" hidden>
+              <div class="column-dropdown-actions">
+                <button id="column-select-all-btn" class="ghost">All</button>
+                <button id="column-select-core-btn" class="ghost">Core Only</button>
+                <button id="column-select-none-btn" class="ghost">Clear</button>
+              </div>
+              <label class="field">
+                Search Columns
+                <input id="column-search-input" type="search" placeholder="Type to filter columns..." />
+              </label>
+              <div id="column-chip-group" class="column-list"></div>
+            </div>
+          </div>
         </div>
       </section>
 
