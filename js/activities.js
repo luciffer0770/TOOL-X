@@ -51,6 +51,9 @@ const dom = {
   clearButton: document.querySelector("#clear-btn"),
   tableHead: document.querySelector("#activities-head"),
   tableBody: document.querySelector("#activities-body"),
+  tableWrap: document.querySelector("#activities-table-wrap"),
+  floatingXScroll: document.querySelector("#activities-floating-scroll"),
+  floatingXTrack: document.querySelector("#activities-floating-scroll-track"),
   columnChipGroup: document.querySelector("#column-chip-group"),
   columnDropdownToggle: document.querySelector("#column-dropdown-toggle"),
   columnDropdownPanel: document.querySelector("#column-dropdown-panel"),
@@ -77,6 +80,8 @@ let viewState = {
 
 const uiState = {
   columnPanelOpen: false,
+  syncingTableScroll: false,
+  syncingFloatingScroll: false,
 };
 
 function escapeHtml(value) {
@@ -217,6 +222,7 @@ function renderTable() {
 
   if (!filteredRows.length) {
     dom.tableBody.innerHTML = `<tr><td colspan="${columns.length + 2}"><div class="empty-state">No activities match current filters.</div></td></tr>`;
+    requestAnimationFrame(refreshFloatingScrollbar);
     return;
   }
 
@@ -237,6 +243,30 @@ function renderTable() {
     `,
     )
     .join("");
+  requestAnimationFrame(refreshFloatingScrollbar);
+}
+
+function refreshFloatingScrollbar() {
+  if (!dom.tableWrap || !dom.floatingXScroll || !dom.floatingXTrack) return;
+
+  const hasHorizontalOverflow = dom.tableWrap.scrollWidth > dom.tableWrap.clientWidth + 1;
+  const tableRect = dom.tableWrap.getBoundingClientRect();
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  const tableOnScreen = tableRect.bottom > 0 && tableRect.top < viewportHeight;
+  const shouldShow = hasHorizontalOverflow && tableOnScreen;
+  dom.floatingXScroll.hidden = !shouldShow;
+
+  if (!shouldShow) return;
+
+  dom.floatingXTrack.style.width = `${dom.tableWrap.scrollWidth}px`;
+  dom.floatingXScroll.style.left = `${Math.max(12, tableRect.left)}px`;
+  dom.floatingXScroll.style.width = `${Math.max(220, tableRect.width)}px`;
+
+  if (!uiState.syncingTableScroll) {
+    uiState.syncingFloatingScroll = true;
+    dom.floatingXScroll.scrollLeft = dom.tableWrap.scrollLeft;
+    uiState.syncingFloatingScroll = false;
+  }
 }
 
 function renderColumnVisibility() {
@@ -560,6 +590,32 @@ function wireEvents() {
     renderTable();
   });
 
+  dom.tableWrap.addEventListener("scroll", () => {
+    if (uiState.syncingFloatingScroll) return;
+    uiState.syncingTableScroll = true;
+    dom.floatingXScroll.scrollLeft = dom.tableWrap.scrollLeft;
+    uiState.syncingTableScroll = false;
+  });
+
+  dom.floatingXScroll.addEventListener("scroll", () => {
+    if (uiState.syncingTableScroll) return;
+    uiState.syncingFloatingScroll = true;
+    dom.tableWrap.scrollLeft = dom.floatingXScroll.scrollLeft;
+    uiState.syncingFloatingScroll = false;
+  });
+
+  window.addEventListener("resize", () => {
+    requestAnimationFrame(refreshFloatingScrollbar);
+  });
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      requestAnimationFrame(refreshFloatingScrollbar);
+    },
+    { passive: true },
+  );
+
   dom.tableBody.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -630,6 +686,7 @@ function initialize() {
     },
   });
   refreshFromStorage();
+  refreshFloatingScrollbar();
 }
 
 initialize();
