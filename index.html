@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Industrial Planning Intelligence Platform</title>
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="title-block">
+          <h1>Industrial Planning Intelligence Platform</h1>
+          <p>Frontend-native digital twin for planning, simulation, optimization, and decision support.</p>
+        </div>
+        <div class="small" id="dashboard-date"></div>
+      </header>
+
+      <nav class="nav">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+      </nav>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Portfolio Performance</h2>
+          <span class="panel-subtitle">Live KPIs from client-side activity graph</span>
+        </div>
+        <div class="panel-body">
+          <div id="kpi-grid" class="kpi-grid"></div>
+        </div>
+      </section>
+
+      <div class="grid cols-2">
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Phase Completion & Delay Profile</h2>
+          </div>
+          <div class="panel-body chart-shell">
+            <canvas id="phase-chart"></canvas>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Risk Distribution</h2>
+          </div>
+          <div class="panel-body chart-shell">
+            <canvas id="risk-chart"></canvas>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid cols-2">
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Critical Path and Constraint Chain</h2>
+          </div>
+          <div class="panel-body">
+            <ul id="critical-path-list" class="list"></ul>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Blocked by Dependency</h2>
+          </div>
+          <div class="panel-body">
+            <ul id="blocked-list" class="list"></ul>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Priority Risks</h2>
+          <span class="panel-subtitle">Delayed and high-risk activities</span>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>Phase</th>
+                  <th>Status</th>
+                  <th>Completion</th>
+                  <th>Delay (h)</th>
+                  <th>Risk</th>
+                  <th>Owner</th>
+                  <th>Root Cause</th>
+                </tr>
+              </thead>
+              <tbody id="risk-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script type="module" src="./js/dashboard.js"></script>
+  </body>
+</html>

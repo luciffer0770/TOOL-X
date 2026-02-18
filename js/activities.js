@@ -1,0 +1,486 @@
+import {
+  ACTIVITY_STATUSES,
+  COLUMN_SCHEMA,
+  IMPORT_REQUIRED_KEYS,
+  IMPORT_REQUIRED_LABELS,
+  MATERIAL_STATUSES,
+  OWNERSHIP_TYPES,
+  PRIORITY_LEVELS,
+  RISK_LEVELS,
+  createEmptyActivity,
+  createSampleDataset,
+  getColumnByHeader,
+  mapRowToActivity,
+} from "./schema.js";
+import { debounce, notify, setActiveNavigation, toCsv, triggerDownload } from "./common.js";
+import {
+  addActivity,
+  clearAllActivities,
+  deleteActivity,
+  getActivities,
+  getColumnVisibility,
+  getDefaultEditor,
+  saveActivities,
+  saveColumnVisibility,
+  setDefaultEditor,
+  updateActivity,
+  upsertActivities,
+} from "./storage.js";
+
+const longTextFields = new Set(["requiredMaterials", "requiredTools", "remarks", "delayReason", "overrideReason"]);
+const selectMap = {
+  activityStatus: ACTIVITY_STATUSES,
+  priority: PRIORITY_LEVELS,
+  riskLevel: RISK_LEVELS,
+  materialStatus: MATERIAL_STATUSES,
+  materialOwnership: OWNERSHIP_TYPES,
+};
+
+const dom = {
+  addButton: document.querySelector("#add-activity-btn"),
+  addEmptyButton: document.querySelector("#add-empty-btn"),
+  loadSampleButton: document.querySelector("#load-sample-btn"),
+  importButton: document.querySelector("#import-btn"),
+  excelInput: document.querySelector("#excel-input"),
+  mergeStrategy: document.querySelector("#merge-strategy"),
+  exportCsvButton: document.querySelector("#export-csv-btn"),
+  exportJsonButton: document.querySelector("#export-json-btn"),
+  clearButton: document.querySelector("#clear-btn"),
+  tableHead: document.querySelector("#activities-head"),
+  tableBody: document.querySelector("#activities-body"),
+  columnChipGroup: document.querySelector("#column-chip-group"),
+  mandatoryHint: document.querySelector("#mandatory-columns-hint"),
+  searchInput: document.querySelector("#search-input"),
+  statusFilter: document.querySelector("#status-filter"),
+  phaseFilter: document.querySelector("#phase-filter"),
+  stats: document.querySelector("#activity-grid-stats"),
+  defaultEditorInput: document.querySelector("#default-editor"),
+};
+
+let viewState = {
+  activities: [],
+  visibility: getColumnVisibility(),
+  search: "",
+  status: "",
+  phase: "",
+};
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function getInputValue(id) {
+  const node = document.querySelector(`#${id}`);
+  return node ? node.value : "";
+}
+
+function buildManualActivityDraft() {
+  return {
+    activityId: getInputValue("activityId"),
+    phase: getInputValue("phase"),
+    activityName: getInputValue("activityName"),
+    subActivity: getInputValue("subActivity"),
+    plannedStartDate: getInputValue("plannedStartDate"),
+    plannedEndDate: getInputValue("plannedEndDate"),
+    baseEffortHours: Number(getInputValue("baseEffortHours")) || 0,
+    assignedManpower: Number(getInputValue("assignedManpower")) || 0,
+    resourceDepartment: getInputValue("resourceDepartment"),
+    materialOwnership: getInputValue("materialOwnership"),
+    materialStatus: getInputValue("materialStatus"),
+    priority: getInputValue("priority"),
+    remarks: getInputValue("remarks"),
+    lastModifiedBy: dom.defaultEditorInput.value || "Planner",
+    lastModifiedDate: new Date().toISOString().slice(0, 10),
+  };
+}
+
+function clearManualEntryForm() {
+  [
+    "activityId",
+    "phase",
+    "activityName",
+    "subActivity",
+    "plannedStartDate",
+    "plannedEndDate",
+    "baseEffortHours",
+    "assignedManpower",
+    "resourceDepartment",
+    "remarks",
+  ].forEach((id) => {
+    const input = document.querySelector(`#${id}`);
+    if (input) input.value = "";
+  });
+}
+
+function getVisibleColumns() {
+  return COLUMN_SCHEMA.filter((column) => viewState.visibility[column.key] !== false);
+}
+
+function buildControl(column, row) {
+  const value = row[column.key] ?? "";
+  if (selectMap[column.key]) {
+    const options = [...new Set([...(selectMap[column.key] || []), value].filter(Boolean))];
+    return `
+      <select data-field="${column.key}">
+        ${options
+          .map((option) => `<option value="${escapeHtml(option)}" ${option === value ? "selected" : ""}>${escapeHtml(option)}</option>`)
+          .join("")}
+      </select>
+    `;
+  }
+  if (column.type === "date") {
+    return `<input data-field="${column.key}" type="date" value="${escapeHtml(value)}" />`;
+  }
+  if (column.type === "number") {
+    return `<input data-field="${column.key}" type="number" step="0.1" value="${escapeHtml(value)}" />`;
+  }
+  if (longTextFields.has(column.key)) {
+    return `<textarea data-field="${column.key}">${escapeHtml(value)}</textarea>`;
+  }
+  return `<input data-field="${column.key}" type="text" value="${escapeHtml(value)}" />`;
+}
+
+function populateFilterOptions() {
+  const statuses = new Set(ACTIVITY_STATUSES);
+  const phases = new Set();
+
+  viewState.activities.forEach((activity) => {
+    if (activity.activityStatus) statuses.add(activity.activityStatus);
+    if (activity.phase) phases.add(activity.phase);
+  });
+
+  const statusOptions = ['<option value="">All</option>']
+    .concat(
+      [...statuses]
+        .sort((left, right) => left.localeCompare(right))
+        .map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`),
+    )
+    .join("");
+  dom.statusFilter.innerHTML = statusOptions;
+  dom.statusFilter.value = viewState.status;
+
+  const phaseOptions = ['<option value="">All</option>']
+    .concat(
+      [...phases]
+        .sort((left, right) => left.localeCompare(right))
+        .map((phase) => `<option value="${escapeHtml(phase)}">${escapeHtml(phase)}</option>`),
+    )
+    .join("");
+  dom.phaseFilter.innerHTML = phaseOptions;
+  dom.phaseFilter.value = viewState.phase;
+}
+
+function filterActivities() {
+  const query = viewState.search.toLowerCase().trim();
+  return viewState.activities.filter((activity) => {
+    if (viewState.status && activity.activityStatus !== viewState.status) return false;
+    if (viewState.phase && activity.phase !== viewState.phase) return false;
+    if (!query) return true;
+
+    return COLUMN_SCHEMA.some((column) => String(activity[column.key] ?? "").toLowerCase().includes(query));
+  });
+}
+
+function renderTable() {
+  const columns = getVisibleColumns();
+  const filteredRows = filterActivities();
+  dom.stats.textContent = `${filteredRows.length} shown of ${viewState.activities.length} activities`;
+
+  dom.tableHead.innerHTML = `
+    <tr>
+      <th>Actions</th>
+      ${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}
+    </tr>
+  `;
+
+  if (!filteredRows.length) {
+    dom.tableBody.innerHTML = `<tr><td colspan="${columns.length + 1}"><div class="empty-state">No activities match current filters.</div></td></tr>`;
+    return;
+  }
+
+  dom.tableBody.innerHTML = filteredRows
+    .map(
+      (row) => `
+      <tr data-id="${escapeHtml(row.activityId)}">
+        <td>
+          <div class="cell-actions">
+            <button class="ghost" data-delete="${escapeHtml(row.activityId)}">Delete</button>
+          </div>
+        </td>
+        ${columns.map((column) => `<td>${buildControl(column, row)}</td>`).join("")}
+      </tr>
+    `,
+    )
+    .join("");
+}
+
+function renderColumnVisibility() {
+  dom.columnChipGroup.innerHTML = COLUMN_SCHEMA.map((column) => {
+    const checked = viewState.visibility[column.key] !== false;
+    return `
+      <label class="chip">
+        <input type="checkbox" data-column="${column.key}" ${checked ? "checked" : ""} />
+        ${escapeHtml(column.label)}
+      </label>
+    `;
+  }).join("");
+}
+
+function refreshFromStorage() {
+  viewState.activities = getActivities().sort((left, right) => (left.activityId || "").localeCompare(right.activityId || ""));
+  viewState.visibility = getColumnVisibility();
+  populateFilterOptions();
+  renderColumnVisibility();
+  renderTable();
+}
+
+function dependencyReplace(raw, fromId, toId) {
+  if (!raw) return "";
+  return String(raw)
+    .split(",")
+    .map((value) => value.trim())
+    .map((dependencyId) => (dependencyId === fromId ? toId : dependencyId))
+    .join(", ");
+}
+
+function handleCellUpdate(activityId, field, value) {
+  const editor = dom.defaultEditorInput.value || "Planner";
+  if (field === "activityId") {
+    const newId = String(value || "").trim();
+    if (!newId || newId === activityId) return;
+    if (viewState.activities.some((activity) => activity.activityId === newId)) {
+      notify(`Activity ID ${newId} already exists.`, "error");
+      refreshFromStorage();
+      return;
+    }
+
+    const next = viewState.activities.map((activity) => {
+      if (activity.activityId === activityId) {
+        return {
+          ...activity,
+          activityId: newId,
+          lastModifiedBy: editor,
+          lastModifiedDate: new Date().toISOString().slice(0, 10),
+        };
+      }
+      return {
+        ...activity,
+        dependencies: dependencyReplace(activity.dependencies, activityId, newId),
+      };
+    });
+    saveActivities(next);
+    refreshFromStorage();
+    return;
+  }
+
+  updateActivity(activityId, {
+    [field]: value,
+    lastModifiedBy: editor,
+    lastModifiedDate: new Date().toISOString().slice(0, 10),
+  });
+  refreshFromStorage();
+}
+
+const debouncedUpdate = debounce(handleCellUpdate, 250);
+
+function readExcel(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read spreadsheet file."));
+    reader.onload = () => {
+      try {
+        const workbook = XLSX.read(reader.result, { type: "array" });
+        const firstSheetName = workbook.SheetNames[0];
+        const firstSheet = workbook.Sheets[firstSheetName];
+        const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+        resolve(rows);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function validateImportColumns(rows) {
+  if (!rows.length) {
+    return {
+      valid: false,
+      missingLabels: [...IMPORT_REQUIRED_LABELS],
+    };
+  }
+  const headers = Object.keys(rows[0]);
+  const mapped = headers.map((header) => getColumnByHeader(header)?.key).filter(Boolean);
+  const missing = IMPORT_REQUIRED_KEYS.filter((required) => !mapped.includes(required));
+  return {
+    valid: missing.length === 0,
+    missingLabels: COLUMN_SCHEMA.filter((column) => missing.includes(column.key)).map((column) => column.label),
+  };
+}
+
+async function importSpreadsheet() {
+  const file = dom.excelInput.files?.[0];
+  if (!file) {
+    notify("Select an Excel file before import.", "warning");
+    return;
+  }
+
+  const rows = await readExcel(file);
+  const validation = validateImportColumns(rows);
+  if (!validation.valid) {
+    notify(`Import failed. Missing mandatory columns: ${validation.missingLabels.join(", ")}`, "error");
+    return;
+  }
+
+  const editor = dom.defaultEditorInput.value || "Planner";
+  const mappedActivities = rows.map((row) => ({
+    ...mapRowToActivity(row),
+    lastModifiedBy: editor,
+    lastModifiedDate: new Date().toISOString().slice(0, 10),
+  }));
+
+  if (dom.mergeStrategy.value === "replace") {
+    saveActivities(mappedActivities);
+    notify(`Imported ${mappedActivities.length} activities (replace mode).`, "success");
+  } else {
+    const current = getActivities().length;
+    upsertActivities(mappedActivities);
+    const next = getActivities().length;
+    notify(`Imported ${mappedActivities.length} rows. Dataset size: ${current} -> ${next}.`, "success");
+  }
+  dom.excelInput.value = "";
+  refreshFromStorage();
+}
+
+function exportAsCsv() {
+  const rows = viewState.activities.map((activity) => {
+    const exportRow = {};
+    COLUMN_SCHEMA.forEach((column) => {
+      exportRow[column.label] = activity[column.key];
+    });
+    return exportRow;
+  });
+  triggerDownload(`activities_${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows), "text/csv;charset=utf-8;");
+}
+
+function exportAsJson() {
+  triggerDownload(
+    `activities_${new Date().toISOString().slice(0, 10)}.json`,
+    JSON.stringify(viewState.activities, null, 2),
+    "application/json;charset=utf-8;",
+  );
+}
+
+function wireEvents() {
+  dom.addButton.addEventListener("click", () => {
+    const draft = buildManualActivityDraft();
+    if (!draft.activityName.trim()) {
+      notify("Activity Name is required for manual entry.", "warning");
+      return;
+    }
+    const added = addActivity(draft);
+    notify(`Added activity ${added.activityId}.`, "success");
+    clearManualEntryForm();
+    refreshFromStorage();
+  });
+
+  dom.addEmptyButton.addEventListener("click", () => {
+    addActivity({
+      ...createEmptyActivity(),
+      lastModifiedBy: dom.defaultEditorInput.value || "Planner",
+      lastModifiedDate: new Date().toISOString().slice(0, 10),
+    });
+    notify("Added editable blank activity row.", "success");
+    refreshFromStorage();
+  });
+
+  dom.loadSampleButton.addEventListener("click", () => {
+    const shouldLoad = confirm("This will replace current activities with sample data. Continue?");
+    if (!shouldLoad) return;
+    saveActivities(createSampleDataset());
+    notify("Loaded sample planning dataset.", "success");
+    refreshFromStorage();
+  });
+
+  dom.importButton.addEventListener("click", async () => {
+    try {
+      await importSpreadsheet();
+    } catch (error) {
+      console.error(error);
+      notify(`Import error: ${error.message}`, "error");
+    }
+  });
+
+  dom.exportCsvButton.addEventListener("click", exportAsCsv);
+  dom.exportJsonButton.addEventListener("click", exportAsJson);
+
+  dom.clearButton.addEventListener("click", () => {
+    if (!confirm("Clear all activities from local state?")) return;
+    clearAllActivities();
+    notify("All activities were removed.", "warning");
+    refreshFromStorage();
+  });
+
+  dom.columnChipGroup.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.dataset.column) return;
+    const key = target.dataset.column;
+    saveColumnVisibility({ [key]: target.checked });
+    viewState.visibility[key] = target.checked;
+    renderTable();
+  });
+
+  dom.searchInput.addEventListener("input", (event) => {
+    viewState.search = event.target.value || "";
+    renderTable();
+  });
+  dom.statusFilter.addEventListener("change", (event) => {
+    viewState.status = event.target.value;
+    renderTable();
+  });
+  dom.phaseFilter.addEventListener("change", (event) => {
+    viewState.phase = event.target.value;
+    renderTable();
+  });
+
+  dom.tableBody.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const activityId = target.dataset.delete;
+    if (!activityId) return;
+    if (!confirm(`Delete activity ${activityId}?`)) return;
+    deleteActivity(activityId);
+    notify(`Deleted ${activityId}.`, "warning");
+    refreshFromStorage();
+  });
+
+  dom.tableBody.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const field = target.dataset.field;
+    if (!field) return;
+    const row = target.closest("tr");
+    if (!row?.dataset.id) return;
+    debouncedUpdate(row.dataset.id, field, target.value);
+  });
+
+  dom.defaultEditorInput.addEventListener("change", (event) => {
+    setDefaultEditor(event.target.value || "Planner");
+    notify("Default editor updated.", "success");
+  });
+}
+
+function initialize() {
+  setActiveNavigation();
+  dom.defaultEditorInput.value = getDefaultEditor();
+  dom.mandatoryHint.textContent = `Mandatory import columns: ${IMPORT_REQUIRED_LABELS.join(", ")}`;
+  wireEvents();
+  refreshFromStorage();
+}
+
+initialize();

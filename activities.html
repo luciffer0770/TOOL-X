@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Activity Master | Industrial Planning Intelligence</title>
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="title-block">
+          <h1>Activity Master</h1>
+          <p>Manual planning, editable column-level control, and Excel-driven bulk updates.</p>
+        </div>
+      </header>
+
+      <nav class="nav">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+      </nav>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Manual Activity Entry</h2>
+          <span class="panel-subtitle">Core input + immediate row-level edit for all columns</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="field"
+              >Activity ID (optional)
+              <input id="activityId" type="text" placeholder="ACT-0101" />
+            </label>
+            <label class="field"
+              >Phase
+              <input id="phase" type="text" placeholder="Preparation / Build-Up / Validation" />
+            </label>
+            <label class="field"
+              >Activity Name
+              <input id="activityName" type="text" placeholder="Main activity name" />
+            </label>
+            <label class="field"
+              >Sub Activity
+              <input id="subActivity" type="text" placeholder="Sub-activity scope" />
+            </label>
+            <label class="field"
+              >Planned Start Date
+              <input id="plannedStartDate" type="date" />
+            </label>
+            <label class="field"
+              >Planned End Date
+              <input id="plannedEndDate" type="date" />
+            </label>
+            <label class="field"
+              >Base Effort Hours
+              <input id="baseEffortHours" type="number" min="0" step="0.5" />
+            </label>
+            <label class="field"
+              >Assigned Manpower
+              <input id="assignedManpower" type="number" min="0" step="1" />
+            </label>
+            <label class="field"
+              >Resource Department
+              <input id="resourceDepartment" type="text" placeholder="Department or cell" />
+            </label>
+            <label class="field"
+              >Material Ownership
+              <select id="materialOwnership">
+                <option>Internal Department</option>
+                <option>Third Party Fabrication</option>
+                <option>Joint</option>
+              </select>
+            </label>
+            <label class="field"
+              >Material Status
+              <select id="materialStatus">
+                <option>Not Ordered</option>
+                <option>Ordered</option>
+                <option>In Transit</option>
+                <option>Received</option>
+                <option>Delayed</option>
+              </select>
+            </label>
+            <label class="field"
+              >Priority
+              <select id="priority">
+                <option>Medium</option>
+                <option>Low</option>
+                <option>High</option>
+                <option>Critical</option>
+              </select>
+            </label>
+          </div>
+          <label class="field" style="margin-top: 10px"
+            >Remarks
+            <textarea id="remarks" placeholder="Optional planning remarks"></textarea>
+          </label>
+          <div class="row-actions" style="margin-top: 12px">
+            <button id="add-activity-btn">Add Activity</button>
+            <button id="add-empty-btn" class="ghost">Add Empty Editable Row</button>
+            <button id="load-sample-btn" class="ghost">Load Sample Dataset</button>
+            <label class="field" style="min-width: 220px"
+              >Default Editor
+              <input id="default-editor" type="text" placeholder="Planner name" />
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Excel Import / Export</h2>
+          <span class="panel-subtitle">Import validates mandatory columns and merges by Activity ID</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="field"
+              >Upload Excel (.xlsx / .xls)
+              <input id="excel-input" type="file" accept=".xlsx,.xls" />
+            </label>
+            <label class="field"
+              >Merge Strategy
+              <select id="merge-strategy">
+                <option value="merge">Merge into existing records</option>
+                <option value="replace">Replace all existing records</option>
+              </select>
+            </label>
+          </div>
+          <div class="row-actions" style="margin-top: 12px">
+            <button id="import-btn">Import Spreadsheet</button>
+            <button id="export-csv-btn" class="ghost">Export CSV</button>
+            <button id="export-json-btn" class="ghost">Export JSON</button>
+            <button id="clear-btn" class="danger">Clear All Activities</button>
+          </div>
+          <p class="hint" id="mandatory-columns-hint"></p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Column Visibility</h2>
+          <span class="panel-subtitle">All columns remain editable; choose what is visible in grid</span>
+        </div>
+        <div class="panel-body">
+          <div id="column-chip-group" class="chip-group"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Activity Data Grid</h2>
+          <span class="panel-subtitle" id="activity-grid-stats"></span>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid" style="margin-bottom: 12px">
+            <label class="field"
+              >Search
+              <input id="search-input" type="search" placeholder="Search by ID, phase, name, materials..." />
+            </label>
+            <label class="field"
+              >Status Filter
+              <select id="status-filter">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="field"
+              >Phase Filter
+              <select id="phase-filter">
+                <option value="">All</option>
+              </select>
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table id="activities-table">
+              <thead id="activities-head"></thead>
+              <tbody id="activities-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script type="module" src="./js/activities.js"></script>
+  </body>
+</html>

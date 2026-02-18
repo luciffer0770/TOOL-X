@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Material Intelligence | Industrial Planning Intelligence</title>
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="title-block">
+          <h1>Material Intelligence</h1>
+          <p>Supplier ownership visibility, department responsibility tracking, and lead-time risk diagnostics.</p>
+        </div>
+      </header>
+
+      <nav class="nav">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+      </nav>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Material Flow KPIs</h2>
+        </div>
+        <div class="panel-body">
+          <div id="material-kpis" class="kpi-grid"></div>
+        </div>
+      </section>
+
+      <div class="grid cols-2">
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Ownership Distribution</h2>
+          </div>
+          <div class="panel-body chart-shell">
+            <canvas id="ownership-chart"></canvas>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Material Status Distribution</h2>
+          </div>
+          <div class="panel-body chart-shell">
+            <canvas id="material-status-chart"></canvas>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Supply Responsibility Filters</h2>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="field"
+              >Ownership Type
+              <select id="ownership-filter">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="field"
+              >Material Status
+              <select id="status-filter">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="field"
+              >Department
+              <select id="department-filter">
+                <option value="">All</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Material Responsibility Matrix</h2>
+          <span class="panel-subtitle" id="material-table-summary"></span>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Activity ID</th>
+                  <th>Activity Name</th>
+                  <th>Ownership</th>
+                  <th>Supplying Department</th>
+                  <th>Required Materials</th>
+                  <th>Lead Time (h)</th>
+                  <th>Material Status</th>
+                  <th>Criticality</th>
+                  <th>Required Date</th>
+                  <th>Received Date</th>
+                  <th>Late Indicator</th>
+                </tr>
+              </thead>
+              <tbody id="materials-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script type="module" src="./js/materials.js"></script>
+  </body>
+</html>

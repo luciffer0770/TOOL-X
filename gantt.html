@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gantt & Dependencies | Industrial Planning Intelligence</title>
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="title-block">
+          <h1>Gantt and Dependency Twin</h1>
+          <p>Time-phased execution map with delay highlighting, completion bars, and critical chain emphasis.</p>
+        </div>
+      </header>
+
+      <nav class="nav">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+      </nav>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Timeline Controls</h2>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="field"
+              >Phase Filter
+              <select id="phase-filter">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="field"
+              >Status Filter
+              <select id="status-filter">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="field"
+              >From
+              <input id="range-start" type="date" />
+            </label>
+            <label class="field"
+              >To
+              <input id="range-end" type="date" />
+            </label>
+            <label class="field"
+              >Sort By
+              <select id="sort-mode">
+                <option value="start">Planned Start</option>
+                <option value="risk">Risk Score</option>
+                <option value="delay">Delay Hours</option>
+                <option value="completion">Completion</option>
+              </select>
+            </label>
+          </div>
+          <div class="row-actions" style="margin-top: 10px">
+            <button id="apply-filters-btn">Apply Filters</button>
+            <button id="reset-range-btn" class="ghost">Reset Timeline Window</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Execution Gantt</h2>
+          <span class="panel-subtitle" id="gantt-summary"></span>
+        </div>
+        <div class="panel-body">
+          <div class="gantt-container">
+            <div id="gantt-grid" class="gantt-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Dependency Risk Register</h2>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>Dependencies</th>
+                  <th>Dependency Type</th>
+                  <th>Status</th>
+                  <th>Delay</th>
+                  <th>Risk</th>
+                </tr>
+              </thead>
+              <tbody id="dependency-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="./js/gantt.js"></script>
+  </body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Delay, Risk & Optimization | Industrial Planning Intelligence</title>
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="title-block">
+          <h1>Delay, Risk and Optimization Intelligence</h1>
+          <p>Root-cause capture, risk amplification visibility, dependency stress, and what-if simulation.</p>
+        </div>
+      </header>
+
+      <nav class="nav">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+      </nav>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Risk State Overview</h2>
+        </div>
+        <div class="panel-body">
+          <div id="risk-kpis" class="kpi-grid"></div>
+        </div>
+      </section>
+
+      <div class="split">
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Delayed Activity Root Cause Update</h2>
+          </div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <label class="field"
+                >Activity
+                <select id="root-cause-activity">
+                  <option value="">Select delayed activity</option>
+                </select>
+              </label>
+              <label class="field"
+                >Updated Status
+                <select id="root-cause-status">
+                  <option>Delayed</option>
+                  <option>Blocked</option>
+                  <option>In Progress</option>
+                  <option>Completed</option>
+                </select>
+              </label>
+              <label class="field"
+                >Completion %
+                <input id="root-cause-completion" type="number" min="0" max="100" step="1" value="0" />
+              </label>
+              <label class="field"
+                >Updated By
+                <input id="root-cause-author" type="text" placeholder="Planner name" />
+              </label>
+            </div>
+            <label class="field" style="margin-top: 10px"
+              >Root Cause Statement
+              <textarea id="root-cause-text" placeholder="Enter delay reason and impact path"></textarea>
+            </label>
+            <div class="row-actions" style="margin-top: 10px">
+              <button id="save-root-cause-btn">Save Root Cause</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Dependency Stress Nodes</h2>
+          </div>
+          <div class="panel-body">
+            <ul id="blocked-activities-list" class="list"></ul>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Delay & Risk Register</h2>
+          <span class="panel-subtitle">Activities sorted by risk score</span>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>Status</th>
+                  <th>Completion</th>
+                  <th>Delay (h)</th>
+                  <th>Risk Score</th>
+                  <th>Risk Level</th>
+                  <th>Material Signal</th>
+                  <th>Root Cause</th>
+                </tr>
+              </thead>
+              <tbody id="delay-risk-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>What-If Scenario Simulation</h2>
+          <span class="panel-subtitle">Dependency-driven schedule recomputation within frontend runtime</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="field"
+              >Manpower Productivity Boost (%)
+              <input id="sim-manpower" type="number" min="0" max="100" step="1" value="12" />
+            </label>
+            <label class="field"
+              >Material Lead-Time Reduction (%)
+              <input id="sim-leadtime" type="number" min="0" max="100" step="1" value="15" />
+            </label>
+            <label class="field"
+              >Overtime Hours per Day
+              <input id="sim-overtime" type="number" min="0" max="12" step="0.5" value="1.5" />
+            </label>
+          </div>
+          <div class="row-actions" style="margin-top: 12px">
+            <button id="run-sim-btn">Run Scenario</button>
+          </div>
+          <div id="sim-summary" class="hint" style="margin-top: 12px"></div>
+          <div class="table-wrap" style="margin-top: 12px">
+            <table>
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>Baseline Duration (h)</th>
+                  <th>Scenario Duration (h)</th>
+                  <th>Hours Saved</th>
+                  <th>Scenario Finish</th>
+                </tr>
+              </thead>
+              <tbody id="sim-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="./js/intelligence.js"></script>
+  </body>
+</html>
