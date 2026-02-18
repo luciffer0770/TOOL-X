@@ -1,5 +1,5 @@
 import { notify } from "./common.js";
-import { addProject, deleteProject, getActiveProject, getProjects, renameProject, setActiveProject } from "./storage.js";
+import { addProject, deleteProject, duplicateProject, getActiveProject, getProjects, renameProject, setActiveProject } from "./storage.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -12,11 +12,12 @@ function escapeHtml(value) {
 export function initializeProjectToolbar({ onProjectChange } = {}) {
   const select = document.querySelector("#project-select");
   const addButton = document.querySelector("#project-add-btn");
+  const duplicateButton = document.querySelector("#project-duplicate-btn");
   const renameButton = document.querySelector("#project-rename-btn");
   const deleteButton = document.querySelector("#project-delete-btn");
   const summary = document.querySelector("#project-summary");
 
-  if (!select || !addButton || !renameButton || !deleteButton || !summary) return;
+  if (!select || !addButton || !duplicateButton || !renameButton || !deleteButton || !summary) return;
 
   const runChangeHandler = () => {
     if (typeof onProjectChange === "function") {
@@ -57,6 +58,20 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
     if (proposedName === null) return;
     const created = addProject(proposedName);
     notify(`Created project "${created.name}".`, "success");
+    render();
+    runChangeHandler();
+  });
+
+  duplicateButton.addEventListener("click", () => {
+    const activeProject = getActiveProject();
+    const proposedName = prompt("Name for duplicated project template:", `${activeProject.name} Copy`);
+    if (proposedName === null) return;
+    const duplicated = duplicateProject(activeProject.id, proposedName);
+    if (!duplicated) {
+      notify("Unable to duplicate project.", "error");
+      return;
+    }
+    notify(`Created duplicate template "${duplicated.name}".`, "success");
     render();
     runChangeHandler();
   });

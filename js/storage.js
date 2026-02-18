@@ -183,6 +183,26 @@ export function addProject(projectName) {
   return project;
 }
 
+export function duplicateProject(projectId, projectName) {
+  const state = getState();
+  const sourceProject = state.projects.find((project) => project.id === projectId);
+  if (!sourceProject) return null;
+
+  const id = getNextProjectId(state.projects);
+  const fallbackName = `${sourceProject.name} Copy`;
+  const normalizedName = String(projectName ?? "").trim() || fallbackName;
+  const duplicatedProject = createProject(
+    id,
+    normalizedName,
+    sourceProject.activities.map((activity) => sanitizeActivity({ ...activity })),
+  );
+
+  state.projects.push(duplicatedProject);
+  state.activeProjectId = duplicatedProject.id;
+  saveState(state);
+  return duplicatedProject;
+}
+
 export function renameProject(projectId, projectName) {
   const state = getState();
   const index = state.projects.findIndex((project) => project.id === projectId);

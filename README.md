@@ -11,7 +11,7 @@ Enterprise-class, frontend-only planning and decision intelligence system for pr
   - `materials.html` - material ownership and supply intelligence
   - `intelligence.html` - delay, risk, root-cause, and what-if optimization
 - Multi-project lifecycle control:
-  - Create, rename, switch, and delete projects
+  - Create, duplicate template, rename, switch, and delete projects
   - Each project stores its own activity list and analytics context
   - Single UI with isolated project datasets for parallel monitoring
 - Full column schema support, including all planning, resource, material, execution, risk, optimization, cost, and audit fields.
