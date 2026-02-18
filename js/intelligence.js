@@ -120,6 +120,10 @@ function renderRiskTable(rows) {
     .join("");
 }
 
+function isStatusDelayed(row) {
+  return String(row?.activityStatus ?? "").trim().toLowerCase() === "delayed";
+}
+
 function renderSimulation() {
   if (!canRunOptimization(currentUser)) {
     dom.simSummary.textContent = "Scenario simulation is available for planning and management roles.";
@@ -166,7 +170,7 @@ function renderAll() {
   refreshActivities();
   const metrics = renderKpis();
   const riskRows = getDelayAndRiskRows(activities);
-  renderRootCauseSelector(riskRows.filter((row) => row.delayHours > 0));
+  renderRootCauseSelector(riskRows.filter((row) => row.delayHours > 0 || isStatusDelayed(row)));
   renderBlockedList(metrics);
   renderRiskTable(riskRows);
   renderSimulation();
