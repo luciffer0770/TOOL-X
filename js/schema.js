@@ -52,7 +52,7 @@ export const ACTIVITY_STATUSES = ["Not Started", "In Progress", "Blocked", "Dela
 export const PRIORITY_LEVELS = ["Low", "Medium", "High", "Critical"];
 export const RISK_LEVELS = ["Low", "Medium", "High", "Critical"];
 export const MATERIAL_STATUSES = ["Not Ordered", "Ordered", "In Transit", "Received", "Delayed"];
-export const OWNERSHIP_TYPES = ["Client", "ETW", "Supplier"];
+export const OWNERSHIP_TYPES = ["Client", "Internal Team", "Supplier"];
 
 const headerToColumn = new Map();
 
@@ -92,7 +92,7 @@ function normalizeOwnership(value) {
   if (!rawValue) return "";
 
   const normalized = rawValue.toLowerCase();
-  if (normalized === "etw" || normalized.includes("internal")) return "ETW";
+  if (normalized.includes("internal")) return "Internal Team";
   if (normalized.includes("third") || normalized.includes("supplier") || normalized.includes("vendor")) return "Supplier";
   if (normalized.includes("client") || normalized.includes("customer") || normalized.includes("joint")) return "Client";
 
@@ -197,7 +197,7 @@ export function createSampleDataset() {
       baseEffortHours: 40,
       requiredMaterials: "Fixture Frame, Mounting Plate",
       requiredTools: "CAD Suite, Review Board",
-      materialOwnership: "ETW",
+      materialOwnership: "Internal Team",
       materialLeadTime: 12,
       dependencies: "",
       plannedStartDate: "2026-02-12",

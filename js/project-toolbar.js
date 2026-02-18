@@ -1,5 +1,6 @@
 import { notify } from "./common.js";
 import { addProject, deleteProject, duplicateProject, getActiveProject, getProjects, renameProject, setActiveProject } from "./storage.js";
+import { canManageProjects, getCurrentUser } from "./auth.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -16,6 +17,8 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
   const renameButton = document.querySelector("#project-rename-btn");
   const deleteButton = document.querySelector("#project-delete-btn");
   const summary = document.querySelector("#project-summary");
+  const currentUser = getCurrentUser();
+  const canManage = canManageProjects(currentUser);
 
   if (!select || !addButton || !duplicateButton || !renameButton || !deleteButton || !summary) return;
 
@@ -37,7 +40,11 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
       )
       .join("");
     select.value = activeProject.id;
-    deleteButton.disabled = projects.length <= 1;
+    deleteButton.disabled = !canManage || projects.length <= 1;
+    addButton.hidden = !canManage;
+    duplicateButton.hidden = !canManage;
+    renameButton.hidden = !canManage;
+    deleteButton.hidden = !canManage;
     summary.textContent = `${projects.length} projects tracked | Active: ${activeProject.name} | ${activeProject.activities.length} activities`;
   };
 
@@ -54,6 +61,7 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
   });
 
   addButton.addEventListener("click", () => {
+    if (!canManage) return;
     const proposedName = prompt("Enter a name for the new project:", `Project ${getProjects().length + 1}`);
     if (proposedName === null) return;
     const created = addProject(proposedName);
@@ -63,6 +71,7 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
   });
 
   duplicateButton.addEventListener("click", () => {
+    if (!canManage) return;
     const activeProject = getActiveProject();
     const proposedName = prompt("Name for duplicated project template:", `${activeProject.name} Copy`);
     if (proposedName === null) return;
@@ -77,6 +86,7 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
   });
 
   renameButton.addEventListener("click", () => {
+    if (!canManage) return;
     const activeProject = getActiveProject();
     const nextName = prompt("Rename active project:", activeProject.name);
     if (nextName === null) return;
@@ -91,6 +101,7 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
   });
 
   deleteButton.addEventListener("click", () => {
+    if (!canManage) return;
     const activeProject = getActiveProject();
     const shouldDelete = confirm(`Delete project "${activeProject.name}"? This removes all its activities.`);
     if (!shouldDelete) return;

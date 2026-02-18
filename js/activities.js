@@ -14,6 +14,8 @@ import {
 } from "./schema.js";
 import { debounce, notify, setActiveNavigation, toCsv, triggerDownload } from "./common.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
+import { initializeAccessShell } from "./access-shell.js";
+import { canEditActivityField, canImportExportData, canModifyActivityStructure } from "./auth.js";
 import {
   addActivity,
   clearAllActivities,
@@ -86,6 +88,8 @@ const uiState = {
   syncingFloatingScroll: false,
 };
 
+let currentUser = null;
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -144,10 +148,12 @@ function getVisibleColumns() {
 
 function buildControl(column, row) {
   const value = row[column.key] ?? "";
+  const editable = canEditActivityField(currentUser, column.key);
+  const lockAttribute = editable ? "" : "disabled";
   if (selectMap[column.key]) {
     const options = [...new Set([...(selectMap[column.key] || []), value].filter(Boolean))];
     return `
-      <select data-field="${column.key}">
+      <select data-field="${column.key}" ${lockAttribute}>
         ${options
           .map((option) => `<option value="${escapeHtml(option)}" ${option === value ? "selected" : ""}>${escapeHtml(option)}</option>`)
           .join("")}
@@ -155,15 +161,15 @@ function buildControl(column, row) {
     `;
   }
   if (column.type === "date") {
-    return `<input data-field="${column.key}" type="date" value="${escapeHtml(value)}" />`;
+    return `<input data-field="${column.key}" type="date" value="${escapeHtml(value)}" ${lockAttribute} />`;
   }
   if (column.type === "number") {
-    return `<input data-field="${column.key}" type="number" step="0.1" value="${escapeHtml(value)}" />`;
+    return `<input data-field="${column.key}" type="number" step="0.1" value="${escapeHtml(value)}" ${lockAttribute} />`;
   }
   if (longTextFields.has(column.key)) {
-    return `<textarea data-field="${column.key}">${escapeHtml(value)}</textarea>`;
+    return `<textarea data-field="${column.key}" ${lockAttribute}>${escapeHtml(value)}</textarea>`;
   }
-  return `<input data-field="${column.key}" type="text" value="${escapeHtml(value)}" />`;
+  return `<input data-field="${column.key}" type="text" value="${escapeHtml(value)}" ${lockAttribute} />`;
 }
 
 function populateFilterOptions() {
@@ -235,9 +241,13 @@ function renderTable() {
         <td>${orderMap.get(row.activityId) ?? "-"}</td>
         <td>
           <div class="cell-actions">
-            <button class="ghost" data-insert-above="${escapeHtml(row.activityId)}">Insert Above</button>
-            <button class="ghost" data-insert-below="${escapeHtml(row.activityId)}">Insert Below</button>
-            <button class="danger" data-delete="${escapeHtml(row.activityId)}">Delete</button>
+            ${
+              canModifyActivityStructure(currentUser)
+                ? `<button class="ghost" data-insert-above="${escapeHtml(row.activityId)}">Insert Above</button>
+                   <button class="ghost" data-insert-below="${escapeHtml(row.activityId)}">Insert Below</button>
+                   <button class="danger" data-delete="${escapeHtml(row.activityId)}">Delete</button>`
+                : `<span class="small">Status / delay updates only</span>`
+            }
           </div>
         </td>
         ${columns.map((column) => `<td>${buildControl(column, row)}</td>`).join("")}
@@ -373,6 +383,64 @@ function applyVisibilityPreset(mode) {
   };
   renderColumnVisibility();
   renderTable();
+}
+
+function applyRoleRestrictions() {
+  const canModify = canModifyActivityStructure(currentUser);
+  const canImportExport = canImportExportData(currentUser);
+  const lockedMessage = "Current role can update status and delay root cause only.";
+
+  if (!canModify) {
+    const minimumVisibility = {
+      activityId: true,
+      activityName: true,
+      activityStatus: true,
+      delayReason: true,
+    };
+    saveColumnVisibility(minimumVisibility);
+    viewState.visibility = {
+      ...viewState.visibility,
+      ...minimumVisibility,
+    };
+  }
+
+  [
+    dom.addButton,
+    dom.addEmptyButton,
+    dom.loadSampleButton,
+    dom.clearButton,
+    dom.columnDropdownToggle,
+    dom.columnSelectAllButton,
+    dom.columnSelectCoreButton,
+    dom.columnSelectNoneButton,
+  ].forEach((button) => {
+    if (!button) return;
+    button.disabled = !canModify;
+    if (!canModify) {
+      button.title = lockedMessage;
+    } else {
+      button.title = "";
+    }
+  });
+
+  [dom.importButton, dom.exportCsvButton, dom.exportJsonButton].forEach((button) => {
+    if (!button) return;
+    button.disabled = !canImportExport;
+    if (!canImportExport) {
+      button.title = lockedMessage;
+    } else {
+      button.title = "";
+    }
+  });
+
+  if (dom.defaultEditorInput) {
+    if (!canModify) {
+      dom.defaultEditorInput.value = currentUser.displayName || currentUser.username;
+      dom.defaultEditorInput.readOnly = true;
+    } else {
+      dom.defaultEditorInput.readOnly = false;
+    }
+  }
 }
 
 function refreshFromStorage() {
@@ -522,6 +590,10 @@ function exportAsJson() {
 
 function wireEvents() {
   dom.addButton.addEventListener("click", () => {
+    if (!canModifyActivityStructure(currentUser)) {
+      notify("This role cannot add new activities.", "warning");
+      return;
+    }
     const draft = buildManualActivityDraft();
     if (!draft.activityName.trim()) {
       notify("Activity Name is required for manual entry.", "warning");
@@ -534,6 +606,10 @@ function wireEvents() {
   });
 
   dom.addEmptyButton.addEventListener("click", () => {
+    if (!canModifyActivityStructure(currentUser)) {
+      notify("This role cannot add new activities.", "warning");
+      return;
+    }
     addActivity({
       ...createEmptyActivity(),
       lastModifiedBy: dom.defaultEditorInput.value || "Planner",
@@ -544,6 +620,10 @@ function wireEvents() {
   });
 
   dom.loadSampleButton.addEventListener("click", () => {
+    if (!canModifyActivityStructure(currentUser)) {
+      notify("This role cannot replace project data.", "warning");
+      return;
+    }
     const shouldLoad = confirm("This will replace current activities with sample data. Continue?");
     if (!shouldLoad) return;
     saveActivities(createSampleDataset());
@@ -552,6 +632,10 @@ function wireEvents() {
   });
 
   dom.importButton.addEventListener("click", async () => {
+    if (!canImportExportData(currentUser)) {
+      notify("This role cannot import data.", "warning");
+      return;
+    }
     try {
       await importSpreadsheet();
     } catch (error) {
@@ -560,10 +644,26 @@ function wireEvents() {
     }
   });
 
-  dom.exportCsvButton.addEventListener("click", exportAsCsv);
-  dom.exportJsonButton.addEventListener("click", exportAsJson);
+  dom.exportCsvButton.addEventListener("click", () => {
+    if (!canImportExportData(currentUser)) {
+      notify("This role cannot export data.", "warning");
+      return;
+    }
+    exportAsCsv();
+  });
+  dom.exportJsonButton.addEventListener("click", () => {
+    if (!canImportExportData(currentUser)) {
+      notify("This role cannot export data.", "warning");
+      return;
+    }
+    exportAsJson();
+  });
 
   dom.clearButton.addEventListener("click", () => {
+    if (!canModifyActivityStructure(currentUser)) {
+      notify("This role cannot clear activities.", "warning");
+      return;
+    }
     if (!confirm("Clear all activities from local state?")) return;
     clearAllActivities();
     notify("All activities were removed.", "warning");
@@ -571,6 +671,11 @@ function wireEvents() {
   });
 
   dom.columnChipGroup.addEventListener("change", (event) => {
+    if (!canModifyActivityStructure(currentUser)) {
+      notify("Column layout changes are restricted for this role.", "warning");
+      renderColumnVisibility();
+      return;
+    }
     const target = event.target;
     if (!(target instanceof HTMLInputElement) || !target.dataset.column) return;
     const key = target.dataset.column;
@@ -587,6 +692,10 @@ function wireEvents() {
   });
 
   dom.columnDropdownToggle.addEventListener("click", () => {
+    if (!canModifyActivityStructure(currentUser)) {
+      notify("Column layout changes are restricted for this role.", "warning");
+      return;
+    }
     setColumnPanelOpen(!uiState.columnPanelOpen);
   });
 
@@ -595,14 +704,17 @@ function wireEvents() {
   });
 
   dom.columnSelectAllButton.addEventListener("click", () => {
+    if (!canModifyActivityStructure(currentUser)) return;
     applyVisibilityPreset("all");
   });
 
   dom.columnSelectCoreButton.addEventListener("click", () => {
+    if (!canModifyActivityStructure(currentUser)) return;
     applyVisibilityPreset("core");
   });
 
   dom.columnSelectNoneButton.addEventListener("click", () => {
+    if (!canModifyActivityStructure(currentUser)) return;
     applyVisibilityPreset("none");
   });
 
@@ -674,6 +786,10 @@ function wireEvents() {
     if (!button) return;
 
     if (button.dataset.insertAbove || button.dataset.insertBelow) {
+      if (!canModifyActivityStructure(currentUser)) {
+        notify("This role cannot add or remove activity rows.", "warning");
+        return;
+      }
       const referenceId = button.dataset.insertAbove || button.dataset.insertBelow;
       const referenceIndex = viewState.activities.findIndex((activity) => activity.activityId === referenceId);
       if (referenceIndex === -1) return;
@@ -699,6 +815,10 @@ function wireEvents() {
 
     const activityId = button.dataset.delete;
     if (!activityId) return;
+    if (!canModifyActivityStructure(currentUser)) {
+      notify("This role cannot delete activity rows.", "warning");
+      return;
+    }
     if (!confirm(`Delete activity ${activityId}?`)) return;
     deleteActivity(activityId);
     notify(`Deleted ${activityId}.`, "warning");
@@ -710,6 +830,11 @@ function wireEvents() {
     if (!(target instanceof HTMLElement)) return;
     const field = target.dataset.field;
     if (!field) return;
+    if (!canEditActivityField(currentUser, field)) {
+      notify("This field is read-only for your role.", "warning");
+      refreshFromStorage();
+      return;
+    }
     const row = target.closest("tr");
     if (!row?.dataset.id) return;
     debouncedUpdate(row.dataset.id, field, target.value);
@@ -723,11 +848,14 @@ function wireEvents() {
 
 function initialize() {
   setActiveNavigation();
+  currentUser = initializeAccessShell();
+  if (!currentUser) return;
   dom.defaultEditorInput.value = getDefaultEditor();
   dom.mandatoryHint.textContent = `Mandatory import columns: ${IMPORT_REQUIRED_LABELS.join(", ")}`;
   dom.columnDropdownToggle.setAttribute("aria-expanded", "false");
   dom.columnDropdownToggle.textContent = "Select Visible Columns ▼";
   wireEvents();
+  applyRoleRestrictions();
   initializeProjectToolbar({
     onProjectChange: () => {
       viewState.search = "";

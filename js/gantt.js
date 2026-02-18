@@ -2,6 +2,7 @@ import { enrichActivities, getCriticalPath, getTimelineBounds, parseDate } from 
 import { formatDate, formatHours, notify, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
+import { initializeAccessShell } from "./access-shell.js";
 
 const dom = {
   phaseFilter: document.querySelector("#phase-filter"),
@@ -177,6 +178,8 @@ function loadProjectActivities() {
 
 function initialize() {
   setActiveNavigation();
+  const currentUser = initializeAccessShell({ allowedRoles: ["planner", "management"] });
+  if (!currentUser) return;
   wireEvents();
   initializeProjectToolbar({ onProjectChange: loadProjectActivities });
   loadProjectActivities();

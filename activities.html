@@ -13,6 +13,13 @@
           <h1>Digital Twin – Activity Control Center</h1>
           <p>Enterprise lifecycle planning, structured activity control, and intelligent bulk data management</p>
         </div>
+        <div class="header-meta">
+          <div class="session-chip">
+            <span id="user-role-badge" class="badge badge-neutral"></span>
+            <span id="user-display-name" class="small"></span>
+            <button id="logout-btn" class="ghost">Logout</button>
+          </div>
+        </div>
       </header>
 
       <nav class="nav">
@@ -30,16 +37,16 @@
             <select id="project-select"></select>
           </label>
           <div class="row-actions">
-            <button id="project-add-btn">New Project</button>
-            <button id="project-duplicate-btn" class="ghost">Duplicate Template</button>
-            <button id="project-rename-btn" class="ghost">Rename</button>
-            <button id="project-delete-btn" class="danger">Delete</button>
+            <button id="project-add-btn" data-role-hide="technician">New Project</button>
+            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate Template</button>
+            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
+            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
           </div>
           <div id="project-summary" class="small"></div>
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-role-hide="technician">
         <div class="panel-header">
           <h2>Manual Activity Entry</h2>
           <span class="panel-subtitle">Core input + immediate row-level edit for all columns</span>
@@ -86,7 +93,7 @@
               >Material Ownership
               <select id="materialOwnership">
                 <option>Client</option>
-                <option>ETW</option>
+                <option>Internal Team</option>
                 <option>Supplier</option>
               </select>
             </label>
@@ -126,7 +133,7 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-role-hide="technician">
         <div class="panel-header">
           <h2>Excel Import / Export</h2>
           <span class="panel-subtitle">Import validates mandatory columns and merges by Activity ID</span>
@@ -155,7 +162,7 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-role-hide="technician">
         <div class="panel-header">
           <h2>Column Visibility</h2>
           <span class="panel-subtitle">Compact selector for visible grid columns</span>
@@ -181,6 +188,16 @@
               <div id="column-chip-group" class="column-list"></div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="panel" data-role-show="technician">
+        <div class="panel-header">
+          <h2>Execution Update Mode</h2>
+          <span class="panel-subtitle">Only status and delay root cause fields are editable in this role</span>
+        </div>
+        <div class="panel-body">
+          <div class="small">Use the Activity Data Grid below to update current status and delay root cause quickly.</div>
         </div>
       </section>
 

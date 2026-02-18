@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign In | Digital Twin Control Center</title>
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <main class="login-shell">
+      <section class="panel login-card">
+        <div class="panel-header">
+          <h2>Control Center Sign In</h2>
+          <span class="panel-subtitle">Role-based access and dashboard experience</span>
+        </div>
+        <div class="panel-body">
+          <form id="login-form" class="grid" autocomplete="off">
+            <label class="field">
+              Username
+              <input id="username-input" type="text" placeholder="planner / management / technician" required />
+            </label>
+            <label class="field">
+              Password
+              <input id="password-input" type="password" placeholder="Enter password" required />
+            </label>
+            <button type="submit">Sign In</button>
+          </form>
+          <p class="hint" id="login-hint"></p>
+          <div class="login-demo-box">
+            <div class="small"><strong>Demo users</strong></div>
+            <ul id="demo-user-list" class="list"></ul>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./js/login.js"></script>
+  </body>
+</html>

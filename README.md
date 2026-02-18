@@ -5,11 +5,16 @@ Enterprise-class, frontend-only planning and decision intelligence system for pr
 ## Highlights
 
 - Multi-page architecture to avoid clutter:
+  - `login.html` - role-based sign-in
   - `index.html` - executive dashboard
   - `activities.html` - manual activity management + Excel import/export
   - `gantt.html` - Gantt timeline and dependency chain view
   - `materials.html` - material ownership and supply intelligence
   - `intelligence.html` - delay, risk, root-cause, and what-if optimization
+- Role-based experience and control:
+  - Planner: full planning and optimization access
+  - Management: full portfolio visibility and decision controls
+  - Execution: status/root-cause updates only in activity tracking
 - Multi-project lifecycle control:
   - Create, duplicate template, rename, switch, and delete projects
   - Each project stores its own activity list and analytics context
@@ -47,6 +52,12 @@ python3 -m http.server 8080
 Then open:
 
 `http://localhost:8080/index.html`
+
+## Demo Login Credentials
+
+- Planner: `planner` / `planner123`
+- Management: `management` / `management123`
+- Execution: `technician` / `technician123`
 
 ## Data Handling
 

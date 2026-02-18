@@ -2,6 +2,8 @@ import { computePortfolioMetrics, getDelayAndRiskRows, runScenarioSimulation } f
 import { formatHours, notify, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities, updateActivity } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
+import { initializeAccessShell } from "./access-shell.js";
+import { canRunOptimization } from "./auth.js";
 
 const dom = {
   riskKpis: document.querySelector("#risk-kpis"),
@@ -22,6 +24,7 @@ const dom = {
 };
 
 let activities = [];
+let currentUser = null;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -118,6 +121,11 @@ function renderRiskTable(rows) {
 }
 
 function renderSimulation() {
+  if (!canRunOptimization(currentUser)) {
+    dom.simSummary.textContent = "Scenario simulation is available for planning and management roles.";
+    dom.simTableBody.innerHTML = `<tr><td colspan="5"><div class="empty-state">Simulation access is restricted for this role.</div></td></tr>`;
+    return;
+  }
   if (!activities.length) {
     dom.simSummary.textContent = "No activities available for simulation.";
     dom.simTableBody.innerHTML = `<tr><td colspan="5"><div class="empty-state">Add activities before running what-if simulation.</div></td></tr>`;
@@ -171,13 +179,16 @@ function wireEvents() {
       notify("Select an activity before saving root cause.", "warning");
       return;
     }
-    updateActivity(activityId, {
+    const patch = {
       delayReason: dom.rootCauseText.value.trim(),
       activityStatus: dom.rootCauseStatus.value,
-      completionPercentage: Number(dom.rootCauseCompletion.value) || 0,
-      lastModifiedBy: dom.rootCauseAuthor.value.trim() || "Planner",
+      lastModifiedBy: currentUser?.displayName || dom.rootCauseAuthor.value.trim() || "Planner",
       lastModifiedDate: new Date().toISOString().slice(0, 10),
-    });
+    };
+    if (canRunOptimization(currentUser)) {
+      patch.completionPercentage = Number(dom.rootCauseCompletion.value) || 0;
+    }
+    updateActivity(activityId, patch);
     notify(`Root cause updated for ${activityId}.`, "success");
     dom.rootCauseText.value = "";
     renderAll();
@@ -188,6 +199,14 @@ function wireEvents() {
 
 function initialize() {
   setActiveNavigation();
+  currentUser = initializeAccessShell();
+  if (!currentUser) return;
+  if (!canRunOptimization(currentUser)) {
+    dom.rootCauseCompletion.disabled = true;
+    dom.rootCauseAuthor.value = currentUser.displayName;
+    dom.rootCauseAuthor.readOnly = true;
+    dom.runSimButton.disabled = true;
+  }
   wireEvents();
   initializeProjectToolbar({ onProjectChange: renderAll });
   renderAll();

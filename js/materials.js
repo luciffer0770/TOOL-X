@@ -2,6 +2,7 @@ import { getMaterialHealth } from "./analytics.js";
 import { formatDate, formatHours, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
+import { initializeAccessShell } from "./access-shell.js";
 
 let ownershipChart;
 let statusChart;
@@ -28,7 +29,9 @@ function renderKpis() {
   const clientCount = health.enriched.filter((activity) =>
     String(activity.materialOwnership).toLowerCase().includes("client"),
   ).length;
-  const etwCount = health.enriched.filter((activity) => String(activity.materialOwnership).toLowerCase().includes("etw")).length;
+  const internalCount = health.enriched.filter((activity) =>
+    String(activity.materialOwnership).toLowerCase().includes("internal"),
+  ).length;
   const supplierCount = health.enriched.filter((activity) =>
     String(activity.materialOwnership).toLowerCase().includes("supplier"),
   ).length;
@@ -43,7 +46,7 @@ function renderKpis() {
   const cards = [
     { title: "Tracked Material Activities", value: total, note: "Activities with material requirements" },
     { title: "Client Ownership", value: clientCount, note: "Client-owned material responsibility" },
-    { title: "ETW Ownership", value: etwCount, note: "Engineering and testing internal ownership" },
+    { title: "Internal Ownership", value: internalCount, note: "Internal team material responsibility" },
     { title: "Supplier Ownership", value: supplierCount, note: "External supplier material responsibility" },
     { title: "Pending Critical Materials", value: health.pendingCritical.length, note: "High or critical still pending" },
     { title: "Late Material Lines", value: health.lateMaterials.length, note: "Required date missed or late receipt" },
@@ -88,10 +91,10 @@ function renderCharts() {
         {
           data: Object.values(health.ownershipCounts),
           backgroundColor: [
-            "rgba(79, 179, 255, 0.75)",
-            "rgba(255, 139, 61, 0.75)",
-            "rgba(44, 211, 139, 0.7)",
-            "rgba(160, 181, 222, 0.65)",
+            "rgba(47, 143, 255, 0.75)",
+            "rgba(45, 184, 121, 0.74)",
+            "rgba(200, 51, 51, 0.74)",
+            "rgba(225, 236, 252, 0.62)",
           ],
           borderColor: "#0d162d",
           borderWidth: 1,
@@ -228,6 +231,8 @@ function wireEvents() {
 
 function initialize() {
   setActiveNavigation();
+  const currentUser = initializeAccessShell({ allowedRoles: ["planner", "management"] });
+  if (!currentUser) return;
   wireEvents();
   initializeProjectToolbar({ onProjectChange: renderForActiveProject });
   renderForActiveProject();

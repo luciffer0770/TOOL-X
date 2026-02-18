@@ -13,6 +13,13 @@
           <h1>Digital Twin – Activity Control Center</h1>
           <p>Enterprise lifecycle planning, structured activity control, and intelligent bulk data management</p>
         </div>
+        <div class="header-meta">
+          <div class="session-chip">
+            <span id="user-role-badge" class="badge badge-neutral"></span>
+            <span id="user-display-name" class="small"></span>
+            <button id="logout-btn" class="ghost">Logout</button>
+          </div>
+        </div>
       </header>
 
       <nav class="nav">
@@ -30,10 +37,10 @@
             <select id="project-select"></select>
           </label>
           <div class="row-actions">
-            <button id="project-add-btn">New Project</button>
-            <button id="project-duplicate-btn" class="ghost">Duplicate Template</button>
-            <button id="project-rename-btn" class="ghost">Rename</button>
-            <button id="project-delete-btn" class="danger">Delete</button>
+            <button id="project-add-btn" data-role-hide="technician">New Project</button>
+            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate Template</button>
+            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
+            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
           </div>
           <div id="project-summary" class="small"></div>
         </div>
@@ -70,11 +77,11 @@
                   <option>Completed</option>
                 </select>
               </label>
-              <label class="field"
+              <label class="field" data-role-hide="technician"
                 >Completion %
                 <input id="root-cause-completion" type="number" min="0" max="100" step="1" value="0" />
               </label>
-              <label class="field"
+              <label class="field" data-role-hide="technician"
                 >Updated By
                 <input id="root-cause-author" type="text" placeholder="Planner name" />
               </label>
@@ -89,7 +96,7 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section class="panel" data-role-hide="technician">
           <div class="panel-header">
             <h2>Dependency Stress Nodes</h2>
           </div>
@@ -99,7 +106,7 @@
         </section>
       </div>
 
-      <section class="panel">
+      <section class="panel" data-role-hide="technician">
         <div class="panel-header">
           <h2>Delay & Risk Register</h2>
           <span class="panel-subtitle">Activities sorted by risk score</span>

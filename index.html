@@ -13,7 +13,14 @@
           <h1>Digital Twin – Activity Control Center</h1>
           <p>Enterprise lifecycle planning, structured activity control, and intelligent bulk data management</p>
         </div>
-        <div class="small" id="dashboard-date"></div>
+        <div class="header-meta">
+          <div class="small" id="dashboard-date"></div>
+          <div class="session-chip">
+            <span id="user-role-badge" class="badge badge-neutral"></span>
+            <span id="user-display-name" class="small"></span>
+            <button id="logout-btn" class="ghost">Logout</button>
+          </div>
+        </div>
       </header>
 
       <nav class="nav">
@@ -31,10 +38,10 @@
             <select id="project-select"></select>
           </label>
           <div class="row-actions">
-            <button id="project-add-btn">New Project</button>
-            <button id="project-duplicate-btn" class="ghost">Duplicate Template</button>
-            <button id="project-rename-btn" class="ghost">Rename</button>
-            <button id="project-delete-btn" class="danger">Delete</button>
+            <button id="project-add-btn" data-role-hide="technician">New Project</button>
+            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate Template</button>
+            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
+            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
           </div>
           <div id="project-summary" class="small"></div>
         </div>
@@ -50,7 +57,7 @@
         </div>
       </section>
 
-      <div class="grid cols-2">
+      <div class="grid cols-2" id="dashboard-phase-risk-grid" data-role-hide="technician">
         <section class="panel">
           <div class="panel-header">
             <h2>Phase Completion & Delay Profile</h2>
@@ -70,7 +77,7 @@
         </section>
       </div>
 
-      <div class="grid cols-2">
+      <div class="grid cols-2" id="dashboard-dependency-grid" data-role-hide="technician">
         <section class="panel">
           <div class="panel-header">
             <h2>Critical Path and Constraint Chain</h2>
@@ -90,7 +97,7 @@
         </section>
       </div>
 
-      <section class="panel">
+      <section class="panel" id="dashboard-risk-section">
         <div class="panel-header">
           <h2>Priority Risks</h2>
           <span class="panel-subtitle">Delayed and high-risk activities</span>
@@ -113,6 +120,16 @@
               <tbody id="risk-table-body"></tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <section class="panel" id="dashboard-alerts-section">
+        <div class="panel-header">
+          <h2>Alert Center</h2>
+          <span class="panel-subtitle">Priority signals requiring immediate action</span>
+        </div>
+        <div class="panel-body">
+          <ul id="dashboard-alert-list" class="list"></ul>
         </div>
       </section>
     </div>
