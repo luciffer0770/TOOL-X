@@ -25,11 +25,12 @@ function escapeHtml(value) {
 
 function renderKpis() {
   const total = health.enriched.length;
-  const internalCount = health.enriched.filter((activity) =>
-    String(activity.materialOwnership).toLowerCase().includes("internal"),
+  const clientCount = health.enriched.filter((activity) =>
+    String(activity.materialOwnership).toLowerCase().includes("client"),
   ).length;
-  const thirdPartyCount = health.enriched.filter((activity) =>
-    String(activity.materialOwnership).toLowerCase().includes("third"),
+  const etwCount = health.enriched.filter((activity) => String(activity.materialOwnership).toLowerCase().includes("etw")).length;
+  const supplierCount = health.enriched.filter((activity) =>
+    String(activity.materialOwnership).toLowerCase().includes("supplier"),
   ).length;
 
   const avgLeadTime =
@@ -41,8 +42,9 @@ function renderKpis() {
 
   const cards = [
     { title: "Tracked Material Activities", value: total, note: "Activities with material requirements" },
-    { title: "Internal Supply Ownership", value: internalCount, note: "Supported by internal departments" },
-    { title: "Third Party Fabrication", value: thirdPartyCount, note: "Vendor-owned or fabricated externally" },
+    { title: "Client Ownership", value: clientCount, note: "Client-owned material responsibility" },
+    { title: "ETW Ownership", value: etwCount, note: "Engineering and testing internal ownership" },
+    { title: "Supplier Ownership", value: supplierCount, note: "External supplier material responsibility" },
     { title: "Pending Critical Materials", value: health.pendingCritical.length, note: "High or critical still pending" },
     { title: "Late Material Lines", value: health.lateMaterials.length, note: "Required date missed or late receipt" },
     { title: "Avg Lead Time", value: formatHours(avgLeadTime), note: "Mean lead time across activities" },

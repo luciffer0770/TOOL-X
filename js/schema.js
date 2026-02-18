@@ -52,7 +52,7 @@ export const ACTIVITY_STATUSES = ["Not Started", "In Progress", "Blocked", "Dela
 export const PRIORITY_LEVELS = ["Low", "Medium", "High", "Critical"];
 export const RISK_LEVELS = ["Low", "Medium", "High", "Critical"];
 export const MATERIAL_STATUSES = ["Not Ordered", "Ordered", "In Transit", "Received", "Delayed"];
-export const OWNERSHIP_TYPES = ["Internal Department", "Third Party Fabrication", "Joint"];
+export const OWNERSHIP_TYPES = ["Client", "ETW", "Supplier"];
 
 const headerToColumn = new Map();
 
@@ -85,6 +85,19 @@ function parseDate(value) {
   }
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
+}
+
+function normalizeOwnership(value) {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue) return "";
+
+  const normalized = rawValue.toLowerCase();
+  if (normalized === "etw" || normalized.includes("internal")) return "ETW";
+  if (normalized.includes("third") || normalized.includes("supplier") || normalized.includes("vendor")) return "Supplier";
+  if (normalized.includes("client") || normalized.includes("customer") || normalized.includes("joint")) return "Client";
+
+  const known = OWNERSHIP_TYPES.find((entry) => entry.toLowerCase() === normalized);
+  return known || rawValue;
 }
 
 export function getColumnByHeader(header) {
@@ -144,6 +157,7 @@ export function sanitizeActivity(rawActivity) {
   sanitized.activityStatus = sanitized.activityStatus || "Not Started";
   sanitized.priority = sanitized.priority || "Medium";
   sanitized.materialStatus = sanitized.materialStatus || "Not Ordered";
+  sanitized.materialOwnership = normalizeOwnership(sanitized.materialOwnership);
   sanitized.riskLevel = sanitized.riskLevel || "Low";
   sanitized.completionPercentage = Math.min(100, Math.max(0, parseNumber(sanitized.completionPercentage)));
   sanitized.lastModifiedDate = sanitized.lastModifiedDate || nowIsoDate();
@@ -183,7 +197,7 @@ export function createSampleDataset() {
       baseEffortHours: 40,
       requiredMaterials: "Fixture Frame, Mounting Plate",
       requiredTools: "CAD Suite, Review Board",
-      materialOwnership: "Internal Department",
+      materialOwnership: "ETW",
       materialLeadTime: 12,
       dependencies: "",
       plannedStartDate: "2026-02-12",
@@ -227,7 +241,7 @@ export function createSampleDataset() {
       baseEffortHours: 96,
       requiredMaterials: "Aluminum Housing, Fasteners",
       requiredTools: "CNC Program, QA Fixture",
-      materialOwnership: "Third Party Fabrication",
+      materialOwnership: "Supplier",
       materialLeadTime: 48,
       dependencies: "ACT-0001",
       plannedStartDate: "2026-02-19",
@@ -271,7 +285,7 @@ export function createSampleDataset() {
       baseEffortHours: 64,
       requiredMaterials: "Harness Set, Safety Interlock",
       requiredTools: "Commissioning Toolkit",
-      materialOwnership: "Joint",
+      materialOwnership: "Client",
       materialLeadTime: 24,
       dependencies: "ACT-0002",
       plannedStartDate: "2026-02-27",
