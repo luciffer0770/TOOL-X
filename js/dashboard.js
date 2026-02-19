@@ -201,19 +201,19 @@ function renderPhaseChart(phaseRows) {
         y: {
           beginAtZero: true,
           ticks: {
-            color: "#b9d1f3",
+            color: "#35567f",
           },
-          grid: { color: "rgba(47, 79, 132, 0.35)" },
+          grid: { color: "rgba(155, 185, 225, 0.55)" },
         },
         x: {
-          ticks: { color: "#b9d1f3" },
-          grid: { color: "rgba(47, 79, 132, 0.2)" },
+          ticks: { color: "#35567f" },
+          grid: { color: "rgba(155, 185, 225, 0.35)" },
         },
       },
       plugins: {
         legend: {
           labels: {
-            color: "#dceaff",
+            color: "#2f4f7a",
           },
         },
       },
@@ -241,7 +241,7 @@ function renderRiskChart(rows) {
             "rgba(97, 151, 224, 0.65)",
             "rgba(232, 241, 255, 0.62)",
           ],
-          borderColor: "#111f39",
+          borderColor: "#e2ecfb",
           borderWidth: 1,
         },
       ],
@@ -252,7 +252,7 @@ function renderRiskChart(rows) {
       plugins: {
         legend: {
           labels: {
-            color: "#dceaff",
+            color: "#2f4f7a",
           },
         },
       },

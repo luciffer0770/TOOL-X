@@ -96,7 +96,7 @@ function renderCharts() {
             "rgba(200, 51, 51, 0.74)",
             "rgba(225, 236, 252, 0.62)",
           ],
-          borderColor: "#0d162d",
+          borderColor: "#e2ecfb",
           borderWidth: 1,
         },
       ],
@@ -107,7 +107,7 @@ function renderCharts() {
       plugins: {
         legend: {
           labels: {
-            color: "#dceaff",
+            color: "#2f4f7a",
           },
         },
       },
@@ -132,17 +132,17 @@ function renderCharts() {
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { color: "#bed4f4" },
-          grid: { color: "rgba(47, 79, 132, 0.35)" },
+          ticks: { color: "#35567f" },
+          grid: { color: "rgba(155, 185, 225, 0.55)" },
         },
         x: {
-          ticks: { color: "#bed4f4" },
-          grid: { color: "rgba(47, 79, 132, 0.2)" },
+          ticks: { color: "#35567f" },
+          grid: { color: "rgba(155, 185, 225, 0.35)" },
         },
       },
       plugins: {
         legend: {
-          labels: { color: "#dceaff" },
+          labels: { color: "#2f4f7a" },
         },
       },
     },
