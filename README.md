@@ -51,7 +51,11 @@ python3 -m http.server 8080
 
 Then open:
 
-`http://localhost:8080/index.html`
+`http://localhost:8080/` or `http://localhost:8080/login.html`
+
+**Quick access:** Use the "Quick Demo (Planner)" button on the login page, or add `?dev=1` to any app URL to auto-login as planner (e.g. `http://localhost:8080/index.html?dev=1`).
+
+**Note:** In remote dev environments (e.g. Cursor cloud), use the port-forwarding URL shown in the Ports panel instead of localhost.
 
 ## Demo Login Credentials
 

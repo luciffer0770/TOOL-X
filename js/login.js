@@ -79,6 +79,17 @@ function initialize() {
     });
   }
 
+  const quickDemoBtn = document.querySelector("#quick-demo-btn");
+  if (quickDemoBtn) {
+    quickDemoBtn.addEventListener("click", () => {
+      const user = login("planner", "planner123");
+      if (user) {
+        const nextPage = parseNextPage() || getDefaultHomeForRole(user);
+        location.href = nextPage;
+      }
+    });
+  }
+
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const user = login(usernameInput.value, passwordInput.value);

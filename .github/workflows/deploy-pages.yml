@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - cursor/preparation-planning-intelligence-4966
+      - experiment/ui-redesign-tool
   workflow_dispatch:
 
 permissions:
