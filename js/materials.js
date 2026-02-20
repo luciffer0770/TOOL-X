@@ -92,8 +92,8 @@ function renderCharts() {
           data: Object.values(health.ownershipCounts),
           backgroundColor: [
             "rgba(47, 143, 255, 0.75)",
-            "rgba(45, 184, 121, 0.74)",
-            "rgba(200, 51, 51, 0.74)",
+            "rgba(29, 184, 156, 0.74)",
+            "rgba(217, 21, 46, 0.74)",
             "rgba(225, 236, 252, 0.62)",
           ],
           borderColor: "#e2ecfb",

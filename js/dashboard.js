@@ -190,7 +190,7 @@ function renderPhaseChart(phaseRows) {
           label: "Delayed Activities",
           data: phaseRows.map((row) => row.delayedActivities),
           borderWidth: 1,
-          backgroundColor: "rgba(200, 51, 51, 0.72)",
+          backgroundColor: "rgba(255, 77, 99, 0.76)",
         },
       ],
     },
@@ -235,9 +235,9 @@ function renderRiskChart(rows) {
         {
           data: Object.values(grouped),
           backgroundColor: [
-            "rgba(45, 184, 121, 0.78)",
+            "rgba(29, 184, 156, 0.78)",
             "rgba(47, 143, 255, 0.76)",
-            "rgba(200, 51, 51, 0.78)",
+            "rgba(217, 21, 46, 0.78)",
             "rgba(97, 151, 224, 0.65)",
             "rgba(232, 241, 255, 0.62)",
           ],

@@ -1,18 +1,18 @@
 :root {
   color-scheme: light;
-  --bg: #eff4fc;
-  --bg-panel: #ffffff;
-  --bg-panel-elev: #f8fbff;
-  --border: #a9c0e3;
-  --border-soft: #c7d8f0;
-  --text: #10243e;
-  --text-dim: #4f6791;
+  --bg: #dce2ef;
+  --bg-panel: #f6f9fe;
+  --bg-panel-elev: #eef3fb;
+  --border: #bfd0ea;
+  --border-soft: #ccd9ec;
+  --text: #243f66;
+  --text-dim: #5f779c;
   --accent: #2f8fff;
-  --accent-strong: #5bb2ff;
-  --good: #2db879;
-  --warn: #4e9fff;
-  --high: #ea4e4e;
-  --critical: #c83333;
+  --accent-strong: #62b0ff;
+  --good: #1db89c;
+  --warn: #2f8fff;
+  --high: #ff4d63;
+  --critical: #d9152e;
   --radius: 12px;
   --shadow: 0 8px 26px rgba(22, 58, 110, 0.12);
 }
@@ -26,9 +26,11 @@ body {
   margin: 0;
   padding: 0;
   background:
-    radial-gradient(1200px 420px at 30% -10%, rgba(47, 143, 255, 0.22), transparent),
-    radial-gradient(1200px 480px at 110% -20%, rgba(45, 184, 121, 0.14), transparent),
-    var(--bg);
+    linear-gradient(132deg, rgba(238, 78, 94, 0.5) 0%, rgba(238, 78, 94, 0.12) 22%, transparent 42%),
+    linear-gradient(146deg, rgba(41, 138, 230, 0.34) 16%, transparent 48%),
+    linear-gradient(28deg, rgba(37, 177, 214, 0.22) 28%, transparent 62%),
+    linear-gradient(16deg, rgba(81, 198, 132, 0.16) 70%, transparent 94%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(220, 227, 241, 0.98));
   color: var(--text);
   font-family:
     Inter,
@@ -79,7 +81,7 @@ a {
   padding: 10px;
   border-radius: var(--radius);
   border: 1px solid var(--border-soft);
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(246, 250, 255, 0.96);
   box-shadow: var(--shadow);
 }
 
@@ -102,7 +104,7 @@ a {
 .panel {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 252, 255, 0.99));
+  background: linear-gradient(180deg, rgba(246, 249, 254, 0.98), rgba(238, 243, 251, 0.98));
   box-shadow: var(--shadow);
 }
 
@@ -162,7 +164,7 @@ a {
   padding: 12px;
   border: 1px solid rgba(174, 198, 232, 0.82);
   border-radius: 10px;
-  background: rgba(246, 250, 255, 0.95);
+  background: rgba(248, 251, 255, 0.95);
 }
 
 .kpi-card .kpi-title {
@@ -235,7 +237,7 @@ textarea:focus {
 button {
   border: 1px solid rgba(73, 126, 197, 0.8);
   border-radius: 10px;
-  background: linear-gradient(180deg, rgba(41, 98, 174, 0.74), rgba(23, 57, 100, 0.8));
+  background: linear-gradient(180deg, rgba(66, 157, 255, 0.94), rgba(39, 112, 209, 0.94));
   color: #f4f9ff;
   padding: 8px 12px;
   cursor: pointer;
@@ -260,8 +262,8 @@ button.ghost {
 }
 
 button.danger {
-  border-color: rgba(233, 82, 119, 0.7);
-  background: linear-gradient(180deg, rgba(179, 33, 77, 0.72), rgba(86, 14, 38, 0.84));
+  border-color: rgba(255, 77, 99, 0.76);
+  background: linear-gradient(180deg, rgba(255, 77, 99, 0.92), rgba(217, 21, 46, 0.94));
 }
 
 .hint {
@@ -400,9 +402,9 @@ td textarea {
 }
 
 .badge-good {
-  color: #146743;
-  border-color: rgba(45, 184, 121, 0.42);
-  background: rgba(45, 184, 121, 0.14);
+  color: #0d6758;
+  border-color: rgba(29, 184, 156, 0.44);
+  background: rgba(29, 184, 156, 0.14);
 }
 
 .badge-medium {
@@ -412,15 +414,15 @@ td textarea {
 }
 
 .badge-high {
-  color: #892727;
-  border-color: rgba(234, 78, 78, 0.52);
-  background: rgba(234, 78, 78, 0.14);
+  color: #872433;
+  border-color: rgba(255, 77, 99, 0.52);
+  background: rgba(255, 77, 99, 0.14);
 }
 
 .badge-critical {
-  color: #7f1c1c;
-  border-color: rgba(200, 51, 51, 0.62);
-  background: rgba(200, 51, 51, 0.12);
+  color: #761323;
+  border-color: rgba(217, 21, 46, 0.64);
+  background: rgba(217, 21, 46, 0.13);
 }
 
 .badge-neutral {
@@ -496,8 +498,8 @@ td textarea {
 }
 
 .gantt-bar.is-delayed {
-  border-color: rgba(200, 51, 51, 0.9);
-  background: linear-gradient(180deg, rgba(200, 51, 51, 0.75), rgba(113, 24, 24, 0.95));
+  border-color: rgba(217, 21, 46, 0.9);
+  background: linear-gradient(180deg, rgba(255, 77, 99, 0.82), rgba(217, 21, 46, 0.95));
 }
 
 .gantt-bar.is-critical {
@@ -585,7 +587,7 @@ td textarea {
 }
 
 .toast-error {
-  border-color: rgba(200, 51, 51, 0.78);
+  border-color: rgba(217, 21, 46, 0.78);
 }
 
 .toast-hide {

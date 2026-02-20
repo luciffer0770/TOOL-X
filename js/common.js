@@ -23,7 +23,7 @@ export function formatHours(value) {
 
 export function formatCurrency(value) {
   const number = Number(value) || 0;
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(number);
+  return new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(number);
 }
 
 export function statusClass(value) {
