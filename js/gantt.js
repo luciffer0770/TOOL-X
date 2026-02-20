@@ -1,6 +1,6 @@
 import { enrichActivities, getCriticalPath, getTimelineBounds, parseDate } from "./analytics.js";
 import { formatDate, formatHours, notify, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
-import { getActivities } from "./storage.js";
+import { getActivities, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 
@@ -167,12 +167,38 @@ function wireEvents() {
   });
 }
 
-function loadProjectActivities() {
+function hasSelectOption(selectNode, value) {
+  return Array.from(selectNode.options).some((option) => option.value === value);
+}
+
+function loadProjectActivities({ resetView = false } = {}) {
+  const previousView = {
+    phase: dom.phaseFilter.value,
+    status: dom.statusFilter.value,
+    rangeStart: dom.rangeStart.value,
+    rangeEnd: dom.rangeEnd.value,
+  };
+
   activities = enrichActivities(getActivities());
   bounds = getTimelineBounds(activities);
-  dom.rangeStart.value = bounds.min.toISOString().slice(0, 10);
-  dom.rangeEnd.value = bounds.max.toISOString().slice(0, 10);
   populateFilters();
+
+  if (resetView) {
+    dom.phaseFilter.value = "";
+    dom.statusFilter.value = "";
+    dom.rangeStart.value = bounds.min.toISOString().slice(0, 10);
+    dom.rangeEnd.value = bounds.max.toISOString().slice(0, 10);
+    renderGantt();
+    return;
+  }
+
+  dom.phaseFilter.value = hasSelectOption(dom.phaseFilter, previousView.phase) ? previousView.phase : "";
+  dom.statusFilter.value = hasSelectOption(dom.statusFilter, previousView.status) ? previousView.status : "";
+
+  const restoredStart = parseDate(previousView.rangeStart);
+  const restoredEnd = parseDate(previousView.rangeEnd);
+  dom.rangeStart.value = restoredStart ? previousView.rangeStart : bounds.min.toISOString().slice(0, 10);
+  dom.rangeEnd.value = restoredEnd ? previousView.rangeEnd : bounds.max.toISOString().slice(0, 10);
   renderGantt();
 }
 
@@ -181,8 +207,16 @@ function initialize() {
   const currentUser = initializeAccessShell();
   if (!currentUser) return;
   wireEvents();
-  initializeProjectToolbar({ onProjectChange: loadProjectActivities });
-  loadProjectActivities();
+  initializeProjectToolbar({ onProjectChange: () => loadProjectActivities({ resetView: true }) });
+  const unsubscribe = subscribeToStateChanges(() => loadProjectActivities({ resetView: false }));
+  window.addEventListener(
+    "pagehide",
+    () => {
+      unsubscribe();
+    },
+    { once: true },
+  );
+  loadProjectActivities({ resetView: true });
 }
 
 initialize();

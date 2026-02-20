@@ -1,6 +1,7 @@
 import { COLUMN_SCHEMA, generateActivityId, sanitizeActivity } from "./schema.js";
 
 const STORAGE_KEY = "industrial_planning_intelligence_state_v1";
+const STATE_CHANGE_EVENT = "industrial_planning_state_changed";
 const PROJECT_ID_PATTERN = /^PRJ-(\d{4,})$/;
 
 function createDefaultVisibility() {
@@ -112,6 +113,18 @@ function normalizeState(state) {
 
 function writeState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  emitStateChange();
+}
+
+function emitStateChange() {
+  if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
+  window.dispatchEvent(
+    new CustomEvent(STATE_CHANGE_EVENT, {
+      detail: {
+        key: STORAGE_KEY,
+      },
+    }),
+  );
 }
 
 function getActiveProjectIndex(state) {
@@ -339,4 +352,28 @@ export function setDefaultEditor(editorName) {
 
 export function getDefaultEditor() {
   return getState().settings.defaultEditor || "Planner";
+}
+
+export function subscribeToStateChanges(listener) {
+  if (typeof window === "undefined" || typeof listener !== "function") {
+    return () => {};
+  }
+
+  const onInternalStateChange = () => {
+    listener();
+  };
+
+  const onStorage = (event) => {
+    if (event.storageArea !== localStorage) return;
+    if (event.key && event.key !== STORAGE_KEY) return;
+    listener();
+  };
+
+  window.addEventListener(STATE_CHANGE_EVENT, onInternalStateChange);
+  window.addEventListener("storage", onStorage);
+
+  return () => {
+    window.removeEventListener(STATE_CHANGE_EVENT, onInternalStateChange);
+    window.removeEventListener("storage", onStorage);
+  };
 }

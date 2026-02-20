@@ -1,6 +1,6 @@
 import { computePortfolioMetrics, getDelayAndRiskRows, getMaterialHealth, getPhaseProgress, groupBy } from "./analytics.js";
 import { formatCurrency, formatHours, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
-import { getActivities } from "./storage.js";
+import { getActivities, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { getRoleLabel } from "./auth.js";
@@ -308,6 +308,14 @@ function initialize() {
   currentUser = initializeAccessShell();
   if (!currentUser) return;
   initializeProjectToolbar({ onProjectChange: render });
+  const unsubscribe = subscribeToStateChanges(render);
+  window.addEventListener(
+    "pagehide",
+    () => {
+      unsubscribe();
+    },
+    { once: true },
+  );
   render();
 }
 

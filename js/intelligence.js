@@ -1,6 +1,6 @@
 import { computePortfolioMetrics, getDelayAndRiskRows, runScenarioSimulation } from "./analytics.js";
 import { formatHours, notify, setActiveNavigation, statusClass } from "./common.js";
-import { getActivities, updateActivity } from "./storage.js";
+import { getActivities, subscribeToStateChanges, updateActivity } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { canRunOptimization } from "./auth.js";
@@ -213,6 +213,14 @@ function initialize() {
   }
   wireEvents();
   initializeProjectToolbar({ onProjectChange: renderAll });
+  const unsubscribe = subscribeToStateChanges(renderAll);
+  window.addEventListener(
+    "pagehide",
+    () => {
+      unsubscribe();
+    },
+    { once: true },
+  );
   renderAll();
 }
 

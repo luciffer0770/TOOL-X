@@ -12,7 +12,7 @@ import {
   getColumnByHeader,
   mapRowToActivity,
 } from "./schema.js";
-import { debounce, notify, setActiveNavigation, toCsv, triggerDownload } from "./common.js";
+import { notify, setActiveNavigation, toCsv, triggerDownload } from "./common.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { canEditActivityField, canImportExportData, canManageProjects, canModifyActivityStructure } from "./auth.js";
@@ -507,8 +507,6 @@ function handleCellUpdate(activityId, field, value) {
   refreshFromStorage();
 }
 
-const debouncedUpdate = debounce(handleCellUpdate, 250);
-
 function readExcel(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -846,7 +844,7 @@ function wireEvents() {
     }
     const row = target.closest("tr");
     if (!row?.dataset.id) return;
-    debouncedUpdate(row.dataset.id, field, target.value);
+    handleCellUpdate(row.dataset.id, field, target.value);
   });
 
   dom.defaultEditorInput.addEventListener("change", (event) => {

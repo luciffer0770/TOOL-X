@@ -1,6 +1,6 @@
 import { getMaterialHealth } from "./analytics.js";
 import { formatDate, formatHours, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
-import { getActivities } from "./storage.js";
+import { getActivities, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 
@@ -229,16 +229,33 @@ function wireEvents() {
   });
 }
 
+function restoreFilter(selectNode, value) {
+  if (!selectNode) return;
+  const hasOption = Array.from(selectNode.options).some((option) => option.value === value);
+  selectNode.value = hasOption ? value : "";
+}
+
 function initialize() {
   setActiveNavigation();
   const currentUser = initializeAccessShell();
   if (!currentUser) return;
   wireEvents();
   initializeProjectToolbar({ onProjectChange: renderForActiveProject });
+  const unsubscribe = subscribeToStateChanges(renderForActiveProject);
+  window.addEventListener(
+    "pagehide",
+    () => {
+      unsubscribe();
+    },
+    { once: true },
+  );
   renderForActiveProject();
 }
 
 function renderForActiveProject() {
+  const previousOwnership = dom.ownershipFilter.value;
+  const previousStatus = dom.statusFilter.value;
+  const previousDepartment = dom.departmentFilter.value;
   health = getMaterialHealth(getActivities());
   if (!health.enriched.length) {
     clearCharts();
@@ -251,6 +268,9 @@ function renderForActiveProject() {
   renderKpis();
   renderCharts();
   populateFilters();
+  restoreFilter(dom.ownershipFilter, previousOwnership);
+  restoreFilter(dom.statusFilter, previousStatus);
+  restoreFilter(dom.departmentFilter, previousDepartment);
   renderTable();
 }
 
