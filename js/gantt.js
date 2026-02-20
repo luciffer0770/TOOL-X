@@ -1,8 +1,9 @@
 import { enrichActivities, getCriticalPath, getDependencyHealth, getTimelineBounds, parseDate } from "./analytics.js";
-import { formatDate, formatHours, notify, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
+import { escapeHtml, formatDate, formatHours, notify, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
+import { normalizePhase } from "./schema.js";
 
 const dom = {
   phaseFilter: document.querySelector("#phase-filter"),
@@ -10,8 +11,10 @@ const dom = {
   rangeStart: document.querySelector("#range-start"),
   rangeEnd: document.querySelector("#range-end"),
   sortMode: document.querySelector("#sort-mode"),
+  zoomMode: document.querySelector("#zoom-mode"),
   applyButton: document.querySelector("#apply-filters-btn"),
   resetRangeButton: document.querySelector("#reset-range-btn"),
+  todayButton: document.querySelector("#today-btn"),
   ganttGrid: document.querySelector("#gantt-grid"),
   ganttSummary: document.querySelector("#gantt-summary"),
   dependencyBody: document.querySelector("#dependency-table-body"),
@@ -21,16 +24,18 @@ let activities = [];
 let bounds = getTimelineBounds([]);
 let dependencyHealth = getDependencyHealth([]);
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function getZoomDays() {
+  const zoom = dom.zoomMode?.value || "week";
+  if (zoom === "day") return 7;
+  if (zoom === "month") return 60;
+  return 21;
 }
 
 function populateFilters() {
-  const phaseValues = [...new Set(activities.map((activity) => activity.phase).filter(Boolean))].sort((left, right) =>
-    left.localeCompare(right),
+  const phaseValues = [...new Set(activities.map((a) => normalizePhase(a.phase)).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b),
   );
   dom.phaseFilter.innerHTML = ['<option value="">All</option>']
     .concat(phaseValues.map((phase) => `<option value="${escapeHtml(phase)}">${escapeHtml(phase)}</option>`))
@@ -77,7 +82,7 @@ function renderGantt() {
 
   const rows = sortRows(
     activities
-      .filter((activity) => !phaseFilter || activity.phase === phaseFilter)
+      .filter((activity) => !phaseFilter || normalizePhase(activity.phase) === phaseFilter)
       .filter((activity) => !statusFilter || activity.activityStatus === statusFilter),
   );
 
@@ -85,10 +90,20 @@ function renderGantt() {
   dom.ganttSummary.textContent = `${rows.length} activities shown | Window ${formatDate(start)} to ${formatDate(end)} | Critical chain ${criticalPath.path.length} nodes | Dependency issues ${dependencyIssueCount}`;
 
   if (!rows.length) {
-    renderEmptyState(dom.ganttGrid, "No activities match the selected filters.");
+    renderEmptyState(
+      dom.ganttGrid,
+      "No activities match the selected filters.",
+      "Try adjusting Phase/Status filters or the date range.",
+    );
     renderDependencyTable([]);
     return;
   }
+
+  const today = new Date();
+  const todayPct =
+    today >= start && today <= end ? ((today.getTime() - start.getTime()) / spanMs) * 100 : null;
+  const todayMarkerHtml =
+    todayPct != null ? `<div class="gantt-today-marker" style="left:${todayPct}%" aria-hidden="true"></div>` : "";
 
   const html = [];
   rows.forEach((activity) => {
@@ -115,6 +130,7 @@ function renderGantt() {
         </div>
       </div>
       <div class="gantt-track">
+        ${todayMarkerHtml}
         <div
           class="gantt-bar ${delayed ? "is-delayed" : ""} ${criticalSet.has(activity.activityId) ? "is-critical" : ""}"
           style="left:${leftPct}%; width:${widthPct}%"
@@ -127,7 +143,11 @@ function renderGantt() {
   });
 
   if (!html.length) {
-    renderEmptyState(dom.ganttGrid, "No activities fall inside the selected date window.");
+    renderEmptyState(
+      dom.ganttGrid,
+      "No activities fall inside the selected date window.",
+      "Try adjusting the From/To dates or Zoom level.",
+    );
     renderDependencyTable(rows);
     return;
   }
@@ -182,6 +202,17 @@ function wireEvents() {
   dom.resetRangeButton.addEventListener("click", () => {
     dom.rangeStart.value = bounds.min.toISOString().slice(0, 10);
     dom.rangeEnd.value = bounds.max.toISOString().slice(0, 10);
+    renderGantt();
+  });
+  dom.todayButton?.addEventListener("click", () => {
+    const today = new Date();
+    const days = getZoomDays();
+    const start = new Date(today);
+    start.setDate(start.getDate() - Math.floor(days / 2));
+    const end = new Date(today);
+    end.setDate(end.getDate() + Math.ceil(days / 2));
+    dom.rangeStart.value = start.toISOString().slice(0, 10);
+    dom.rangeEnd.value = end.toISOString().slice(0, 10);
     renderGantt();
   });
 }

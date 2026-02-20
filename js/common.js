@@ -1,11 +1,19 @@
+export function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 export function setActiveNavigation() {
   const page = location.pathname.split("/").pop() || "index.html";
   document.querySelectorAll("[data-nav]").forEach((link) => {
-    if (link.getAttribute("href") === page) {
-      link.classList.add("is-active");
-    } else {
-      link.classList.remove("is-active");
-    }
+    const href = link.getAttribute("href") || "";
+    const isActive = href === page;
+    link.classList.toggle("is-active", isActive);
+    link.setAttribute("aria-current", isActive ? "page" : "false");
   });
 }
 
@@ -78,6 +86,8 @@ export function notify(message, type = "info") {
     host = document.createElement("div");
     host.id = "toast-host";
     host.className = "toast-host";
+    host.setAttribute("aria-live", "polite");
+    host.setAttribute("aria-atomic", "true");
     document.body.appendChild(host);
   }
 
@@ -91,6 +101,134 @@ export function notify(message, type = "info") {
   }, 2600);
 }
 
-export function renderEmptyState(target, message) {
-  target.innerHTML = `<div class="empty-state">${safeText(message)}</div>`;
+export function renderEmptyState(target, message, suggestion = "") {
+  const suggestionHtml = suggestion ? `<p class="empty-state-suggestion">${escapeHtml(suggestion)}</p>` : "";
+  target.innerHTML = `<div class="empty-state">${escapeHtml(message)}${suggestionHtml}</div>`;
+}
+
+/**
+ * Show a modal dialog. Returns a promise that resolves with the form data or user action.
+ * @param {Object} options - { title, body, fields?, primaryLabel?, secondaryLabel?, danger? }
+ * @returns {Promise<Object|null>}
+ */
+export function showModal(options = {}) {
+  const {
+    title = "Confirm",
+    body = "",
+    fields = [],
+    primaryLabel = "Confirm",
+    secondaryLabel = "Cancel",
+    danger = false,
+    defaultValue = "",
+  } = options;
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-labelledby", "modal-title");
+
+  const fieldHtml = fields
+    .map(
+      (f) => `
+    <label class="field">
+      ${escapeHtml(f.label)}
+      <input type="${f.type || "text"}" id="modal-${f.id}" value="${escapeHtml(f.value ?? defaultValue)}"
+        placeholder="${escapeHtml(f.placeholder || "")}" ${f.required ? "required" : ""}
+        maxlength="${f.maxLength ?? 200}" autocomplete="off" />
+    </label>
+  `,
+    )
+    .join("");
+
+  overlay.innerHTML = `
+    <div class="modal-dialog">
+      <h2 id="modal-title" class="modal-title">${escapeHtml(title)}</h2>
+      ${body ? `<p class="modal-body">${escapeHtml(body)}</p>` : ""}
+      <div class="modal-fields">${fieldHtml}</div>
+      <div class="modal-actions">
+        <button type="button" class="modal-secondary ghost">${escapeHtml(secondaryLabel)}</button>
+        <button type="button" class="modal-primary ${danger ? "danger" : ""}">${escapeHtml(primaryLabel)}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  const primaryBtn = overlay.querySelector(".modal-primary");
+  const secondaryBtn = overlay.querySelector(".modal-secondary");
+  const firstInput = overlay.querySelector("input");
+
+  const close = () => {
+    overlay.remove();
+    document.body.style.overflow = "";
+  };
+
+  return new Promise((resolve) => {
+    const submit = () => {
+      const data = {};
+      fields.forEach((f) => {
+        const el = overlay.querySelector(`#modal-${f.id}`);
+        if (el) data[f.id] = el.value?.trim() ?? "";
+      });
+      close();
+      resolve(fields.length ? data : true);
+    };
+
+    primaryBtn.addEventListener("click", () => {
+      if (fields.length) {
+        const first = overlay.querySelector(`#modal-${fields[0].id}`);
+        if (first?.value?.trim() === "" && fields[0].required) {
+          first.focus();
+          return;
+        }
+      }
+      submit();
+    });
+
+    secondaryBtn.addEventListener("click", () => {
+      close();
+      resolve(null);
+    });
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) {
+        close();
+        resolve(null);
+      }
+    });
+
+    overlay.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+        resolve(null);
+      }
+      if (e.key === "Enter" && !e.target.matches("textarea")) {
+        e.preventDefault();
+        primaryBtn.click();
+      }
+    });
+
+    document.body.style.overflow = "hidden";
+    (firstInput || primaryBtn)?.focus();
+  });
+}
+
+/**
+ * Show loading overlay
+ */
+export function showLoading(message = "Loading...") {
+  let el = document.querySelector("#loading-overlay");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "loading-overlay";
+    el.className = "loading-overlay";
+    el.innerHTML = '<div class="loading-spinner"></div><span class="loading-text"></span>';
+    document.body.appendChild(el);
+  }
+  el.querySelector(".loading-text").textContent = message;
+  el.classList.add("is-visible");
+  return () => {
+    el.classList.remove("is-visible");
+  };
 }

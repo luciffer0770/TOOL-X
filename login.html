@@ -22,24 +22,31 @@
                 Username
                 <div class="login-input-wrap">
                   <span class="login-input-icon login-input-icon-user" aria-hidden="true"></span>
-                  <input id="username-input" type="text" placeholder="Username" required />
+                  <input id="username-input" type="text" placeholder="Username" required autocomplete="off" />
                 </div>
               </label>
               <label class="field login-field">
                 Password
                 <div class="login-input-wrap">
                   <span class="login-input-icon login-input-icon-lock" aria-hidden="true"></span>
-                  <input id="password-input" type="password" placeholder="Enter password" required />
+                  <input id="password-input" type="password" placeholder="Enter password" required autocomplete="off" />
+                  <button type="button" id="password-toggle" class="login-password-toggle" aria-label="Show password">
+                    <span class="password-toggle-icon" aria-hidden="true">👁</span>
+                  </button>
                 </div>
               </label>
+              <label class="field login-field login-remember">
+                <input type="checkbox" id="remember-me" />
+                <span>Remember me (30 days)</span>
+              </label>
               <button type="submit" class="login-submit-btn">Sign In</button>
-            <button type="button" id="quick-demo-btn" class="login-submit-btn ghost">Quick Demo (Planner)</button>
+              <button type="button" id="quick-demo-btn" class="login-submit-btn ghost">Quick Demo (Planner)</button>
             </form>
-            <button type="button" class="login-link-btn">Forgot Password?</button>
             <p class="hint login-hint" id="login-hint"></p>
           </div>
           <div class="login-demo-box">
             <div class="login-demo-title">Demo Users</div>
+            <p class="login-demo-hint">Click to fill credentials, or use Copy to clipboard.</p>
             <ul id="demo-user-list" class="demo-user-list"></ul>
           </div>
         </section>

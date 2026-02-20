@@ -42,6 +42,11 @@
             <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate Template</button>
             <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
             <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export Project</button>
+            <label class="ghost" style="margin:0; cursor:pointer" data-role-hide="technician">
+              Import Project
+              <input id="project-import-input" type="file" accept=".json" hidden />
+            </label>
           </div>
           <div id="project-summary" class="small"></div>
         </div>
@@ -81,6 +86,22 @@
             <label class="field"
               >Base Effort Hours
               <input id="baseEffortHours" type="number" min="0" step="0.5" />
+            </label>
+            <label class="field"
+              >Required Materials
+              <input id="requiredMaterials" type="text" placeholder="Comma-separated materials" />
+            </label>
+            <label class="field"
+              >Required Tools
+              <input id="requiredTools" type="text" placeholder="Comma-separated tools" />
+            </label>
+            <label class="field"
+              >Material Lead Time (h)
+              <input id="materialLeadTime" type="number" min="0" step="1" placeholder="Hours" />
+            </label>
+            <label class="field"
+              >Dependencies
+              <input id="dependencies" type="text" placeholder="ACT-0001, ACT-0002" />
             </label>
             <label class="field"
               >Assigned Manpower
@@ -124,7 +145,7 @@
           </label>
           <div class="row-actions" style="margin-top: 12px">
             <button id="add-activity-btn">Add Activity</button>
-            <button id="add-empty-btn" class="ghost">Add Empty Editable Row</button>
+            <button id="add-empty-btn" class="ghost" title="Add a blank row for manual entry in the grid">Add Empty Row</button>
             <button id="load-sample-btn" class="ghost">Load Sample Dataset</button>
             <label class="field" style="min-width: 220px"
               >Default Editor
@@ -178,7 +199,8 @@
               <div class="column-dropdown-side">
                 <div class="column-dropdown-actions">
                   <button id="column-select-all-btn" class="ghost">All</button>
-                  <button id="column-select-core-btn" class="ghost">Core Only</button>
+                  <button id="column-select-core-btn" class="ghost">Core</button>
+                  <button id="column-select-compact-btn" class="ghost">Compact</button>
                   <button id="column-select-none-btn" class="ghost">Clear</button>
                 </div>
                 <label class="field">
@@ -213,7 +235,7 @@
           <div class="form-grid" style="margin-bottom: 12px">
             <label class="field"
               >Search
-              <input id="search-input" type="search" placeholder="Search by ID, phase, name, materials..." />
+              <input id="search-input" type="search" placeholder="Search by ID, phase, name, materials..." title="Ctrl+K to focus" />
             </label>
             <label class="field"
               >Status Filter
@@ -227,6 +249,17 @@
                 <option value="">All</option>
               </select>
             </label>
+          </div>
+          <div class="row-actions bulk-actions" id="bulk-actions" style="margin-bottom: 12px" hidden>
+            <span id="bulk-selection-count" class="small"></span>
+            <button id="bulk-delete-btn" class="danger">Delete Selected</button>
+            <label class="field" style="min-width: 160px; margin: 0">
+              Bulk Status
+              <select id="bulk-status-select">
+                <option value="">-- Set status --</option>
+              </select>
+            </label>
+            <button id="bulk-status-apply-btn" class="ghost">Apply</button>
           </div>
           <div class="table-wrap" id="activities-table-wrap">
             <table id="activities-table">

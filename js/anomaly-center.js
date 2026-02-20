@@ -1,5 +1,5 @@
 import { computePortfolioMetrics, getAnomalyRows, getTimelineBounds } from "./analytics.js";
-import { formatCurrency, formatDate, formatHours, notify, setActiveNavigation, statusClass } from "./common.js";
+import { escapeHtml, formatCurrency, formatDate, formatHours, notify, setActiveNavigation, statusClass, toCsv, triggerDownload } from "./common.js";
 import {
   addProjectAction,
   addProjectBaseline,
@@ -39,6 +39,7 @@ const dom = {
   actionFilterPriority: document.querySelector("#action-filter-priority"),
   actionSummary: document.querySelector("#action-summary"),
   actionTableBody: document.querySelector("#action-table-body"),
+  baselineExportVarianceBtn: document.querySelector("#baseline-export-variance-btn"),
 };
 
 let currentUser = null;
@@ -46,15 +47,6 @@ let activities = [];
 let anomalyRows = [];
 let baselineRows = [];
 let actionRows = [];
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
 function severityWeight(severity) {
   const normalized = String(severity || "").toLowerCase();
@@ -153,7 +145,7 @@ function renderAnomalySection() {
   dom.anomalySummary.textContent = `${filtered.length} shown of ${anomalyRows.length} anomalies`;
 
   if (!filtered.length) {
-    dom.anomalyTableBody.innerHTML = `<tr><td colspan="5"><div class="empty-state">No anomalies for selected filters.</div></td></tr>`;
+    dom.anomalyTableBody.innerHTML = `<tr><td colspan="6"><div class="empty-state">No anomalies for selected filters.</div></td></tr>`;
     return;
   }
 
@@ -165,12 +157,13 @@ function renderAnomalySection() {
     })
     .map(
       (row) => `
-      <tr>
+      <tr data-anomaly-activity="${escapeHtml(row.activityId)}" data-anomaly-issue="${escapeHtml(row.issue)}" data-anomaly-recommendation="${escapeHtml(row.recommendation)}">
         <td><strong>${escapeHtml(row.activityId)}</strong><br /><span class="small">${escapeHtml(row.activityName || "-")}</span></td>
         <td>${escapeHtml(row.issue)}</td>
         <td><span class="${statusClass(row.severity)}">${escapeHtml(row.severity)}</span></td>
         <td>${escapeHtml(row.details)}</td>
         <td>${escapeHtml(row.recommendation)}</td>
+        <td><button class="ghost" data-create-action-from-anomaly>Create Action</button></td>
       </tr>
     `,
     )
@@ -450,6 +443,32 @@ function wireEvents() {
 
   dom.baselineCompareSelect.addEventListener("change", renderBaselineSection);
 
+  dom.baselineExportVarianceBtn?.addEventListener("click", () => {
+    const selectedId = dom.baselineCompareSelect?.value;
+    const baseline = baselineRows.find((b) => b.id === selectedId);
+    if (!baseline) {
+      notify("Select a baseline to export variance report.", "warning");
+      return;
+    }
+    const baselineMetrics = computePortfolioMetrics(baseline.activities);
+    const currentMetrics = computePortfolioMetrics(activities);
+    const baselineFinish = getProjectFinishDate(baseline.activities);
+    const currentFinish = getProjectFinishDate(activities);
+    const rows = [
+      { Metric: "Activities", Baseline: baselineMetrics.totalActivities, Current: currentMetrics.totalActivities },
+      { Metric: "Avg Completion %", Baseline: baselineMetrics.avgCompletion, Current: currentMetrics.avgCompletion },
+      { Metric: "Delayed", Baseline: baselineMetrics.delayed, Current: currentMetrics.delayed },
+      { Metric: "High Risk", Baseline: baselineMetrics.highRisk, Current: currentMetrics.highRisk },
+      { Metric: "Finish Date", Baseline: baselineFinish ? formatDate(baselineFinish) : "-", Current: currentFinish ? formatDate(currentFinish) : "-" },
+    ];
+    triggerDownload(
+      `variance_${baseline.name.replace(/[^a-z0-9]/gi, "_")}_${formatDate(new Date())}.csv`,
+      toCsv(rows),
+      "text/csv;charset=utf-8;",
+    );
+    notify("Variance report exported.", "success");
+  });
+
   dom.actionCreateButton.addEventListener("click", () => {
     const activityId = dom.actionActivitySelect.value;
     const title = dom.actionTitleInput.value.trim();
@@ -488,6 +507,22 @@ function wireEvents() {
 
   dom.actionFilterStatus.addEventListener("change", renderActionTable);
   dom.actionFilterPriority.addEventListener("change", renderActionTable);
+
+  dom.anomalyTableBody.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.matches("[data-create-action-from-anomaly]")) {
+      const row = target.closest("tr");
+      const activityId = row?.dataset.anomalyActivity || "";
+      const issue = row?.dataset.anomalyIssue || "";
+      const recommendation = row?.dataset.anomalyRecommendation || "";
+      dom.actionActivitySelect.value = activityId;
+      dom.actionTitleInput.value = issue;
+      dom.actionNotesInput.value = recommendation;
+      dom.actionOwnerInput.focus();
+      notify("Action form pre-filled. Enter owner and due date.", "success");
+    }
+  });
 
   dom.actionTableBody.addEventListener("click", (event) => {
     const target = event.target;

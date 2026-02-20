@@ -1,5 +1,5 @@
 import { getMaterialHealth } from "./analytics.js";
-import { formatDate, formatHours, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
+import { escapeHtml, formatDate, formatHours, renderEmptyState, setActiveNavigation, statusClass, toCsv, triggerDownload } from "./common.js";
 import { getActivities, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
@@ -15,14 +15,8 @@ const dom = {
   departmentFilter: document.querySelector("#department-filter"),
   tableBody: document.querySelector("#materials-table-body"),
   tableSummary: document.querySelector("#material-table-summary"),
+  exportBtn: document.querySelector("#material-export-btn"),
 };
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
 
 function renderKpis() {
   const total = health.enriched.length;
@@ -83,13 +77,16 @@ function renderCharts() {
   if (ownershipChart) ownershipChart.destroy();
   if (statusChart) statusChart.destroy();
 
+  const ownershipLabels = Object.keys(health.ownershipCounts);
+  const ownershipValues = Object.values(health.ownershipCounts);
+  const totalOwnership = ownershipValues.reduce((a, b) => a + b, 0);
   ownershipChart = new Chart(ownershipContext, {
     type: "pie",
     data: {
-      labels: Object.keys(health.ownershipCounts),
+      labels: ownershipLabels,
       datasets: [
         {
-          data: Object.values(health.ownershipCounts),
+          data: ownershipValues,
           backgroundColor: [
             "rgba(47, 143, 255, 0.75)",
             "rgba(29, 184, 156, 0.74)",
@@ -106,22 +103,32 @@ function renderCharts() {
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          labels: {
-            color: "#2f4f7a",
+          labels: { color: "#2f4f7a" },
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = ctx.raw || 0;
+              const pct = totalOwnership ? ((v / totalOwnership) * 100).toFixed(1) : 0;
+              return `${ctx.label}: ${v} (${pct}%)`;
+            },
           },
         },
       },
     },
   });
 
+  const statusLabels = Object.keys(health.statusCounts);
+  const statusValues = Object.values(health.statusCounts);
+  const totalStatus = statusValues.reduce((a, b) => a + b, 0);
   statusChart = new Chart(statusContext, {
     type: "bar",
     data: {
-      labels: Object.keys(health.statusCounts),
+      labels: statusLabels,
       datasets: [
         {
           label: "Count",
-          data: Object.values(health.statusCounts),
+          data: statusValues,
           backgroundColor: "rgba(79, 179, 255, 0.76)",
         },
       ],
@@ -141,8 +148,15 @@ function renderCharts() {
         },
       },
       plugins: {
-        legend: {
-          labels: { color: "#2f4f7a" },
+        legend: { labels: { color: "#2f4f7a" } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = ctx.raw || 0;
+              const pct = totalStatus ? ((v / totalStatus) * 100).toFixed(1) : 0;
+              return `Count: ${v} (${pct}%)`;
+            },
+          },
         },
       },
     },
@@ -223,9 +237,36 @@ function renderTable() {
     .join("");
 }
 
+function exportMaterialsCsv() {
+  const ownership = dom.ownershipFilter?.value || "";
+  const status = dom.statusFilter?.value || "";
+  const department = dom.departmentFilter?.value || "";
+  const rows = health.enriched
+    .filter((a) => !ownership || a.materialOwnership === ownership)
+    .filter((a) => !status || a.materialStatus === status)
+    .filter((a) => !department || a.resourceDepartment === department)
+    .map((a) => ({
+      "Activity ID": a.activityId,
+      "Activity Name": a.activityName,
+      Ownership: a.materialOwnership,
+      Department: a.resourceDepartment,
+      "Required Materials": a.requiredMaterials,
+      "Lead Time (h)": a.materialLeadTime,
+      "Material Status": a.materialStatus,
+      Criticality: a.materialCriticality,
+      "Required Date": formatDate(a.materialRequiredDate),
+      "Received Date": formatDate(a.materialReceivedDate),
+    }));
+  triggerDownload(`materials_${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows), "text/csv;charset=utf-8;");
+}
+
 function wireEvents() {
   [dom.ownershipFilter, dom.statusFilter, dom.departmentFilter].forEach((node) => {
-    node.addEventListener("change", renderTable);
+    node?.addEventListener("change", renderTable);
+  });
+  dom.exportBtn?.addEventListener("click", () => {
+    if (!health?.enriched?.length) return;
+    exportMaterialsCsv();
   });
 }
 

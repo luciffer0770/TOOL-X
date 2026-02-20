@@ -48,6 +48,12 @@ export const COLUMN_SCHEMA = [
 export const IMPORT_REQUIRED_KEYS = COLUMN_SCHEMA.filter((column) => column.requiredImport).map((column) => column.key);
 export const IMPORT_REQUIRED_LABELS = COLUMN_SCHEMA.filter((column) => column.requiredImport).map((column) => column.label);
 
+export function normalizePhase(phase) {
+  const trimmed = String(phase ?? "").trim();
+  if (!trimmed) return "";
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
 export const ACTIVITY_STATUSES = ["Not Started", "In Progress", "Blocked", "Delayed", "Completed"];
 export const PRIORITY_LEVELS = ["Low", "Medium", "High", "Critical"];
 export const RISK_LEVELS = ["Low", "Medium", "High", "Critical"];

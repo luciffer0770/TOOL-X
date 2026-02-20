@@ -1,4 +1,6 @@
 const AUTH_STORAGE_KEY = "industrial_planning_auth_session_v1";
+const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000; // 8 hours
+const REMEMBER_ME_TIMEOUT_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const DEFAULT_USERS = [
   {
@@ -39,13 +41,17 @@ function toRole(roleOrUser) {
   return roleOrUser.role || "";
 }
 
-function sanitizeSession(user) {
+function sanitizeSession(user, rememberMe = false) {
   if (!user) return null;
+  const now = Date.now();
+  const expiresAt = rememberMe ? now + REMEMBER_ME_TIMEOUT_MS : now + SESSION_TIMEOUT_MS;
   return {
     username: user.username,
     displayName: user.displayName,
     role: user.role,
     loginAt: new Date().toISOString(),
+    expiresAt,
+    rememberMe: Boolean(rememberMe),
   };
 }
 
@@ -55,6 +61,11 @@ function readSession() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.username || !parsed?.role) return null;
+    const expiresAt = parsed.expiresAt;
+    if (expiresAt && Date.now() > expiresAt) {
+      writeSession(null);
+      return null;
+    }
     return parsed;
   } catch (error) {
     console.error("Failed to parse auth session", error);
@@ -92,15 +103,20 @@ export function getCurrentUser() {
   return readSession();
 }
 
-export function login(username, password) {
+export function login(username, password, rememberMe = false) {
   const normalizedUsername = String(username ?? "").trim().toLowerCase();
   const user = DEFAULT_USERS.find(
     (entry) => entry.username.toLowerCase() === normalizedUsername && entry.password === String(password ?? ""),
   );
   if (!user) return null;
-  const session = sanitizeSession(user);
+  const session = sanitizeSession(user, rememberMe);
   writeSession(session);
   return session;
+}
+
+export function getDemoPassword(username) {
+  const u = DEFAULT_USERS.find((entry) => entry.username.toLowerCase() === String(username ?? "").toLowerCase());
+  return u?.password ?? "";
 }
 
 export function logout() {

@@ -1,12 +1,11 @@
-import { getDefaultHomeForRole, getCurrentUser, listDemoUsers, login } from "./auth.js";
-import { notify } from "./common.js";
+import { getDefaultHomeForRole, getCurrentUser, getDemoPassword, listDemoUsers, login } from "./auth.js";
+import { escapeHtml, notify } from "./common.js";
 
 const form = document.querySelector("#login-form");
 const usernameInput = document.querySelector("#username-input");
 const passwordInput = document.querySelector("#password-input");
 const demoUserList = document.querySelector("#demo-user-list");
 const loginHint = document.querySelector("#login-hint");
-const forgotPasswordButton = document.querySelector(".login-link-btn");
 
 function parseNextPage() {
   const params = new URLSearchParams(location.search);
@@ -33,17 +32,19 @@ function roleBadgeText(role) {
 
 function renderDemoUsers() {
   const items = listDemoUsers()
-    .map(
-      (user) => `
-      <li class="demo-user-item role-${escapeHtml(user.role)}" data-username="${escapeHtml(user.username)}" data-password="${escapeHtml(user.username)}123">
+    .map((user) => {
+      const password = getDemoPassword(user.username);
+      return `
+      <li class="demo-user-item role-${escapeHtml(user.role)}" data-username="${escapeHtml(user.username)}" data-password="${escapeHtml(password)}">
         <span class="demo-user-icon" aria-hidden="true">${roleBadgeText(user.role)}</span>
         <span class="demo-user-main">
           <strong>${escapeHtml(user.displayName)}</strong>
-          <span>username: ${escapeHtml(user.username)} | password: ${escapeHtml(user.username)}123</span>
+          <span>username: ${escapeHtml(user.username)} | password: ${escapeHtml(password)}</span>
         </span>
+        <button type="button" class="demo-user-copy ghost" data-username="${escapeHtml(user.username)}" data-password="${escapeHtml(password)}" title="Copy credentials">Copy</button>
       </li>
-    `,
-    )
+    `;
+    })
     .join("");
   demoUserList.innerHTML = items;
 }
@@ -52,6 +53,16 @@ function wireDemoUserQuickFill() {
   demoUserList.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+    if (target.classList.contains("demo-user-copy")) {
+      const username = target.dataset.username || "";
+      const password = target.dataset.password || "";
+      const text = `username: ${username}\npassword: ${password}`;
+      navigator.clipboard.writeText(text).then(
+        () => notify("Credentials copied to clipboard.", "success"),
+        () => notify("Copy failed. Use username: " + username + " password: " + password, "info"),
+      );
+      return;
+    }
     const item = target.closest(".demo-user-item");
     if (!item) return;
     usernameInput.value = item.dataset.username || "";
@@ -66,23 +77,29 @@ function handleExistingSession() {
   location.href = parseNextPage() || getDefaultHomeForRole(currentUser);
 }
 
+function wirePasswordToggle() {
+  const toggle = document.querySelector("#password-toggle");
+  if (!toggle || !passwordInput) return;
+  toggle.addEventListener("click", () => {
+    const isPassword = passwordInput.type === "password";
+    passwordInput.type = isPassword ? "text" : "password";
+    toggle.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
+    toggle.querySelector(".password-toggle-icon").textContent = isPassword ? "🙈" : "👁";
+  });
+}
+
 function initialize() {
   handleExistingSession();
   renderDemoUsers();
   wireDemoUserQuickFill();
-  loginHint.textContent = "Use the demo credentials below or enter custom credentials.";
-  usernameInput.focus();
-
-  if (forgotPasswordButton) {
-    forgotPasswordButton.addEventListener("click", () => {
-      notify("Password reset is disabled in this frontend-only demo.", "warning");
-    });
-  }
+  wirePasswordToggle();
+  if (loginHint) loginHint.textContent = "Use the demo credentials below or enter custom credentials.";
+  usernameInput?.focus();
 
   const quickDemoBtn = document.querySelector("#quick-demo-btn");
   if (quickDemoBtn) {
     quickDemoBtn.addEventListener("click", () => {
-      const user = login("planner", "planner123");
+      const user = login("planner", "planner123", false);
       if (user) {
         const nextPage = parseNextPage() || getDefaultHomeForRole(user);
         location.href = nextPage;
@@ -92,7 +109,8 @@ function initialize() {
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    const user = login(usernameInput.value, passwordInput.value);
+    const rememberMe = document.querySelector("#remember-me")?.checked ?? false;
+    const user = login(usernameInput.value, passwordInput.value, rememberMe);
     if (!user) {
       notify("Invalid credentials. Try one of the demo users.", "error");
       passwordInput.value = "";

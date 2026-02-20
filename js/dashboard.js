@@ -1,5 +1,5 @@
 import { computePortfolioMetrics, getDelayAndRiskRows, getMaterialHealth, getPhaseProgress, groupBy } from "./analytics.js";
-import { formatCurrency, formatHours, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
+import { escapeHtml, formatCurrency, formatHours, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities, getProjectActions, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
@@ -8,13 +8,14 @@ import { getRoleLabel } from "./auth.js";
 let phaseChart;
 let riskChart;
 let currentUser;
+let snapshotDate = new Date();
 
 function buildKpiCards(metrics, role) {
   if (role === "management") {
     return [
-      { title: "Portfolio Activities", value: metrics.totalActivities, note: "Current monitored scope" },
-      { title: "Critical Delay Load", value: metrics.delayed, note: "Activities behind plan" },
-      { title: "High-Risk Exposure", value: metrics.highRisk, note: "Risk score >= 55" },
+      { title: "Portfolio Activities", value: metrics.totalActivities, note: "Current monitored scope", link: "activities.html" },
+      { title: "Critical Delay Load", value: metrics.delayed, note: "Activities behind plan", link: "activities.html", filter: "Delayed" },
+      { title: "High-Risk Exposure", value: metrics.highRisk, note: "Risk score >= 55", link: "intelligence.html" },
       { title: "Average Completion", value: `${metrics.avgCompletion}%`, note: "Execution progress" },
       { title: "Estimated Cost", value: formatCurrency(metrics.estimatedCost), note: "Portfolio baseline" },
       { title: "Cost Variance", value: formatCurrency(metrics.costVariance), note: "Current variance" },
@@ -50,13 +51,19 @@ function renderKpis(metrics, role) {
   const host = document.querySelector("#kpi-grid");
   host.innerHTML = cards
     .map(
-      (card) => `
-      <article class="kpi-card">
-        <div class="kpi-title">${card.title}</div>
-        <div class="kpi-value">${card.value}</div>
-        <div class="kpi-note">${card.note}</div>
-      </article>
-    `,
+      (card) => {
+        const href = card.link
+          ? `${card.link}${card.filter ? `?status=${encodeURIComponent(card.filter)}` : ""}`
+          : null;
+        const wrap = href
+          ? (content) => `<a href="${escapeHtml(href)}" class="kpi-card kpi-card-link">${content}</a>`
+          : (content) => `<article class="kpi-card">${content}</article>`;
+        return wrap(`
+        <div class="kpi-title">${escapeHtml(card.title)}</div>
+        <div class="kpi-value">${escapeHtml(String(card.value))}</div>
+        <div class="kpi-note">${escapeHtml(card.note)}</div>
+      `);
+      },
     )
     .join("");
 }
@@ -280,7 +287,7 @@ function render() {
   if (!currentUser) return;
   const role = currentUser.role;
   const activities = getActivities();
-  const metrics = computePortfolioMetrics(activities);
+  const metrics = computePortfolioMetrics(activities, snapshotDate);
   renderKpis(metrics, role);
 
   const phaseGrid = document.querySelector("#dashboard-phase-risk-grid");
@@ -305,7 +312,7 @@ function render() {
     renderRiskChart(metrics.enriched);
   }
 
-  const riskRows = getDelayAndRiskRows(activities);
+  const riskRows = getDelayAndRiskRows(activities, snapshotDate);
   const roleRows =
     role === "technician"
       ? riskRows.filter((row) => String(row.activityStatus).toLowerCase() !== "completed")
@@ -313,10 +320,24 @@ function render() {
   renderRiskTable(roleRows);
   renderAlertCenter(metrics, activities);
 
-  const dateLabel = document.querySelector("#dashboard-date");
-  if (dateLabel) {
-    dateLabel.textContent = `Snapshot: ${new Date().toISOString().slice(0, 10)} | Role: ${getRoleLabel(currentUser)}`;
+  const datePicker = document.querySelector("#dashboard-date-picker");
+  if (datePicker) {
+    datePicker.value = snapshotDate.toISOString().slice(0, 10);
   }
+}
+
+function wireDashboardEvents() {
+  const datePicker = document.querySelector("#dashboard-date-picker");
+  const refreshBtn = document.querySelector("#dashboard-refresh-btn");
+  datePicker?.addEventListener("change", (e) => {
+    snapshotDate = new Date(e.target.value || Date.now());
+    render();
+  });
+  refreshBtn?.addEventListener("click", () => {
+    snapshotDate = new Date();
+    if (datePicker) datePicker.value = snapshotDate.toISOString().slice(0, 10);
+    render();
+  });
 }
 
 function initialize() {
@@ -324,6 +345,7 @@ function initialize() {
   currentUser = initializeAccessShell();
   if (!currentUser) return;
   initializeProjectToolbar({ onProjectChange: render });
+  wireDashboardEvents();
   const unsubscribe = subscribeToStateChanges(render);
   window.addEventListener(
     "pagehide",

@@ -1,5 +1,5 @@
 import { computePortfolioMetrics, getDelayAndRiskRows, runScenarioSimulation } from "./analytics.js";
-import { formatHours, notify, setActiveNavigation, statusClass } from "./common.js";
+import { escapeHtml, formatHours, notify, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities, subscribeToStateChanges, updateActivity } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
@@ -19,8 +19,17 @@ const dom = {
   simLeadTime: document.querySelector("#sim-leadtime"),
   simOvertime: document.querySelector("#sim-overtime"),
   runSimButton: document.querySelector("#run-sim-btn"),
+  simPresetOvertime: document.querySelector("#sim-preset-overtime"),
+  simPresetManpower: document.querySelector("#sim-preset-manpower"),
+  simPresetLeadtime: document.querySelector("#sim-preset-leadtime"),
   simSummary: document.querySelector("#sim-summary"),
   simTableBody: document.querySelector("#sim-table-body"),
+};
+
+const SCENARIO_PRESETS = {
+  overtime: { manpower: 0, leadtime: 0, overtime: 3 },
+  manpower: { manpower: 20, leadtime: 0, overtime: 0 },
+  leadtime: { manpower: 0, leadtime: 25, overtime: 0 },
 };
 
 let activities = [];
@@ -186,12 +195,10 @@ function wireEvents() {
     const patch = {
       delayReason: dom.rootCauseText.value.trim(),
       activityStatus: dom.rootCauseStatus.value,
-      lastModifiedBy: currentUser?.displayName || dom.rootCauseAuthor.value.trim() || "Planner",
+      lastModifiedBy: currentUser?.displayName || dom.rootCauseAuthor?.value?.trim() || "Planner",
       lastModifiedDate: new Date().toISOString().slice(0, 10),
     };
-    if (canRunOptimization(currentUser)) {
-      patch.completionPercentage = Number(dom.rootCauseCompletion.value) || 0;
-    }
+    patch.completionPercentage = Number(dom.rootCauseCompletion?.value) || 0;
     updateActivity(activityId, patch);
     notify(`Root cause updated for ${activityId}.`, "success");
     dom.rootCauseText.value = "";
@@ -199,17 +206,38 @@ function wireEvents() {
   });
 
   dom.runSimButton.addEventListener("click", renderSimulation);
+
+  dom.simPresetOvertime?.addEventListener("click", () => {
+    dom.simManpower.value = SCENARIO_PRESETS.overtime.manpower;
+    dom.simLeadTime.value = SCENARIO_PRESETS.overtime.leadtime;
+    dom.simOvertime.value = SCENARIO_PRESETS.overtime.overtime;
+    renderSimulation();
+  });
+  dom.simPresetManpower?.addEventListener("click", () => {
+    dom.simManpower.value = SCENARIO_PRESETS.manpower.manpower;
+    dom.simLeadTime.value = SCENARIO_PRESETS.manpower.leadtime;
+    dom.simOvertime.value = SCENARIO_PRESETS.manpower.overtime;
+    renderSimulation();
+  });
+  dom.simPresetLeadtime?.addEventListener("click", () => {
+    dom.simManpower.value = SCENARIO_PRESETS.leadtime.manpower;
+    dom.simLeadTime.value = SCENARIO_PRESETS.leadtime.leadtime;
+    dom.simOvertime.value = SCENARIO_PRESETS.leadtime.overtime;
+    renderSimulation();
+  });
 }
 
 function initialize() {
   setActiveNavigation();
   currentUser = initializeAccessShell();
   if (!currentUser) return;
+  if (dom.rootCauseAuthor) {
+    dom.rootCauseAuthor.value = currentUser.displayName || currentUser.username || "Planner";
+  }
   if (!canRunOptimization(currentUser)) {
-    dom.rootCauseCompletion.disabled = true;
-    dom.rootCauseAuthor.value = currentUser.displayName;
-    dom.rootCauseAuthor.readOnly = true;
-    dom.runSimButton.disabled = true;
+    if (dom.rootCauseCompletion) dom.rootCauseCompletion.disabled = true;
+    if (dom.rootCauseAuthor) dom.rootCauseAuthor.readOnly = true;
+    if (dom.runSimButton) dom.runSimButton.disabled = true;
   }
   wireEvents();
   initializeProjectToolbar({ onProjectChange: renderAll });
