@@ -1,4 +1,4 @@
-import { enrichActivities, getCriticalPath, getTimelineBounds, parseDate } from "./analytics.js";
+import { enrichActivities, getCriticalPath, getDependencyHealth, getTimelineBounds, parseDate } from "./analytics.js";
 import { formatDate, formatHours, notify, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
@@ -19,6 +19,7 @@ const dom = {
 
 let activities = [];
 let bounds = getTimelineBounds([]);
+let dependencyHealth = getDependencyHealth([]);
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -80,7 +81,8 @@ function renderGantt() {
       .filter((activity) => !statusFilter || activity.activityStatus === statusFilter),
   );
 
-  dom.ganttSummary.textContent = `${rows.length} activities shown | Window ${formatDate(start)} to ${formatDate(end)} | Critical chain ${criticalPath.path.length} nodes`;
+  const dependencyIssueCount = dependencyHealth.activitiesWithMissingDependencies + dependencyHealth.cycleCount;
+  dom.ganttSummary.textContent = `${rows.length} activities shown | Window ${formatDate(start)} to ${formatDate(end)} | Critical chain ${criticalPath.path.length} nodes | Dependency issues ${dependencyIssueCount}`;
 
   if (!rows.length) {
     renderEmptyState(dom.ganttGrid, "No activities match the selected filters.");
@@ -90,10 +92,10 @@ function renderGantt() {
 
   const html = [];
   rows.forEach((activity) => {
-    const startDate = parseDate(activity.plannedStartDate) || parseDate(activity.actualStartDate) || start;
+    const startDate = parseDate(activity.actualStartDate) || parseDate(activity.plannedStartDate) || start;
     const endDate =
-      parseDate(activity.plannedEndDate) ||
       parseDate(activity.actualEndDate) ||
+      parseDate(activity.plannedEndDate) ||
       new Date(startDate.getTime() + Math.max(1, activity.plannedDurationHours || activity.baseEffortHours) * 60 * 60 * 1000);
 
     if (endDate < start || startDate > end) return;
@@ -137,7 +139,7 @@ function renderGantt() {
 function renderDependencyTable(rows) {
   const dependencyRows = rows.filter((activity) => String(activity.dependencies || "").trim());
   if (!dependencyRows.length) {
-    dom.dependencyBody.innerHTML = `<tr><td colspan="6"><div class="empty-state">No dependency relationships found.</div></td></tr>`;
+    dom.dependencyBody.innerHTML = `<tr><td colspan="7"><div class="empty-state">No dependency relationships found.</div></td></tr>`;
     return;
   }
 
@@ -152,10 +154,27 @@ function renderDependencyTable(rows) {
         <td><span class="${statusClass(activity.activityStatus)}">${escapeHtml(activity.activityStatus || "-")}</span></td>
         <td>${formatHours(activity.delayHours)}</td>
         <td><span class="${statusClass(activity.riskLevel)}">${escapeHtml(activity.riskLevel)} (${activity.riskScore})</span></td>
+        <td>${renderDependencyHealth(activity)}</td>
       </tr>
     `,
     )
     .join("");
+}
+
+function renderDependencyHealth(activity) {
+  const missing = dependencyHealth.missingByActivity[activity.activityId] ?? [];
+  const hasCycle = dependencyHealth.cycleActivityIds.includes(activity.activityId);
+  const signals = [];
+  if (missing.length) {
+    signals.push(`<span class="${statusClass("critical")}">Missing: ${escapeHtml(missing.join(", "))}</span>`);
+  }
+  if (hasCycle) {
+    signals.push(`<span class="${statusClass("critical")}">Cycle detected</span>`);
+  }
+  if (!signals.length) {
+    signals.push(`<span class="${statusClass("completed")}">Validated</span>`);
+  }
+  return signals.join("<br />");
 }
 
 function wireEvents() {
@@ -180,6 +199,7 @@ function loadProjectActivities({ resetView = false } = {}) {
   };
 
   activities = enrichActivities(getActivities());
+  dependencyHealth = getDependencyHealth(activities);
   bounds = getTimelineBounds(activities);
   populateFilters();
 

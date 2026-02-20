@@ -1,6 +1,6 @@
 import { computePortfolioMetrics, getDelayAndRiskRows, getMaterialHealth, getPhaseProgress, groupBy } from "./analytics.js";
 import { formatCurrency, formatHours, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
-import { getActivities, subscribeToStateChanges } from "./storage.js";
+import { getActivities, getProjectActions, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { getRoleLabel } from "./auth.js";
@@ -151,6 +151,22 @@ function renderAlertCenter(metrics, activities) {
   }
   if (metrics.blockedActivities.length > 0) {
     alerts.push(`Dependency blockers active: ${metrics.blockedActivities.length}`);
+  }
+
+  const actions = getProjectActions();
+  const openActions = actions.filter((action) => String(action.status || "").toLowerCase() !== "closed");
+  const overdueActions = openActions.filter((action) => {
+    if (!action.dueDate) return false;
+    const dueDate = new Date(action.dueDate);
+    if (Number.isNaN(dueDate.getTime())) return false;
+    dueDate.setHours(23, 59, 59, 999);
+    return dueDate.getTime() < Date.now();
+  });
+  if (openActions.length > 0) {
+    alerts.push(`Open mitigation actions: ${openActions.length}`);
+  }
+  if (overdueActions.length > 0) {
+    alerts.push(`Overdue mitigation actions: ${overdueActions.length}`);
   }
 
   if (!alerts.length) {

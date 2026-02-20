@@ -28,6 +28,7 @@
         <a data-nav href="gantt.html">Gantt & Dependencies</a>
         <a data-nav href="materials.html">Material Intelligence</a>
         <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+        <a data-nav href="anomaly-center.html">Anomaly, Baseline & Actions</a>
       </nav>
 
       <section class="panel">
@@ -91,6 +92,20 @@
 
       <section class="panel">
         <div class="panel-header">
+          <h2>How Gantt & Dependency Intelligence Helps</h2>
+          <span class="panel-subtitle">Operational visibility + proactive issue detection</span>
+        </div>
+        <div class="panel-body">
+          <ul class="list">
+            <li>Shows planned/actual activity windows in one timeline so execution drift is visible immediately.</li>
+            <li>Highlights delayed and critical-path activities to focus daily control meetings on true bottlenecks.</li>
+            <li>Validates dependency integrity to catch missing links and circular chains before schedule failures escalate.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
           <h2>Execution Gantt</h2>
           <span class="panel-subtitle" id="gantt-summary"></span>
         </div>
@@ -116,6 +131,7 @@
                   <th>Status</th>
                   <th>Delay</th>
                   <th>Risk</th>
+                  <th>Dependency Health</th>
                 </tr>
               </thead>
               <tbody id="dependency-table-body"></tbody>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anomaly, Baseline & Actions | Industrial Planning Intelligence</title>
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="title-block">
+          <h1>Digital Twin – Activity Control Center</h1>
+          <p>Enterprise lifecycle planning, structured activity control, and intelligent bulk data management</p>
+        </div>
+        <div class="header-meta">
+          <div class="session-chip">
+            <span id="user-role-badge" class="badge badge-neutral"></span>
+            <span id="user-display-name" class="small"></span>
+            <button id="logout-btn" class="ghost">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="nav">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+        <a data-nav href="anomaly-center.html">Anomaly, Baseline & Actions</a>
+      </nav>
+
+      <section class="panel">
+        <div class="panel-body project-toolbar">
+          <label class="field project-select-field"
+            >Active Project
+            <select id="project-select"></select>
+          </label>
+          <div class="row-actions">
+            <button id="project-add-btn" data-role-hide="technician">New Project</button>
+            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate Template</button>
+            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
+            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+          </div>
+          <div id="project-summary" class="small"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Anomaly Center</h2>
+          <span class="panel-subtitle">Automatic data-quality and schedule-integrity checks</span>
+        </div>
+        <div class="panel-body">
+          <div id="anomaly-kpi-grid" class="kpi-grid"></div>
+          <div class="form-grid" style="margin-top: 12px">
+            <label class="field"
+              >Severity
+              <select id="anomaly-severity-filter">
+                <option value="">All</option>
+                <option value="Critical">Critical</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </label>
+            <label class="field"
+              >Search by Activity / Issue
+              <input id="anomaly-search-input" type="search" placeholder="Type activity id, name, or anomaly..." />
+            </label>
+          </div>
+          <div id="anomaly-summary" class="small" style="margin-top: 10px"></div>
+          <div class="table-wrap" style="margin-top: 10px">
+            <table>
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>Anomaly</th>
+                  <th>Severity</th>
+                  <th>Details</th>
+                  <th>Recommended Action</th>
+                </tr>
+              </thead>
+              <tbody id="anomaly-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Baseline Lock + Variance Tracking</h2>
+          <span class="panel-subtitle">Freeze snapshots and compare current execution against baseline versions</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="field"
+              >New Baseline Name
+              <input id="baseline-name-input" type="text" placeholder="Baseline v1 / Week-06 Freeze" />
+            </label>
+            <label class="field"
+              >Compare Against
+              <select id="baseline-compare-select">
+                <option value="">No baseline available</option>
+              </select>
+            </label>
+          </div>
+          <div class="row-actions" style="margin-top: 10px">
+            <button id="baseline-lock-btn">Lock Baseline Snapshot</button>
+          </div>
+          <div id="baseline-summary" class="small" style="margin-top: 8px"></div>
+
+          <div id="baseline-variance-grid" class="kpi-grid" style="margin-top: 12px"></div>
+
+          <div class="grid cols-2" style="margin-top: 10px">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th>Created</th>
+                    <th>Owner</th>
+                    <th>Activities</th>
+                  </tr>
+                </thead>
+                <tbody id="baseline-history-body"></tbody>
+              </table>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>Baseline</th>
+                    <th>Current</th>
+                    <th>Variance</th>
+                  </tr>
+                </thead>
+                <tbody id="baseline-compare-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Action Workflow</h2>
+          <span class="panel-subtitle">Assign mitigation owners, due dates, and execution status</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="field"
+              >Activity
+              <select id="action-activity-select">
+                <option value="">Select activity</option>
+              </select>
+            </label>
+            <label class="field"
+              >Action Title
+              <input id="action-title-input" type="text" placeholder="Example: Escalate supplier heat-treatment bottleneck" />
+            </label>
+            <label class="field"
+              >Owner
+              <input id="action-owner-input" type="text" placeholder="Responsible person" />
+            </label>
+            <label class="field"
+              >Due Date
+              <input id="action-due-date-input" type="date" />
+            </label>
+            <label class="field"
+              >Priority
+              <select id="action-priority-select">
+                <option>Medium</option>
+                <option>Low</option>
+                <option>High</option>
+                <option>Critical</option>
+              </select>
+            </label>
+            <label class="field"
+              >Status
+              <select id="action-status-select">
+                <option>Open</option>
+                <option>In Review</option>
+                <option>Closed</option>
+              </select>
+            </label>
+          </div>
+          <label class="field" style="margin-top: 10px"
+            >Notes
+            <textarea id="action-notes-input" placeholder="Additional execution notes and expected outcome"></textarea>
+          </label>
+          <div class="row-actions" style="margin-top: 10px">
+            <button id="action-create-btn">Create Action</button>
+          </div>
+
+          <div class="form-grid" style="margin-top: 14px">
+            <label class="field"
+              >Filter Status
+              <select id="action-filter-status">
+                <option value="">All</option>
+                <option value="Open">Open</option>
+                <option value="In Review">In Review</option>
+                <option value="Closed">Closed</option>
+              </select>
+            </label>
+            <label class="field"
+              >Filter Priority
+              <select id="action-filter-priority">
+                <option value="">All</option>
+                <option value="Critical">Critical</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </label>
+          </div>
+          <div id="action-summary" class="small" style="margin-top: 8px"></div>
+
+          <div class="table-wrap" style="margin-top: 10px">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Activity</th>
+                  <th>Action</th>
+                  <th>Owner</th>
+                  <th>Due</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Notes</th>
+                  <th>Updated</th>
+                  <th>Workflow</th>
+                </tr>
+              </thead>
+              <tbody id="action-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="./js/anomaly-center.js"></script>
+  </body>
+</html>

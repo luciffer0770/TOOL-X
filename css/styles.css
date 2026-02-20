@@ -277,6 +277,16 @@ button.danger {
   border-radius: 10px;
 }
 
+#activities-table-wrap {
+  max-height: min(70vh, 860px);
+  overflow: auto;
+}
+
+#activities-table-wrap th {
+  top: 0;
+  z-index: 6;
+}
+
 .floating-x-scroll {
   position: fixed;
   bottom: 10px;

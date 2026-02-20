@@ -74,6 +74,13 @@ export function getExpectedCompletion(activity, referenceDate = new Date()) {
   return clamp((elapsed / total) * 100, 0, 100);
 }
 
+function normalizedCompletion(activity) {
+  const completion = clamp(toNumber(activity.completionPercentage), 0, 100);
+  if (String(activity.activityStatus).toLowerCase() === "completed") return 100;
+  if (parseDate(activity.actualEndDate)) return 100;
+  return completion;
+}
+
 export function getDelayHours(activity, referenceDate = new Date()) {
   const plannedEnd = parseDate(activity.plannedEndDate);
   if (!plannedEnd) return 0;
@@ -81,7 +88,7 @@ export function getDelayHours(activity, referenceDate = new Date()) {
   const actualEnd = parseDate(activity.actualEndDate);
   if (actualEnd) return Math.max(0, diffHours(plannedEnd, actualEnd));
 
-  const completion = toNumber(activity.completionPercentage);
+  const completion = normalizedCompletion(activity);
   if (completion >= 100 || String(activity.activityStatus).toLowerCase() === "completed") {
     return 0;
   }
@@ -143,7 +150,7 @@ export function computeRiskScore(activity, referenceDate = new Date()) {
   const delayScore = clamp(delayRatio * 45, 0, 40);
 
   const expectedCompletion = getExpectedCompletion(activity, referenceDate);
-  const completion = toNumber(activity.completionPercentage);
+  const completion = normalizedCompletion(activity);
   const completionGap = Math.max(0, expectedCompletion - completion);
   const executionScore = clamp(completionGap * 0.35, 0, 20);
 
@@ -166,7 +173,7 @@ export function isDelayed(activity, referenceDate = new Date()) {
 }
 
 export function inferStatus(activity, referenceDate = new Date()) {
-  const completion = toNumber(activity.completionPercentage);
+  const completion = normalizedCompletion(activity);
   if (completion >= 100 || parseDate(activity.actualEndDate)) return "Completed";
   if (isDelayed(activity, referenceDate)) return "Delayed";
   if (parseDate(activity.actualStartDate) || completion > 0) return "In Progress";
@@ -175,12 +182,14 @@ export function inferStatus(activity, referenceDate = new Date()) {
 
 export function enrichActivity(activity, referenceDate = new Date()) {
   const sanitized = sanitizeActivity(activity);
+  const completionPercentage = normalizedCompletion(sanitized);
   const plannedDurationHours = Math.round(getPlannedDurationHours(sanitized) * 100) / 100;
   const actualDurationHours = Math.round(getActualDurationHours(sanitized, referenceDate) * 100) / 100;
   const delayHours = Math.round(getDelayHours(sanitized, referenceDate) * 100) / 100;
   const riskScore = computeRiskScore(
     {
       ...sanitized,
+      completionPercentage,
       plannedDurationHours,
       actualDurationHours,
     },
@@ -191,6 +200,7 @@ export function enrichActivity(activity, referenceDate = new Date()) {
 
   return {
     ...sanitized,
+    completionPercentage,
     plannedDurationHours,
     actualDurationHours,
     delayHours,
@@ -216,6 +226,71 @@ export function buildDependencyGraph(activities) {
   });
 
   return graph;
+}
+
+export function detectDependencyCycles(activities) {
+  const graph = buildDependencyGraph(activities);
+  const visited = new Set();
+  const visiting = new Set();
+  const stack = [];
+  const cycleIds = new Set();
+
+  function visit(node) {
+    visiting.add(node);
+    stack.push(node);
+
+    const dependencies = graph.get(node) ?? [];
+    dependencies.forEach((dependencyId) => {
+      if (!graph.has(dependencyId)) return;
+      if (visiting.has(dependencyId)) {
+        const cycleStart = stack.indexOf(dependencyId);
+        if (cycleStart >= 0) {
+          for (let index = cycleStart; index < stack.length; index += 1) {
+            cycleIds.add(stack[index]);
+          }
+        }
+        cycleIds.add(dependencyId);
+        return;
+      }
+      if (!visited.has(dependencyId)) {
+        visit(dependencyId);
+      }
+    });
+
+    stack.pop();
+    visiting.delete(node);
+    visited.add(node);
+  }
+
+  graph.forEach((_, node) => {
+    if (!visited.has(node)) visit(node);
+  });
+
+  return cycleIds;
+}
+
+export function getDependencyHealth(activities) {
+  const sanitized = activities.map((activity) => sanitizeActivity(activity));
+  const activityIds = new Set(sanitized.map((activity) => activity.activityId).filter(Boolean));
+  const missingByActivity = {};
+  let missingDependencyLinks = 0;
+
+  sanitized.forEach((activity) => {
+    const missing = parseDependencies(activity.dependencies).filter((dependencyId) => !activityIds.has(dependencyId));
+    if (!missing.length) return;
+    missingByActivity[activity.activityId] = missing;
+    missingDependencyLinks += missing.length;
+  });
+
+  const cycleIds = detectDependencyCycles(sanitized);
+
+  return {
+    missingByActivity,
+    missingDependencyLinks,
+    activitiesWithMissingDependencies: Object.keys(missingByActivity).length,
+    cycleActivityIds: [...cycleIds],
+    cycleCount: cycleIds.size,
+  };
 }
 
 export function topologicalSort(activities) {
@@ -506,6 +581,110 @@ export function getDelayAndRiskRows(activities, referenceDate = new Date()) {
   return enrichActivities(activities, referenceDate)
     .filter((activity) => isDelayed(activity, referenceDate) || activity.riskScore >= 55)
     .sort((left, right) => right.riskScore - left.riskScore);
+}
+
+function anomalySeverityRank(severity) {
+  const normalized = String(severity).toLowerCase();
+  if (normalized === "critical") return 4;
+  if (normalized === "high") return 3;
+  if (normalized === "medium") return 2;
+  return 1;
+}
+
+export function getAnomalyRows(activities, referenceDate = new Date()) {
+  const sanitized = activities.map((activity) => sanitizeActivity(activity));
+  const dependencyHealth = getDependencyHealth(sanitized);
+  const cycleSet = new Set(dependencyHealth.cycleActivityIds);
+  const rows = [];
+
+  sanitized.forEach((activity) => {
+    const activityId = activity.activityId || "UNKNOWN";
+    const activityName = activity.activityName || "-";
+    const completion = clamp(toNumber(activity.completionPercentage), 0, 100);
+    const status = String(activity.activityStatus || "").toLowerCase();
+    const start = parseDate(activity.actualStartDate);
+    const end = parseDate(activity.actualEndDate);
+    const delayedWithoutReason = isDelayed(activity, referenceDate) && !String(activity.delayReason || "").trim();
+    const missingDependencies = dependencyHealth.missingByActivity[activity.activityId] ?? [];
+
+    if (status === "completed" && completion < 100) {
+      rows.push({
+        ruleId: "completed_without_full_completion",
+        activityId,
+        activityName,
+        severity: "High",
+        issue: "Completed status but completion is below 100%",
+        details: `Completion is ${completion}%.`,
+        recommendation: "Set completion to 100% or correct the status.",
+      });
+    }
+
+    if (start && end && end < start) {
+      rows.push({
+        ruleId: "actual_end_before_start",
+        activityId,
+        activityName,
+        severity: "Critical",
+        issue: "Actual end date is before actual start date",
+        details: `${dateToIso(end)} is earlier than ${dateToIso(start)}.`,
+        recommendation: "Correct actual start/end dates before reporting progress.",
+      });
+    }
+
+    if (delayedWithoutReason) {
+      rows.push({
+        ruleId: "delayed_without_root_cause",
+        activityId,
+        activityName,
+        severity: "High",
+        issue: "Delayed activity has no root cause",
+        details: "Delay reason field is blank.",
+        recommendation: "Capture root cause and mitigation action.",
+      });
+    }
+
+    if (missingDependencies.length) {
+      rows.push({
+        ruleId: "missing_dependency_reference",
+        activityId,
+        activityName,
+        severity: "Critical",
+        issue: "Missing dependency references detected",
+        details: `Unknown dependency IDs: ${missingDependencies.join(", ")}.`,
+        recommendation: "Correct dependency IDs or add missing predecessor activities.",
+      });
+    }
+
+    if (cycleSet.has(activity.activityId)) {
+      rows.push({
+        ruleId: "dependency_cycle_detected",
+        activityId,
+        activityName,
+        severity: "Critical",
+        issue: "Dependency cycle detected",
+        details: "Activity participates in a circular dependency loop.",
+        recommendation: "Break the cycle by revising predecessor links.",
+      });
+    }
+
+    if (String(activity.materialStatus).toLowerCase() === "received" && !parseDate(activity.materialReceivedDate)) {
+      rows.push({
+        ruleId: "received_without_date",
+        activityId,
+        activityName,
+        severity: "Medium",
+        issue: "Material marked received without received date",
+        details: "Material status is Received but materialReceivedDate is empty.",
+        recommendation: "Enter the material received date for traceability.",
+      });
+    }
+  });
+
+  return rows.sort((left, right) => {
+    const severityDelta = anomalySeverityRank(right.severity) - anomalySeverityRank(left.severity);
+    if (severityDelta !== 0) return severityDelta;
+    return String(left.activityId).localeCompare(String(right.activityId));
+  });
 }
 
 export function getPhaseProgress(activities) {

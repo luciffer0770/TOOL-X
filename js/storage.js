@@ -3,6 +3,57 @@ import { COLUMN_SCHEMA, generateActivityId, sanitizeActivity } from "./schema.js
 const STORAGE_KEY = "industrial_planning_intelligence_state_v1";
 const STATE_CHANGE_EVENT = "industrial_planning_state_changed";
 const PROJECT_ID_PATTERN = /^PRJ-(\d{4,})$/;
+const BASELINE_ID_PATTERN = /^BL-(\d{4,})$/;
+const ACTION_ID_PATTERN = /^ACTN-(\d{4,})$/;
+
+function toIsoDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function toIsoTimestamp(value) {
+  if (!value) return new Date().toISOString();
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return new Date().toISOString();
+  return date.toISOString();
+}
+
+function sanitizeAction(rawAction) {
+  const action = rawAction ?? {};
+  const normalizedStatus = String(action.status || "Open").trim();
+  const allowedStatus = new Set(["Open", "In Review", "Closed"]);
+  const normalizedPriority = String(action.priority || "Medium").trim();
+  const allowedPriority = new Set(["Low", "Medium", "High", "Critical"]);
+
+  return {
+    id: String(action.id || "").trim(),
+    activityId: String(action.activityId || "").trim(),
+    title: String(action.title || "").trim(),
+    owner: String(action.owner || "").trim(),
+    dueDate: toIsoDate(action.dueDate),
+    status: allowedStatus.has(normalizedStatus) ? normalizedStatus : "Open",
+    priority: allowedPriority.has(normalizedPriority) ? normalizedPriority : "Medium",
+    notes: String(action.notes || "").trim(),
+    createdBy: String(action.createdBy || "Planner").trim(),
+    createdAt: toIsoTimestamp(action.createdAt),
+    updatedAt: toIsoTimestamp(action.updatedAt),
+  };
+}
+
+function sanitizeBaseline(rawBaseline, fallbackName) {
+  const baseline = rawBaseline ?? {};
+  const normalizedName = String(baseline.name || "").trim() || fallbackName;
+  const rawActivities = Array.isArray(baseline.activities) ? baseline.activities : [];
+  return {
+    id: String(baseline.id || "").trim(),
+    name: normalizedName,
+    activities: rawActivities.map((activity) => sanitizeActivity(activity)),
+    createdBy: String(baseline.createdBy || "Planner").trim(),
+    createdAt: toIsoTimestamp(baseline.createdAt),
+  };
+}
 
 function createDefaultVisibility() {
   const defaultVisibility = {};
@@ -12,11 +63,17 @@ function createDefaultVisibility() {
   return defaultVisibility;
 }
 
-function createProject(id, name, activities = []) {
+function createProject(id, name, activities = [], baselines = [], actions = []) {
+  const normalizedBaselines = baselines.map((baseline, index) =>
+    sanitizeBaseline(baseline, `Baseline v${index + 1}`),
+  );
+  const normalizedActions = actions.map((action) => sanitizeAction(action));
   return {
     id,
     name,
     activities: activities.map((activity) => sanitizeActivity(activity)),
+    baselines: normalizedBaselines,
+    actions: normalizedActions,
   };
 }
 
@@ -41,6 +98,28 @@ function getNextProjectId(projects) {
     }
   });
   return `PRJ-${String(max + 1).padStart(4, "0")}`;
+}
+
+function getNextBaselineId(baselines) {
+  let max = 0;
+  baselines.forEach((baseline) => {
+    const match = BASELINE_ID_PATTERN.exec(String(baseline?.id || ""));
+    if (match) {
+      max = Math.max(max, Number(match[1]));
+    }
+  });
+  return `BL-${String(max + 1).padStart(4, "0")}`;
+}
+
+function getNextActionId(actions) {
+  let max = 0;
+  actions.forEach((action) => {
+    const match = ACTION_ID_PATTERN.exec(String(action?.id || ""));
+    if (match) {
+      max = Math.max(max, Number(match[1]));
+    }
+  });
+  return `ACTN-${String(max + 1).padStart(4, "0")}`;
 }
 
 function normalizeProjectName(rawName, index) {
@@ -76,7 +155,9 @@ function normalizeState(state) {
         : Array.isArray(project?.items)
           ? project.items
           : [];
-      normalizedProjects.push(createProject(id, name, rawActivities));
+      const rawBaselines = Array.isArray(project?.baselines) ? project.baselines : [];
+      const rawActions = Array.isArray(project?.actions) ? project.actions : [];
+      normalizedProjects.push(createProject(id, name, rawActivities, rawBaselines, rawActions));
     });
   } else if (Array.isArray(state.activities)) {
     // Migration path from older single-project state.
@@ -173,6 +254,8 @@ export function getActiveProject() {
     id: project.id,
     name: project.name,
     activities: project.activities.map((activity) => sanitizeActivity(activity)),
+    baselines: (project.baselines ?? []).map((baseline, index) => sanitizeBaseline(baseline, `Baseline v${index + 1}`)),
+    actions: (project.actions ?? []).map((action) => sanitizeAction(action)),
   };
 }
 
@@ -328,6 +411,90 @@ export function deleteActivity(activityId) {
   const state = getState();
   const project = getActiveProjectRecord(state);
   project.activities = project.activities.filter((activity) => activity.activityId !== activityId);
+  saveState(state);
+}
+
+export function getProjectBaselines() {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  return (project.baselines ?? [])
+    .map((baseline, index) => sanitizeBaseline(baseline, `Baseline v${index + 1}`))
+    .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
+}
+
+export function addProjectBaseline({ name = "", createdBy = "Planner" } = {}) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  if (!Array.isArray(project.baselines)) {
+    project.baselines = [];
+  }
+  const baselineName = String(name || "").trim() || `Baseline v${project.baselines.length + 1}`;
+  const baseline = sanitizeBaseline(
+    {
+      id: getNextBaselineId(project.baselines),
+      name: baselineName,
+      activities: project.activities.map((activity) => sanitizeActivity(activity)),
+      createdBy: String(createdBy || "Planner").trim(),
+      createdAt: new Date().toISOString(),
+    },
+    baselineName,
+  );
+  project.baselines.push(baseline);
+  saveState(state);
+  return baseline;
+}
+
+export function getProjectActions() {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  return (project.actions ?? []).map((action) => sanitizeAction(action));
+}
+
+export function addProjectAction(actionInput) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  if (!Array.isArray(project.actions)) {
+    project.actions = [];
+  }
+  const action = sanitizeAction({
+    ...actionInput,
+    id: getNextActionId(project.actions),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  project.actions.push(action);
+  saveState(state);
+  return action;
+}
+
+export function updateProjectAction(actionId, patch) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  if (!Array.isArray(project.actions)) {
+    project.actions = [];
+  }
+  const index = project.actions.findIndex((action) => action.id === actionId);
+  if (index === -1) return null;
+  const updated = sanitizeAction({
+    ...project.actions[index],
+    ...patch,
+    id: actionId,
+    updatedAt: new Date().toISOString(),
+  });
+  project.actions[index] = updated;
+  saveState(state);
+  return updated;
+}
+
+export function deleteProjectAction(actionId) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  if (!Array.isArray(project.actions)) {
+    project.actions = [];
+    saveState(state);
+    return;
+  }
+  project.actions = project.actions.filter((action) => action.id !== actionId);
   saveState(state);
 }
 

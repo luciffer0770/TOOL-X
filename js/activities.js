@@ -499,11 +499,32 @@ function handleCellUpdate(activityId, field, value) {
     return;
   }
 
-  updateActivity(activityId, {
+  const normalizedPatch = {
     [field]: value,
     lastModifiedBy: editor,
     lastModifiedDate: new Date().toISOString().slice(0, 10),
-  });
+  };
+
+  if (field === "completionPercentage") {
+    const completion = Math.max(0, Math.min(100, Number(value) || 0));
+    normalizedPatch.completionPercentage = completion;
+    if (completion >= 100) {
+      normalizedPatch.activityStatus = "Completed";
+    } else if (completion > 0 && String(viewState.activities.find((row) => row.activityId === activityId)?.activityStatus || "").toLowerCase() === "not started") {
+      normalizedPatch.activityStatus = "In Progress";
+    }
+  }
+
+  if (field === "activityStatus" && String(value || "").trim().toLowerCase() === "completed") {
+    normalizedPatch.completionPercentage = 100;
+  }
+
+  if (field === "actualEndDate" && String(value || "").trim()) {
+    normalizedPatch.activityStatus = "Completed";
+    normalizedPatch.completionPercentage = 100;
+  }
+
+  updateActivity(activityId, normalizedPatch);
   refreshFromStorage();
 }
 
