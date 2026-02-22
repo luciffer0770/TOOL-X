@@ -21,6 +21,10 @@ function setUndoStack(stack) {
   localStorage.setItem(UNDO_STACK_KEY, JSON.stringify(stack.slice(-MAX_UNDO_DEPTH)));
 }
 
+export function clearUndoStack() {
+  setUndoStack([]);
+}
+
 export function pushUndoSnapshot(description) {
   const state = getState();
   const project = state.projects.find((p) => p.id === state.activeProjectId);

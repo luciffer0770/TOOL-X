@@ -1,5 +1,6 @@
 import { getDefaultHomeForRole, getCurrentUser, getDemoPassword, listDemoUsers, login } from "./auth.js";
-import { escapeHtml, notify } from "./common.js";
+import { escapeHtml, notify, showModal } from "./common.js";
+import { resetApplicationData } from "./storage.js";
 
 const form = document.querySelector("#login-form");
 const usernameInput = document.querySelector("#username-input");
@@ -121,6 +122,24 @@ function initialize() {
     const nextPage = parseNextPage() || getDefaultHomeForRole(user);
     location.href = nextPage;
   });
+
+  const resetBtn = document.querySelector("#reset-data-btn");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", async () => {
+      const confirmed = await showModal({
+        title: "Reset Application Data",
+        body: "This will clear all projects, activities, login session, and undo history. You will start with a fresh empty project. This cannot be undone.",
+        primaryLabel: "Reset & Reload",
+        secondaryLabel: "Cancel",
+        danger: true,
+      });
+      if (confirmed) {
+        resetApplicationData();
+        notify("Data cleared. Reloading…", "info");
+        location.reload();
+      }
+    });
+  }
 }
 
 initialize();

@@ -2,7 +2,8 @@
  * Shared shell behavior: keyboard shortcuts, nav toggle, help button.
  * Load this on all app pages (not login).
  */
-import { notify, showKeyboardShortcuts, showNotificationHistory } from "./common.js";
+import { notify, showKeyboardShortcuts, showModal, showNotificationHistory } from "./common.js";
+import { resetApplicationData } from "./storage.js";
 import { canUndo, undo } from "./undo.js";
 
 export function initShell() {
@@ -60,6 +61,28 @@ export function initShell() {
     document.documentElement.setAttribute("data-theme", isDark ? "" : "dark");
     themeToggle.textContent = isDark ? "☀" : "🌙";
     localStorage.setItem("industrial_planning_theme", isDark ? "light" : "dark");
+  });
+
+  const resetBtn = document.createElement("button");
+  resetBtn.className = "ghost small";
+  resetBtn.type = "button";
+  resetBtn.textContent = "Reset data";
+  resetBtn.title = "Clear all data and start fresh (if mixed up or corrupted)";
+  resetBtn.setAttribute("aria-label", "Reset application data");
+  sessionChip?.parentElement?.insertBefore(resetBtn, sessionChip);
+  resetBtn.addEventListener("click", async () => {
+    const confirmed = await showModal({
+      title: "Reset Application Data",
+      body: "This will clear all projects, activities, login session, and undo history. You will start with a fresh empty project. This cannot be undone.",
+      primaryLabel: "Reset & Reload",
+      secondaryLabel: "Cancel",
+      danger: true,
+    });
+    if (confirmed) {
+      resetApplicationData();
+      notify("Data cleared. Reloading…", "info");
+      location.href = "login.html";
+    }
   });
 
   document.addEventListener("keydown", (e) => {

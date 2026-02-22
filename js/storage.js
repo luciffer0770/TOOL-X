@@ -270,6 +270,18 @@ export function setActiveProject(projectId) {
   return true;
 }
 
+/** Keys used by this app in localStorage. Used for reset. */
+export const APP_STORAGE_KEYS = [
+  "industrial_planning_intelligence_state_v1",
+  "industrial_planning_auth_session_v1",
+  "industrial_planning_undo_stack_v1",
+  "industrial_planning_theme",
+];
+
+export function resetApplicationData() {
+  APP_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+}
+
 export function addProject(projectName) {
   const state = getState();
   const id = getNextProjectId(state.projects);

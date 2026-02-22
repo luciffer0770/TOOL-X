@@ -1326,6 +1326,19 @@ body.login-page::after {
   margin: 0 0 8px;
 }
 
+.login-reset-hint {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(197, 211, 233, 0.6);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.login-reset-hint .ghost {
+  padding: 2px 6px;
+  font-size: inherit;
+}
+
 .demo-user-list {
   list-style: none;
   margin: 0;

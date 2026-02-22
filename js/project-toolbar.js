@@ -11,6 +11,7 @@ import {
   setActiveProject,
 } from "./storage.js";
 import { canManageProjects, getCurrentUser } from "./auth.js";
+import { clearUndoStack } from "./undo.js";
 
 const PROJECT_NAME_MAX_LENGTH = 120;
 
@@ -61,6 +62,7 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
       render();
       return;
     }
+    clearUndoStack();
     notify("Active project switched.", "success");
     render();
     runChangeHandler();
