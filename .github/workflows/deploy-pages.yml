@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - tool-updated
       - cursor/tool-access-setup-0fba
       - cursor/preparation-planning-intelligence-4966
       - experiment/ui-redesign-tool

@@ -10,7 +10,7 @@ import { showAuditTrail } from "./audit.js";
 export function initShell() {
   initGlobalSearch();
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    navigator.serviceWorker.register("./sw.js?v=5").catch(() => {});
   }
   const nav = document.querySelector(".nav");
   const helpBtn = document.createElement("button");

@@ -1,4 +1,4 @@
-const CACHE_NAME = "atlas-v3";
+const CACHE_NAME = "atlas-v5";
 const BASE = self.location.pathname.replace(/\/[^/]*$/, "/") || "/";
 const ASSETS = [
   "index.html",
@@ -46,12 +46,9 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
-  const isNav = e.request.mode === "navigate" || e.request.destination === "document";
-  if (isNav) {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-    return;
-  }
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request).catch(() => caches.match(e.request)))
+    fetch(e.request)
+      .then((res) => res)
+      .catch(() => caches.match(e.request))
   );
 });
