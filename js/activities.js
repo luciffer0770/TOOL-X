@@ -13,7 +13,7 @@ import {
   getColumnByHeader,
   mapRowToActivity,
 } from "./schema.js";
-import { debounce, escapeHtml, notify, setActiveNavigation, showLoading, showModal, toCsv, triggerDownload } from "./common.js";
+import { debounce, escapeHtml, notify, setActiveNavigation, setupBeforeUnload, showLoading, showModal, statusClass, toCsv, triggerDownload } from "./common.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { initShell } from "./shell.js";
@@ -66,11 +66,14 @@ const dom = {
   importDropZone: document.querySelector("#import-drop-zone"),
   mergeStrategy: document.querySelector("#merge-strategy"),
   exportCsvButton: document.querySelector("#export-csv-btn"),
+  exportExcelButton: document.querySelector("#export-excel-btn"),
   exportJsonButton: document.querySelector("#export-json-btn"),
+  exportPdfButton: document.querySelector("#export-pdf-btn"),
   clearButton: document.querySelector("#clear-btn"),
   tableHead: document.querySelector("#activities-head"),
   tableBody: document.querySelector("#activities-body"),
   tableWrap: document.querySelector("#activities-table-wrap"),
+  cardGrid: document.querySelector("#activities-card-grid"),
   floatingXScroll: document.querySelector("#activities-floating-scroll"),
   floatingXTrack: document.querySelector("#activities-floating-scroll-track"),
   columnChipGroup: document.querySelector("#column-chip-group"),
@@ -109,6 +112,7 @@ const uiState = {
   columnPanelCloseTimer: null,
   syncingTableScroll: false,
   syncingFloatingScroll: false,
+  hasUnsavedEdits: false,
 };
 
 let currentUser = null;
@@ -291,6 +295,7 @@ function renderTable() {
     viewState.selectedIds.clear();
     if (dom.bulkActions) dom.bulkActions.hidden = true;
     dom.tableBody.innerHTML = `<tr><td colspan="${columns.length + (canBulk ? 3 : 2)}"><div class="empty-state">No activities match current filters.</div></td></tr>`;
+    if (dom.cardGrid) dom.cardGrid.innerHTML = '<div class="empty-state">No activities match current filters.</div>';
     requestAnimationFrame(refreshFloatingScrollbar);
     return;
   }
@@ -334,6 +339,26 @@ function renderTable() {
   if (selectAllEl) {
     selectAllEl.checked = selectAllChecked;
     selectAllEl.indeterminate = viewState.selectedIds.size > 0 && !selectAllChecked;
+  }
+
+  if (dom.cardGrid) {
+    const cardFields = ["phase", "activityStatus", "completionPercentage", "plannedStartDate", "baseEffortHours"];
+    dom.cardGrid.innerHTML = filteredRows
+      .map(
+        (row) => `
+      <article class="activity-card" data-id="${escapeHtml(row.activityId)}">
+        <div class="activity-card-header">
+          <span class="activity-card-id">${escapeHtml(row.activityId)}</span>
+          <span class="${statusClass(row.activityStatus)}">${escapeHtml(row.activityStatus || "-")}</span>
+        </div>
+        <div class="activity-card-fields">
+          <div class="activity-card-field"><span class="activity-card-field-label">Name</span><span>${escapeHtml(row.activityName || "-")}</span></div>
+          ${cardFields.map((k) => `<div class="activity-card-field"><span class="activity-card-field-label">${escapeHtml(COLUMN_SCHEMA.find((c) => c.key === k)?.label || k)}</span><span>${escapeHtml(String(row[k] ?? "-"))}</span></div>`).join("")}
+        </div>
+      </article>
+    `,
+      )
+      .join("");
   }
   requestAnimationFrame(refreshFloatingScrollbar);
 }
@@ -521,7 +546,7 @@ function applyRoleRestrictions() {
     }
   });
 
-  [dom.importButton, dom.exportCsvButton, dom.exportJsonButton].forEach((button) => {
+  [dom.importButton, dom.exportCsvButton, dom.exportExcelButton, dom.exportJsonButton, dom.exportPdfButton].forEach((button) => {
     if (!button) return;
     button.disabled = !canImportExport;
     if (!canImportExport) {
@@ -713,15 +738,76 @@ function validateImportColumns(rows) {
     return {
       valid: false,
       missingLabels: [...IMPORT_REQUIRED_LABELS],
+      report: { missingColumns: [...IMPORT_REQUIRED_LABELS], rowCount: 0, duplicateIds: [], invalidDates: [], sampleRows: [] },
     };
   }
   const headers = Object.keys(rows[0]);
   const mapped = headers.map((header) => getColumnByHeader(header)?.key).filter(Boolean);
   const missing = IMPORT_REQUIRED_KEYS.filter((required) => !mapped.includes(required));
+  const missingLabels = COLUMN_SCHEMA.filter((column) => missing.includes(column.key)).map((column) => column.label);
+
+  const activityIdKey = Object.keys(rows[0]).find((k) => /activity\s*id|activityid/i.test(String(k)));
+  const ids = rows.map((r) => String(r[activityIdKey] ?? "").trim()).filter(Boolean);
+  const seen = new Set();
+  const duplicateIds = ids.filter((id) => {
+    if (seen.has(id)) return true;
+    seen.add(id);
+    return false;
+  });
+
+  const dateKeys = ["plannedStartDate", "plannedEndDate", "actualStartDate", "actualEndDate", "materialRequiredDate", "materialReceivedDate", "lastModifiedDate"];
+  const dateHeaders = headers.filter((h) => {
+    const key = getColumnByHeader(h)?.key;
+    return key && dateKeys.includes(key);
+  });
+  const invalidDates = [];
+  rows.slice(0, 50).forEach((row, idx) => {
+    dateHeaders.forEach((h) => {
+      const val = row[h];
+      if (!val) return;
+      const d = new Date(val);
+      if (Number.isNaN(d.getTime())) invalidDates.push({ row: idx + 2, column: h, value: val });
+    });
+  });
+
   return {
     valid: missing.length === 0,
-    missingLabels: COLUMN_SCHEMA.filter((column) => missing.includes(column.key)).map((column) => column.label),
+    missingLabels,
+    report: {
+      missingColumns: missingLabels,
+      rowCount: rows.length,
+      duplicateIds: [...new Set(duplicateIds)].slice(0, 10),
+      invalidDates: invalidDates.slice(0, 10),
+      sampleRows: rows.slice(0, 3),
+      mappedColumns: headers.length,
+    },
   };
+}
+
+function showImportValidationReport(validation, onProceed) {
+  const r = validation.report;
+  const lines = [];
+  if (r.missingColumns?.length) {
+    lines.push(`<strong>Missing required columns:</strong> ${r.missingColumns.join(", ")}`);
+  }
+  lines.push(`<strong>Rows to import:</strong> ${r.rowCount}`);
+  lines.push(`<strong>Columns mapped:</strong> ${r.mappedColumns}`);
+  if (r.duplicateIds?.length) {
+    lines.push(`<strong>Duplicate Activity IDs (sample):</strong> ${r.duplicateIds.join(", ")}`);
+  }
+  if (r.invalidDates?.length) {
+    lines.push(`<strong>Invalid dates (sample):</strong> ${r.invalidDates.map((d) => `Row ${d.row} ${d.column}`).join("; ")}`);
+  }
+  const bodyHtml = `<div class="import-validation-report">${lines.map((l) => `<p>${l}</p>`).join("")}</div>`;
+  return showModal({
+    title: "Import Validation Report",
+    bodyHtml,
+    fields: [],
+    primaryLabel: validation.valid ? "Proceed with Import" : "Close",
+    secondaryLabel: "Cancel",
+  }).then(async (ok) => {
+    if (ok && validation.valid && onProceed) await onProceed();
+  });
 }
 
 async function importSpreadsheet() {
@@ -740,28 +826,26 @@ async function importSpreadsheet() {
     hideLoading();
   }
   const validation = validateImportColumns(rows);
-  if (!validation.valid) {
-    notify(`Import failed. Missing mandatory columns: ${validation.missingLabels.join(", ")}`, "error");
-    return;
-  }
+  await showImportValidationReport(validation, async () => {
+    if (!validation.valid) return;
 
-  const mergeStrategy = dom.mergeStrategy?.value || "merge";
-  const sampleIds = rows
-    .slice(0, 5)
-    .map((r) => {
-      const key = Object.keys(r).find((k) => /activity\s*id|activityid/i.test(String(k)));
-      return key ? r[key] : "-";
-    })
-    .join(", ");
+    const mergeStrategy = dom.mergeStrategy?.value || "merge";
+    const sampleIds = rows
+      .slice(0, 5)
+      .map((r) => {
+        const key = Object.keys(r).find((k) => /activity\s*id|activityid/i.test(String(k)));
+        return key ? r[key] : "-";
+      })
+      .join(", ");
 
-  const result = await showModal({
-    title: "Import Preview",
-    body: `Found ${rows.length} rows. Strategy: ${mergeStrategy === "replace" ? "Replace all" : "Merge by Activity ID"}. Sample IDs: ${sampleIds}. Proceed?`,
-    fields: [],
-    primaryLabel: "Import",
-    secondaryLabel: "Cancel",
-  });
-  if (!result) return;
+    const result = await showModal({
+      title: "Import Preview",
+      body: `Found ${rows.length} rows. Strategy: ${mergeStrategy === "replace" ? "Replace all" : "Merge by Activity ID"}. Sample IDs: ${sampleIds}. Proceed?`,
+      fields: [],
+      primaryLabel: "Import",
+      secondaryLabel: "Cancel",
+    });
+    if (!result) return;
 
   pushUndoSnapshot(`Import ${rows.length} rows (${mergeStrategy})`);
 
@@ -802,6 +886,75 @@ function exportAsJson() {
     JSON.stringify(viewState.activities, null, 2),
     "application/json;charset=utf-8;",
   );
+}
+
+function exportAsExcel() {
+  const rows = viewState.activities.map((activity) => {
+    const exportRow = {};
+    COLUMN_SCHEMA.forEach((column) => {
+      exportRow[column.label] = activity[column.key];
+    });
+    return exportRow;
+  });
+  if (!rows.length) {
+    notify("No activities to export.", "warning");
+    return;
+  }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Activities");
+  XLSX.writeFile(wb, `activities_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  notify("Excel file exported.", "success");
+}
+
+function exportAsPdfReport() {
+  const rows = filterActivities();
+  if (!rows.length) {
+    notify("No activities to include in report.", "warning");
+    return;
+  }
+  const win = window.open("", "_blank", "width=900,height=700");
+  if (!win) {
+    notify("Popup blocked. Allow popups to export PDF.", "error");
+    return;
+  }
+  const cols = getVisibleColumns();
+  const th = cols.map((c) => escapeHtml(c.label)).join("</th><th>");
+  const trs = rows
+    .slice(0, 100)
+    .map(
+      (r) =>
+        `<tr>${cols.map((c) => `<td>${escapeHtml(String(r[c.key] ?? ""))}</td>`).join("")}</tr>`,
+    )
+    .join("");
+  win.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Activity Report - ${new Date().toISOString().slice(0, 10)}</title>
+      <style>
+        body { font-family: system-ui, sans-serif; padding: 20px; font-size: 12px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+        th { background: #eef3fb; }
+        h1 { font-size: 18px; }
+      </style>
+    </head>
+    <body>
+      <h1>ATLAS Planning – Activity Report</h1>
+      <p>Generated ${new Date().toLocaleString()} | ${rows.length} activities</p>
+      <table>
+        <thead><tr><th>${th}</th></tr></thead>
+        <tbody>${trs}</tbody>
+      </table>
+      <p style="margin-top:16px; font-size:11px; color:#666">Use browser Print (Ctrl+P) and "Save as PDF" to export.</p>
+    </body>
+    </html>
+  `);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
+  notify("Report opened. Use Print → Save as PDF.", "success");
 }
 
 function wireEvents() {
@@ -896,12 +1049,26 @@ function wireEvents() {
     }
     exportAsCsv();
   });
+  dom.exportExcelButton?.addEventListener("click", () => {
+    if (!canImportExportData(currentUser)) {
+      notify("This role cannot export data.", "warning");
+      return;
+    }
+    exportAsExcel();
+  });
   dom.exportJsonButton.addEventListener("click", () => {
     if (!canImportExportData(currentUser)) {
       notify("This role cannot export data.", "warning");
       return;
     }
     exportAsJson();
+  });
+  dom.exportPdfButton?.addEventListener("click", () => {
+    if (!canImportExportData(currentUser)) {
+      notify("This role cannot export data.", "warning");
+      return;
+    }
+    exportAsPdfReport();
   });
 
   dom.clearButton.addEventListener("click", async () => {
@@ -1127,6 +1294,12 @@ function wireEvents() {
     });
   });
 
+  dom.tableBody.addEventListener("input", (event) => {
+    const target = event.target;
+    if (target?.dataset?.field && target.closest("tr[data-id]")) {
+      uiState.hasUnsavedEdits = true;
+    }
+  });
   dom.tableBody.addEventListener("change", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -1140,6 +1313,7 @@ function wireEvents() {
     const row = target.closest("tr");
     if (!row?.dataset.id) return;
     handleCellUpdate(row.dataset.id, field, target.value);
+    uiState.hasUnsavedEdits = false;
   });
 
   dom.defaultEditorInput?.addEventListener("change", (event) => {
@@ -1208,6 +1382,7 @@ function initialize() {
   const params = new URLSearchParams(location.search);
   const statusParam = params.get("status");
   const phaseParam = params.get("phase");
+  const searchParam = params.get("search");
   if (statusParam) {
     viewState.status = statusParam;
     if (dom.statusFilter) dom.statusFilter.value = statusParam;
@@ -1216,8 +1391,13 @@ function initialize() {
     viewState.phase = normalizePhase(phaseParam) || phaseParam;
     if (dom.phaseFilter) dom.phaseFilter.value = viewState.phase;
   }
+  if (searchParam) {
+    viewState.search = searchParam;
+    if (dom.searchInput) dom.searchInput.value = searchParam;
+  }
   wireEvents();
   applyRoleRestrictions();
+  setupBeforeUnload(() => uiState.hasUnsavedEdits);
   dom.undoBtn?.addEventListener("click", () => {
     const result = undo();
     if (result.ok) refreshFromStorage();

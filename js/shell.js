@@ -1,11 +1,14 @@
 /**
- * Shared shell behavior: keyboard shortcuts, nav toggle, help button.
+ * Shared shell behavior: keyboard shortcuts, nav toggle, help button, global search.
  * Load this on all app pages (not login).
  */
 import { notify, showKeyboardShortcuts, showNotificationHistory } from "./common.js";
 import { canUndo, undo } from "./undo.js";
+import { initGlobalSearch } from "./global-search.js";
+import { showAuditTrail } from "./audit.js";
 
 export function initShell() {
+  initGlobalSearch();
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.getRegistrations().then((regs) => {
       regs.forEach((r) => r.unregister());
@@ -28,6 +31,15 @@ export function initShell() {
   notifBtn.setAttribute("aria-label", "Notification history");
   nav?.appendChild(notifBtn);
   notifBtn?.addEventListener("click", showNotificationHistory);
+
+  const auditBtn = document.createElement("button");
+  auditBtn.className = "ghost";
+  auditBtn.type = "button";
+  auditBtn.textContent = "📋";
+  auditBtn.title = "Change history";
+  auditBtn.setAttribute("aria-label", "Change history");
+  nav?.appendChild(auditBtn);
+  auditBtn?.addEventListener("click", showAuditTrail);
 
   const navToggle = document.createElement("button");
   navToggle.className = "ghost nav-toggle";

@@ -101,6 +101,129 @@ a {
   background: rgba(47, 143, 255, 0.14);
 }
 
+.global-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.global-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+.global-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  padding: 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.global-search-item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  transition: background 0.15s;
+}
+
+.global-search-item:hover {
+  background: rgba(47, 143, 255, 0.12);
+}
+
+.global-search-item .small {
+  display: block;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.global-search-empty {
+  padding: 16px;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+  pointer-events: none;
+}
+
+.onboarding-overlay .onboarding-spotlight {
+  position: fixed;
+  border: 3px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.onboarding-overlay .onboarding-tooltip {
+  position: fixed;
+  pointer-events: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  max-width: 320px;
+  box-shadow: var(--shadow);
+  z-index: 9999;
+}
+
+.onboarding-tooltip-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.onboarding-tooltip-body {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.onboarding-tooltip-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.onboarding-progress {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-right: auto;
+}
+
+.audit-trail-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.audit-trail-time {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+.audit-trail-action {
+  font-weight: 500;
+}
+
 .panel {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
@@ -291,6 +414,68 @@ button.danger {
 #activities-table-wrap {
   max-height: min(70vh, 860px);
   overflow: auto;
+}
+
+.activities-card-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.activity-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  background: var(--bg-panel);
+}
+
+.activity-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.activity-card-id {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.activity-card-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.88rem;
+}
+
+.activity-card-field {
+  display: flex;
+  gap: 8px;
+}
+
+.activity-card-field-label {
+  color: var(--text-dim);
+  min-width: 100px;
+}
+
+@media (max-width: 768px) {
+  .activities-table-container #activities-table-wrap {
+    display: none !important;
+  }
+
+  .activities-table-container #activities-card-grid {
+    display: grid !important;
+  }
+
+  .activities-table-container #activities-card-grid[hidden] {
+    display: grid !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .activities-table-container #activities-card-grid {
+    display: none !important;
+  }
 }
 
 #activities-table-wrap th {
@@ -535,6 +720,21 @@ td.col-sub-activity textarea {
 
 .gantt-bar.is-critical {
   box-shadow: inset 0 0 0 1px rgba(255, 225, 145, 0.85);
+}
+
+.gantt-bar-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 0 7px 7px 0;
+}
+
+.gantt-bar-resize-handle:hover {
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .gantt-progress {

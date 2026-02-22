@@ -1,4 +1,5 @@
 import { COLUMN_SCHEMA, generateActivityId, sanitizeActivity } from "./schema.js";
+import { logAudit } from "./audit.js";
 
 const STORAGE_KEY = "industrial_planning_intelligence_state_v1";
 const STATE_CHANGE_EVENT = "industrial_planning_state_changed";
@@ -347,6 +348,7 @@ export function saveActivities(activities) {
   const project = getActiveProjectRecord(state);
   project.activities = activities.map((activity) => sanitizeActivity(activity));
   saveState(state);
+  logAudit("Save activities", { count: activities.length });
 }
 
 export function clearAllActivities() {
@@ -354,6 +356,7 @@ export function clearAllActivities() {
   const project = getActiveProjectRecord(state);
   project.activities = [];
   saveState(state);
+  logAudit("Clear all activities");
 }
 
 export function addActivity(activity) {
@@ -363,6 +366,7 @@ export function addActivity(activity) {
   sanitized.activityId = ensureUniqueActivityId(project.activities, sanitized.activityId);
   project.activities.push(sanitized);
   saveState(state);
+  logAudit("Add activity", { activityId: sanitized.activityId });
   return sanitized;
 }
 
@@ -390,6 +394,7 @@ export function upsertActivities(incomingActivities) {
   });
   project.activities = [...byId.values()].map((activity) => sanitizeActivity(activity));
   saveState(state);
+  logAudit("Import/upsert activities", { count: incomingActivities.length });
   return project.activities;
 }
 
@@ -406,6 +411,7 @@ export function updateActivity(activityId, patch) {
   });
   project.activities[index] = updated;
   saveState(state);
+  logAudit("Update activity", { activityId });
   return updated;
 }
 
@@ -414,6 +420,7 @@ export function deleteActivity(activityId) {
   const project = getActiveProjectRecord(state);
   project.activities = project.activities.filter((activity) => activity.activityId !== activityId);
   saveState(state);
+  logAudit("Delete activity", { activityId });
 }
 
 export function getProjectBaselines() {
