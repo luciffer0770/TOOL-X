@@ -4,7 +4,7 @@ import { getActivities, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { initShell } from "./shell.js";
-import { normalizePhase } from "./schema.js";
+import { normalizePhase, parseDependencies } from "./schema.js";
 
 const dom = {
   phaseFilter: document.querySelector("#phase-filter"),
@@ -106,7 +106,9 @@ function renderGantt() {
   const todayMarkerHtml =
     todayPct != null ? `<div class="gantt-today-marker" style="left:${todayPct}%" aria-hidden="true"></div>` : "";
 
+  const rowIndexById = new Map();
   const html = [];
+  let rowIdx = 0;
   rows.forEach((activity) => {
     const startDate = parseDate(activity.actualStartDate) || parseDate(activity.plannedStartDate) || start;
     const endDate =
@@ -123,14 +125,15 @@ function renderGantt() {
     const progressPct = Math.max(0, Math.min(100, Number(activity.completionPercentage) || 0));
     const delayed = activity.delayHours > 0 || String(activity.activityStatus).toLowerCase() === "delayed";
 
+    rowIndexById.set(activity.activityId, rowIdx);
     html.push(`
-      <div class="gantt-label-cell">
+      <div class="gantt-label-cell" data-activity-id="${escapeHtml(activity.activityId)}" data-row="${rowIdx}">
         <div class="gantt-label-title">${escapeHtml(activity.activityId)} - ${escapeHtml(activity.activityName || "Unnamed")}</div>
         <div class="gantt-label-meta">
           ${escapeHtml(activity.phase || "-")} | ${escapeHtml(activity.activityStatus || "-")} | Delay ${Math.round(activity.delayHours)}h
         </div>
       </div>
-      <div class="gantt-track">
+      <div class="gantt-track" data-activity-id="${escapeHtml(activity.activityId)}" data-row="${rowIdx}" data-bar-left="${leftPct}" data-bar-width="${widthPct}">
         ${todayMarkerHtml}
         <div
           class="gantt-bar ${delayed ? "is-delayed" : ""} ${criticalSet.has(activity.activityId) ? "is-critical" : ""}"
@@ -141,6 +144,7 @@ function renderGantt() {
         </div>
       </div>
     `);
+    rowIdx++;
   });
 
   if (!html.length) {
@@ -154,7 +158,61 @@ function renderGantt() {
   }
 
   dom.ganttGrid.innerHTML = html.join("");
+  renderDependencyLines(rows, rowIndexById);
   renderDependencyTable(rows);
+}
+
+function renderDependencyLines(rows, rowIndexById) {
+  let svg = dom.ganttGrid.parentElement?.querySelector(".gantt-dependency-svg");
+  if (svg) svg.remove();
+  const container = dom.ganttGrid.parentElement;
+  if (!container) return;
+
+  const bars = dom.ganttGrid.querySelectorAll(".gantt-bar");
+  const barById = new Map();
+  bars.forEach((bar) => {
+    const track = bar.closest(".gantt-track");
+    if (track) barById.set(track.dataset.activityId, { bar, track });
+  });
+
+  const paths = [];
+  rows.forEach((activity) => {
+    const deps = parseDependencies(activity.dependencies);
+    deps.forEach((depId) => {
+      if (!rowIndexById.has(depId)) return;
+      const fromInfo = barById.get(depId);
+      const toInfo = barById.get(activity.activityId);
+      if (!fromInfo || !toInfo) return;
+      const fromBar = fromInfo.bar.getBoundingClientRect();
+      const toBar = toInfo.bar.getBoundingClientRect();
+      const cRect = container.getBoundingClientRect();
+      const x1 = fromBar.right - cRect.left;
+      const y1 = fromBar.top - cRect.top + fromBar.height / 2;
+      const x2 = toBar.left - cRect.left;
+      const y2 = toBar.top - cRect.top + toBar.height / 2;
+      const midX = (x1 + x2) / 2;
+      paths.push(`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
+    });
+  });
+
+  if (paths.length) {
+    svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.className = "gantt-dependency-svg";
+    const w = Math.max(container.scrollWidth, container.clientWidth);
+    const h = Math.max(container.scrollHeight, container.clientHeight);
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    svg.style.cssText = "position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1";
+    paths.forEach((d) => {
+      const pathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      pathEl.setAttribute("d", d);
+      pathEl.setAttribute("fill", "none");
+      pathEl.setAttribute("stroke", "rgba(47, 143, 255, 0.5)");
+      pathEl.setAttribute("stroke-width", "1.5");
+      svg.appendChild(pathEl);
+    });
+    container.style.position = "relative";
+    container.appendChild(svg);
+  }
 }
 
 function renderDependencyTable(rows) {

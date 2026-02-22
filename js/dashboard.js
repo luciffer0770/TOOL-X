@@ -60,8 +60,8 @@ function renderKpis(metrics, role) {
           ? (content) => `<a href="${escapeHtml(href)}" class="kpi-card kpi-card-link">${content}</a>`
           : (content) => `<article class="kpi-card">${content}</article>`;
         return wrap(`
-        <div class="kpi-title">${escapeHtml(card.title)}</div>
-        <div class="kpi-value">${escapeHtml(String(card.value))}</div>
+        <div class="kpi-title" title="${escapeHtml(card.note)}">${escapeHtml(card.title)}</div>
+        <div class="kpi-value" title="${escapeHtml(card.note)}">${escapeHtml(String(card.value))}</div>
         <div class="kpi-note">${escapeHtml(card.note)}</div>
       `);
       },
