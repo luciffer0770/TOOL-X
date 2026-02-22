@@ -7,7 +7,7 @@ import { canUndo, undo } from "./undo.js";
 
 export function initShell() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
   const nav = document.querySelector(".nav");
   const helpBtn = document.createElement("button");
@@ -72,10 +72,10 @@ export function initShell() {
       e.preventDefault();
       if (canUndo()) {
         const result = undo();
-      if (result.ok) {
-        window.dispatchEvent(new CustomEvent("industrial_planning_state_changed"));
-        notify(`Undone: ${result.description}`, "success");
-      }
+        if (result.ok) {
+          window.dispatchEvent(new CustomEvent("industrial_planning_state_changed"));
+          notify(`Undone: ${result.description}`, "success");
+        }
       }
     }
   });

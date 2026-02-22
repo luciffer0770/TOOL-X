@@ -17,6 +17,14 @@ const ASSETS = [
   "/js/project-toolbar.js",
   "/js/shell.js",
   "/js/undo.js",
+  "/js/analytics.js",
+  "/js/dashboard.js",
+  "/js/gantt.js",
+  "/js/materials.js",
+  "/js/intelligence.js",
+  "/js/anomaly-center.js",
+  "/js/activities.js",
+  "/js/login.js",
 ];
 
 self.addEventListener("install", (e) => {
@@ -34,10 +42,8 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  if (e.request.url.startsWith("http") && !e.request.url.includes("localhost") && !e.request.url.includes("127.0.0.1")) {
-    return;
-  }
+  if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
+    caches.match(e.request).then((cached) => cached || fetch(e.request).catch(() => caches.match(e.request)))
   );
 });
