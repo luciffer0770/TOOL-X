@@ -1,15 +1,35 @@
 import { computePortfolioMetrics, getDelayAndRiskRows, getMaterialHealth, getPhaseProgress, groupBy } from "./analytics.js";
-import { escapeHtml, formatCurrency, formatHours, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
+import { escapeHtml, formatCurrency, formatHours, notify, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
 import { getActivities, getProjectActions, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { initShell } from "./shell.js";
 import { getRoleLabel } from "./auth.js";
+import { hasCompletedOnboarding, startOnboarding } from "./onboarding.js";
 
 let phaseChart;
 let riskChart;
 let currentUser;
 let snapshotDate = new Date();
+let timeRangeDays = 30;
+
+function filterActivitiesByTimeRange(activities, refDate, days) {
+  if (!days || days >= 365) return activities;
+  const start = new Date(refDate);
+  start.setDate(start.getDate() - Number(days));
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(refDate);
+  end.setHours(23, 59, 59, 999);
+  return activities.filter((a) => {
+    const ps = a.plannedStartDate ? new Date(a.plannedStartDate) : null;
+    const pe = a.plannedEndDate ? new Date(a.plannedEndDate) : null;
+    const as = a.actualStartDate ? new Date(a.actualStartDate) : null;
+    const ae = a.actualEndDate ? new Date(a.actualEndDate) : null;
+    const date = ae || as || pe || ps;
+    if (!date || Number.isNaN(date.getTime())) return true;
+    return date >= start && date <= end;
+  });
+}
 
 function buildKpiCards(metrics, role) {
   if (role === "management") {
@@ -194,11 +214,39 @@ function renderAlertCenter(metrics, activities) {
     .join("");
 }
 
-function renderPhaseChart(phaseRows) {
+function exportChartAsPng(canvasId, filename) {
+  const canvas = document.querySelector(`#${canvasId}`);
+  if (!canvas) return;
+  const dataUrl = canvas.toDataURL("image/png");
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = `${filename}_${new Date().toISOString().slice(0, 10)}.png`;
+  link.click();
+  notify("Chart exported as PNG.", "success");
+}
+
+let chartJsLoaded = null;
+async function loadChartJs() {
+  if (chartJsLoaded) return chartJsLoaded;
+  chartJsLoaded = new Promise((resolve) => {
+    if (typeof window.Chart !== "undefined") {
+      resolve(window.Chart);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js";
+    script.onload = () => resolve(window.Chart);
+    document.head.appendChild(script);
+  });
+  return chartJsLoaded;
+}
+
+async function renderPhaseChart(phaseRows) {
   const context = document.querySelector("#phase-chart");
   if (phaseChart) phaseChart.destroy();
   if (!phaseRows.length) return;
 
+  const Chart = await loadChartJs();
   phaseChart = new Chart(context, {
     type: "bar",
     data: {
@@ -245,11 +293,12 @@ function renderPhaseChart(phaseRows) {
   });
 }
 
-function renderRiskChart(rows) {
+async function renderRiskChart(rows) {
   const context = document.querySelector("#risk-chart");
   if (riskChart) riskChart.destroy();
   if (!rows.length) return;
 
+  const Chart = await loadChartJs();
   const grouped = groupBy(rows, (row) => row.riskLevel || "Unspecified");
   riskChart = new Chart(context, {
     type: "doughnut",
@@ -287,7 +336,8 @@ function renderRiskChart(rows) {
 function render() {
   if (!currentUser) return;
   const role = currentUser.role;
-  const activities = getActivities();
+  const allActivities = getActivities();
+  const activities = filterActivitiesByTimeRange(allActivities, snapshotDate, timeRangeDays);
   const metrics = computePortfolioMetrics(activities, snapshotDate);
   renderKpis(metrics, role);
 
@@ -309,8 +359,8 @@ function render() {
     if (dependencyGrid) dependencyGrid.hidden = false;
     renderCriticalPath(metrics);
     renderBlocked(metrics);
-    renderPhaseChart(getPhaseProgress(activities));
-    renderRiskChart(metrics.enriched);
+    renderPhaseChart(getPhaseProgress(activities)).catch(() => {});
+    renderRiskChart(metrics.enriched).catch(() => {});
   }
 
   const riskRows = getDelayAndRiskRows(activities, snapshotDate);
@@ -329,9 +379,14 @@ function render() {
 
 function wireDashboardEvents() {
   const datePicker = document.querySelector("#dashboard-date-picker");
+  const timeRangeSelect = document.querySelector("#dashboard-time-range");
   const refreshBtn = document.querySelector("#dashboard-refresh-btn");
   datePicker?.addEventListener("change", (e) => {
     snapshotDate = new Date(e.target.value || Date.now());
+    render();
+  });
+  timeRangeSelect?.addEventListener("change", (e) => {
+    timeRangeDays = Number(e.target.value) || 30;
     render();
   });
   refreshBtn?.addEventListener("click", () => {
@@ -348,6 +403,12 @@ function initialize() {
   if (!currentUser) return;
   initializeProjectToolbar({ onProjectChange: render });
   wireDashboardEvents();
+  document.querySelector("#dashboard-tour-btn")?.addEventListener("click", startOnboarding);
+  document.querySelector("#phase-chart-export-btn")?.addEventListener("click", () => exportChartAsPng("phase-chart", "phase-completion-chart"));
+  document.querySelector("#risk-chart-export-btn")?.addEventListener("click", () => exportChartAsPng("risk-chart", "risk-distribution-chart"));
+  if (!hasCompletedOnboarding()) {
+    setTimeout(() => startOnboarding(), 800);
+  }
   const unsubscribe = subscribeToStateChanges(render);
   window.addEventListener(
     "pagehide",

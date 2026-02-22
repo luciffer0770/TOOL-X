@@ -22,7 +22,16 @@
             Snapshot
             <input id="dashboard-date-picker" type="date" />
           </label>
+          <label class="field" style="margin:0; flex-direction:row; align-items:center; gap:8px">
+            Time Range
+            <select id="dashboard-time-range">
+              <option value="7">Last 7 days</option>
+              <option value="30" selected>Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+          </label>
           <button id="dashboard-refresh-btn" class="ghost" title="Refresh data">Refresh</button>
+          <button id="dashboard-tour-btn" class="ghost" title="First-time tour">Take Tour</button>
           <div class="session-chip">
             <span id="user-role-badge" class="badge badge-neutral"></span>
             <span id="user-display-name" class="small"></span>
@@ -75,6 +84,7 @@
         <section class="panel">
           <div class="panel-header">
             <h2>Phase Completion & Delay Profile</h2>
+            <button id="phase-chart-export-btn" class="ghost" title="Export as PNG">Export PNG</button>
           </div>
           <div class="panel-body chart-shell">
             <canvas id="phase-chart"></canvas>
@@ -84,6 +94,7 @@
         <section class="panel">
           <div class="panel-header">
             <h2>Risk Distribution</h2>
+            <button id="risk-chart-export-btn" class="ghost" title="Export as PNG">Export PNG</button>
           </div>
           <div class="panel-body chart-shell">
             <canvas id="risk-chart"></canvas>

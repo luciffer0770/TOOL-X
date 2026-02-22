@@ -178,7 +178,9 @@
           <div class="row-actions" style="margin-top: 12px">
             <button id="import-btn">Import Spreadsheet</button>
             <button id="export-csv-btn" class="ghost">Export CSV</button>
+            <button id="export-excel-btn" class="ghost">Export Excel</button>
             <button id="export-json-btn" class="ghost">Export JSON</button>
+            <button id="export-pdf-btn" class="ghost">Export PDF Report</button>
             <button id="clear-btn" class="danger">Clear All Activities</button>
           </div>
           <p class="hint" id="mandatory-columns-hint"></p>
@@ -264,11 +266,14 @@
             </label>
             <button id="bulk-status-apply-btn" class="ghost">Apply</button>
           </div>
-          <div class="table-wrap" id="activities-table-wrap">
-            <table id="activities-table">
-              <thead id="activities-head"></thead>
-              <tbody id="activities-body"></tbody>
-            </table>
+          <div class="activities-table-container">
+            <div class="table-wrap" id="activities-table-wrap">
+              <table id="activities-table">
+                <thead id="activities-head"></thead>
+                <tbody id="activities-body"></tbody>
+              </table>
+            </div>
+            <div id="activities-card-grid" class="activities-card-grid"></div>
           </div>
           <div id="activities-floating-scroll" class="floating-x-scroll" hidden>
             <div id="activities-floating-scroll-track"></div>

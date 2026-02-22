@@ -11,6 +11,7 @@
   - `gantt.html` - Gantt timeline and dependency chain view
   - `materials.html` - material ownership and supply intelligence
   - `intelligence.html` - delay, risk, root-cause, and what-if optimization
+  - `anomaly-center.html` - anomaly, baseline, and action workflow
 - Role-based experience and control:
   - Planner: full planning and optimization access
   - Management: full portfolio visibility and decision controls
@@ -68,5 +69,6 @@ Then open:
 - Activity records are editable directly in the data grid.
 - Insert new activity rows above/below existing rows to place activities in the middle.
 - Excel import merges by `Activity ID` (or replaces all records if selected).
-- Export is available as CSV and JSON.
+- Export is available as CSV, JSON, Excel, and PDF.
 - Column visibility can be toggled without losing editability of fields.
+- Global search (Ctrl+Shift+K), audit trail, onboarding tour, chart export, and theme toggle.
