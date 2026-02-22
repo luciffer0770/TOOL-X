@@ -1223,7 +1223,7 @@ function initialize() {
     if (result.ok) refreshFromStorage();
   });
   subscribeToStateChanges(updateUndoButton);
-  window.addEventListener("industrial_planning_state_changed", (e) => {
+  window.addEventListener("atlas_state_changed", (e) => {
     if (e.detail?.savedAt && dom.lastSavedIndicator) {
       const d = new Date(e.detail.savedAt);
       dom.lastSavedIndicator.textContent = `Saved ${d.toLocaleTimeString()}`;

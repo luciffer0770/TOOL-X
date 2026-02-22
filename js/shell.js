@@ -49,7 +49,7 @@ export function initShell() {
   themeToggle.setAttribute("aria-label", "Toggle theme");
   const sessionChip = document.querySelector(".session-chip");
   sessionChip?.parentElement?.insertBefore(themeToggle, sessionChip);
-  const savedTheme = localStorage.getItem("industrial_planning_theme") || "light";
+  const savedTheme = localStorage.getItem("atlas_theme") || "light";
   if (savedTheme === "dark") {
     document.documentElement.setAttribute("data-theme", "dark");
     themeToggle.textContent = "🌙";
@@ -60,7 +60,7 @@ export function initShell() {
     const isDark = document.documentElement.getAttribute("data-theme") === "dark";
     document.documentElement.setAttribute("data-theme", isDark ? "" : "dark");
     themeToggle.textContent = isDark ? "☀" : "🌙";
-    localStorage.setItem("industrial_planning_theme", isDark ? "light" : "dark");
+    localStorage.setItem("atlas_theme", isDark ? "light" : "dark");
   });
 
   const resetBtn = document.createElement("button");
@@ -96,7 +96,7 @@ export function initShell() {
       if (canUndo()) {
         const result = undo();
         if (result.ok) {
-          window.dispatchEvent(new CustomEvent("industrial_planning_state_changed"));
+          window.dispatchEvent(new CustomEvent("atlas_state_changed"));
           notify(`Undone: ${result.description}`, "success");
         }
       }

@@ -1,4 +1,4 @@
-const AUTH_STORAGE_KEY = "industrial_planning_auth_session_v1";
+const AUTH_STORAGE_KEY = "atlas_auth_v1";
 const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000; // 8 hours
 const REMEMBER_ME_TIMEOUT_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 

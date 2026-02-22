@@ -1,7 +1,7 @@
 import { COLUMN_SCHEMA, generateActivityId, sanitizeActivity } from "./schema.js";
 
-const STORAGE_KEY = "industrial_planning_intelligence_state_v1";
-const STATE_CHANGE_EVENT = "industrial_planning_state_changed";
+const STORAGE_KEY = "atlas_state_v1";
+const STATE_CHANGE_EVENT = "atlas_state_changed";
 const PROJECT_ID_PATTERN = /^PRJ-(\d{4,})$/;
 const BASELINE_ID_PATTERN = /^BL-(\d{4,})$/;
 const ACTION_ID_PATTERN = /^ACTN-(\d{4,})$/;
@@ -272,6 +272,13 @@ export function setActiveProject(projectId) {
 
 /** Keys used by this app in localStorage. Used for reset. */
 export const APP_STORAGE_KEYS = [
+  "atlas_state_v1",
+  "atlas_auth_v1",
+  "atlas_undo_v1",
+  "atlas_theme",
+];
+
+const LEGACY_KEYS = [
   "industrial_planning_intelligence_state_v1",
   "industrial_planning_auth_session_v1",
   "industrial_planning_undo_stack_v1",
@@ -279,7 +286,7 @@ export const APP_STORAGE_KEYS = [
 ];
 
 export function resetApplicationData() {
-  APP_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+  [...APP_STORAGE_KEYS, ...LEGACY_KEYS].forEach((key) => localStorage.removeItem(key));
 }
 
 export function addProject(projectName) {

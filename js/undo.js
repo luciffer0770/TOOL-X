@@ -3,7 +3,7 @@
  */
 import { getState, saveState } from "./storage.js";
 
-const UNDO_STACK_KEY = "industrial_planning_undo_stack_v1";
+const UNDO_STACK_KEY = "atlas_undo_v1";
 const MAX_UNDO_DEPTH = 20;
 
 function getUndoStack() {

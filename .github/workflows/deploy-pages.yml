@@ -1,12 +1,9 @@
-name: Deploy Planning Platform to Pages
+name: Deploy ATLAS to Pages
 
 on:
   push:
     branches:
       - main
-      - cursor/tool-access-setup-0fba
-      - cursor/preparation-planning-intelligence-4966
-      - experiment/ui-redesign-tool
   workflow_dispatch:
 
 permissions:

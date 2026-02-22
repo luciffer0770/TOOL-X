@@ -1,4 +1,4 @@
-const CACHE_NAME = "atlas-v3";
+const CACHE_NAME = "atlas-v4";
 const BASE = self.location.pathname.replace(/\/[^/]*$/, "/") || "/";
 const ASSETS = [
   "index.html",
