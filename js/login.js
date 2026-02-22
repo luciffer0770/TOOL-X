@@ -16,15 +16,6 @@ function parseNextPage() {
   return next;
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
 function roleBadgeText(role) {
   if (role === "planner") return "PL";
   if (role === "management") return "MG";
@@ -32,6 +23,7 @@ function roleBadgeText(role) {
 }
 
 function renderDemoUsers() {
+  if (!demoUserList) return;
   const items = listDemoUsers()
     .map((user) => {
       const password = getDemoPassword(user.username);
@@ -51,6 +43,7 @@ function renderDemoUsers() {
 }
 
 function wireDemoUserQuickFill() {
+  if (!demoUserList) return;
   demoUserList.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
@@ -108,7 +101,7 @@ function initialize() {
     });
   }
 
-  form.addEventListener("submit", (event) => {
+  form?.addEventListener("submit", (event) => {
     event.preventDefault();
     const rememberMe = document.querySelector("#remember-me")?.checked ?? false;
     const user = login(usernameInput.value, passwordInput.value, rememberMe);

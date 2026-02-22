@@ -222,8 +222,10 @@ function populateFilterOptions() {
         .map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`),
     )
     .join("");
-  dom.statusFilter.innerHTML = statusOptions;
-  dom.statusFilter.value = viewState.status;
+  if (dom.statusFilter) {
+    dom.statusFilter.innerHTML = statusOptions;
+    dom.statusFilter.value = viewState.status;
+  }
 
   const phaseOptions = ['<option value="">All</option>']
     .concat(
@@ -232,8 +234,10 @@ function populateFilterOptions() {
         .map((phase) => `<option value="${escapeHtml(phase)}">${escapeHtml(phase)}</option>`),
     )
     .join("");
-  dom.phaseFilter.innerHTML = phaseOptions;
-  dom.phaseFilter.value = viewState.phase;
+  if (dom.phaseFilter) {
+    dom.phaseFilter.innerHTML = phaseOptions;
+    dom.phaseFilter.value = viewState.phase;
+  }
 }
 
 function filterActivities() {
@@ -264,7 +268,7 @@ function renderTable() {
   const columns = getVisibleColumns();
   const filteredRows = filterActivities();
   const activeProject = getActiveProject();
-  dom.stats.textContent = `${activeProject.name}: ${filteredRows.length} shown of ${viewState.activities.length} activities`;
+  if (dom.stats) dom.stats.textContent = `${activeProject.name}: ${filteredRows.length} shown of ${viewState.activities.length} activities`;
   const orderMap = new Map(viewState.activities.map((activity, index) => [activity.activityId, index + 1]));
 
   const canBulk = canModifyActivityStructure(currentUser);
@@ -362,6 +366,7 @@ function refreshFloatingScrollbar() {
 }
 
 function renderColumnVisibility() {
+  if (!dom.columnChipGroup) return;
   dom.columnChipGroup.innerHTML = COLUMN_SCHEMA.map((column) => {
     const checked = viewState.visibility[column.key] !== false;
     return `
@@ -378,12 +383,12 @@ function renderColumnVisibility() {
 
 function updateColumnVisibilitySummary() {
   const visibleCount = COLUMN_SCHEMA.filter((column) => viewState.visibility[column.key] !== false).length;
-  dom.columnVisibilitySummary.textContent = `${visibleCount} of ${COLUMN_SCHEMA.length} columns visible`;
+  if (dom.columnVisibilitySummary) dom.columnVisibilitySummary.textContent = `${visibleCount} of ${COLUMN_SCHEMA.length} columns visible`;
 }
 
 function applyColumnSearch(searchValue) {
   const query = String(searchValue ?? "").trim().toLowerCase();
-  dom.columnChipGroup.querySelectorAll(".column-option").forEach((node) => {
+  (dom.columnChipGroup?.querySelectorAll(".column-option") ?? []).forEach((node) => {
     const label = node.dataset.columnLabel || "";
     node.classList.toggle("is-hidden", Boolean(query) && !label.includes(query));
   });
@@ -391,10 +396,10 @@ function applyColumnSearch(searchValue) {
 
 function setColumnPanelOpen(isOpen) {
   uiState.columnPanelOpen = Boolean(isOpen);
-  dom.columnDropdownToggle.setAttribute("aria-expanded", String(uiState.columnPanelOpen));
-  dom.columnDropdownToggle.textContent = `${uiState.columnPanelOpen ? "Hide" : "Select"} Visible Columns ${
-    uiState.columnPanelOpen ? "▲" : "▼"
-  }`;
+  if (dom.columnDropdownToggle) {
+    dom.columnDropdownToggle.setAttribute("aria-expanded", String(uiState.columnPanelOpen));
+    dom.columnDropdownToggle.textContent = `${uiState.columnPanelOpen ? "Hide" : "Select"} Visible Columns ${uiState.columnPanelOpen ? "▲" : "▼"}`;
+  }
 
   if (uiState.columnPanelCloseTimer) {
     clearTimeout(uiState.columnPanelCloseTimer);
@@ -402,20 +407,18 @@ function setColumnPanelOpen(isOpen) {
   }
 
   if (!uiState.columnPanelOpen) {
-    dom.columnDropdownPanel.classList.remove("is-open");
+    dom.columnDropdownPanel?.classList.remove("is-open");
     uiState.columnPanelCloseTimer = window.setTimeout(() => {
-      if (!uiState.columnPanelOpen) {
-        dom.columnDropdownPanel.hidden = true;
-      }
+      if (!uiState.columnPanelOpen && dom.columnDropdownPanel) dom.columnDropdownPanel.hidden = true;
     }, 170);
     return;
   }
 
-  dom.columnDropdownPanel.hidden = false;
+  if (dom.columnDropdownPanel) dom.columnDropdownPanel.hidden = false;
   uiState.columnPanelDropUp = shouldDropColumnPanelUpward();
-  dom.columnDropdownPanel.classList.toggle("is-drop-up", uiState.columnPanelDropUp);
+  dom.columnDropdownPanel?.classList.toggle("is-drop-up", uiState.columnPanelDropUp);
   requestAnimationFrame(() => {
-    dom.columnDropdownPanel.classList.add("is-open");
+    dom.columnDropdownPanel?.classList.add("is-open");
   });
 }
 
@@ -430,6 +433,7 @@ function estimateColumnPanelHeight() {
 }
 
 function shouldDropColumnPanelUpward() {
+  if (!dom.columnDropdownToggle) return false;
   const toggleRect = dom.columnDropdownToggle.getBoundingClientRect();
   const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
   const spaceBelow = viewportHeight - toggleRect.bottom;
@@ -1203,8 +1207,8 @@ function initialize() {
   if (!currentUser) return;
   if (dom.defaultEditorInput) dom.defaultEditorInput.value = getDefaultEditor();
   if (dom.mandatoryHint) dom.mandatoryHint.textContent = `Mandatory import columns: ${IMPORT_REQUIRED_LABELS.join(", ")}`;
-  dom.columnDropdownToggle.setAttribute("aria-expanded", "false");
-  dom.columnDropdownToggle.textContent = "Select Visible Columns ▼";
+  dom.columnDropdownToggle?.setAttribute("aria-expanded", "false");
+  if (dom.columnDropdownToggle) dom.columnDropdownToggle.textContent = "Select Visible Columns ▼";
   const params = new URLSearchParams(location.search);
   const statusParam = params.get("status");
   const phaseParam = params.get("phase");
