@@ -3,6 +3,7 @@ import { escapeHtml, formatDate, formatHours, notify, renderEmptyState, setActiv
 import { getActivities, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
+import { initShell } from "./shell.js";
 import { normalizePhase } from "./schema.js";
 
 const dom = {
@@ -254,6 +255,7 @@ function loadProjectActivities({ resetView = false } = {}) {
 }
 
 function initialize() {
+  initShell();
   setActiveNavigation();
   const currentUser = initializeAccessShell();
   if (!currentUser) return;

@@ -3,6 +3,7 @@ import { escapeHtml, formatDate, formatHours, renderEmptyState, setActiveNavigat
 import { getActivities, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
+import { initShell } from "./shell.js";
 
 let ownershipChart;
 let statusChart;
@@ -277,6 +278,7 @@ function restoreFilter(selectNode, value) {
 }
 
 function initialize() {
+  initShell();
   setActiveNavigation();
   const currentUser = initializeAccessShell();
   if (!currentUser) return;

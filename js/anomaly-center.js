@@ -12,6 +12,7 @@ import {
 } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
+import { initShell } from "./shell.js";
 import { canManageProjects } from "./auth.js";
 
 const dom = {
@@ -548,6 +549,7 @@ function wireEvents() {
 }
 
 function initialize() {
+  initShell();
   setActiveNavigation();
   currentUser = initializeAccessShell();
   if (!currentUser) return;

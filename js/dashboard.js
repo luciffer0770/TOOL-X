@@ -3,6 +3,7 @@ import { escapeHtml, formatCurrency, formatHours, renderEmptyState, setActiveNav
 import { getActivities, getProjectActions, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
+import { initShell } from "./shell.js";
 import { getRoleLabel } from "./auth.js";
 
 let phaseChart;
@@ -341,6 +342,7 @@ function wireDashboardEvents() {
 }
 
 function initialize() {
+  initShell();
   setActiveNavigation();
   currentUser = initializeAccessShell();
   if (!currentUser) return;

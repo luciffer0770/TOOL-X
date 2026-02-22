@@ -13,9 +13,11 @@ import {
   getColumnByHeader,
   mapRowToActivity,
 } from "./schema.js";
-import { escapeHtml, notify, setActiveNavigation, showLoading, showModal, toCsv, triggerDownload } from "./common.js";
+import { debounce, escapeHtml, notify, setActiveNavigation, showLoading, showModal, toCsv, triggerDownload } from "./common.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
+import { initShell } from "./shell.js";
+import { canUndo, getUndoDescription, pushUndoSnapshot, undo } from "./undo.js";
 import { canEditActivityField, canImportExportData, canManageProjects, canModifyActivityStructure } from "./auth.js";
 import {
   addActivity,
@@ -29,6 +31,7 @@ import {
   saveActivities,
   saveColumnVisibility,
   setDefaultEditor,
+  subscribeToStateChanges,
   updateActivity,
   upsertActivities,
 } from "./storage.js";
@@ -60,6 +63,7 @@ const dom = {
   loadSampleButton: document.querySelector("#load-sample-btn"),
   importButton: document.querySelector("#import-btn"),
   excelInput: document.querySelector("#excel-input"),
+  importDropZone: document.querySelector("#import-drop-zone"),
   mergeStrategy: document.querySelector("#merge-strategy"),
   exportCsvButton: document.querySelector("#export-csv-btn"),
   exportJsonButton: document.querySelector("#export-json-btn"),
@@ -84,6 +88,8 @@ const dom = {
   phaseFilter: document.querySelector("#phase-filter"),
   stats: document.querySelector("#activity-grid-stats"),
   defaultEditorInput: document.querySelector("#default-editor"),
+  lastSavedIndicator: document.querySelector("#last-saved-indicator"),
+  undoBtn: document.querySelector("#undo-btn"),
 };
 
 let viewState = {
@@ -93,6 +99,8 @@ let viewState = {
   status: "",
   phase: "",
   selectedIds: new Set(),
+  sortKey: "",
+  sortDir: 1,
 };
 
 const uiState = {
@@ -231,13 +239,25 @@ function populateFilterOptions() {
 function filterActivities() {
   const query = viewState.search.toLowerCase().trim();
   const phaseFilter = viewState.phase ? normalizePhase(viewState.phase) : "";
-  return viewState.activities.filter((activity) => {
+  let rows = viewState.activities.filter((activity) => {
     if (viewState.status && activity.activityStatus !== viewState.status) return false;
     if (phaseFilter && normalizePhase(activity.phase) !== phaseFilter) return false;
     if (!query) return true;
-
     return COLUMN_SCHEMA.some((column) => String(activity[column.key] ?? "").toLowerCase().includes(query));
   });
+  if (viewState.sortKey) {
+    const key = viewState.sortKey;
+    const dir = viewState.sortDir;
+    rows = [...rows].sort((a, b) => {
+      const va = a[key];
+      const vb = b[key];
+      const cmp = typeof va === "number" && typeof vb === "number"
+        ? va - vb
+        : String(va ?? "").localeCompare(String(vb ?? ""));
+      return dir * (cmp || 0);
+    });
+  }
+  return rows;
 }
 
 function renderTable() {
@@ -248,12 +268,22 @@ function renderTable() {
   const orderMap = new Map(viewState.activities.map((activity, index) => [activity.activityId, index + 1]));
 
   const canBulk = canModifyActivityStructure(currentUser);
+  const sortableKeys = new Set(["activityId", "activityName", "phase", "activityStatus", "completionPercentage", "baseEffortHours", "plannedStartDate"]);
+  const sortClass = (key) => {
+    if (viewState.sortKey !== key) return "sortable";
+    return `sortable sort-${viewState.sortDir > 0 ? "asc" : "desc"}`;
+  };
   dom.tableHead.innerHTML = `
     <tr>
-      ${canBulk ? '<th><input type="checkbox" id="select-all-rows" title="Select all visible" aria-label="Select all visible" /></th>' : ""}
-      <th>#</th>
+      ${canBulk ? '<th class="col-sticky"><input type="checkbox" id="select-all-rows" title="Select all visible" aria-label="Select all visible" /></th>' : ""}
+      <th class="col-sticky sortable ${sortClass("activityId")}" data-sort="activityId">#</th>
       <th>Row Actions</th>
-      ${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}
+      ${columns.map((column) => {
+        const isSortable = sortableKeys.has(column.key);
+        const sticky = column.key === "activityId" ? "col-sticky " : "";
+        const cls = isSortable ? sticky + sortClass(column.key) : sticky || "";
+        return `<th class="${cls.trim() || ""}" ${isSortable ? `data-sort="${column.key}"` : ""}>${escapeHtml(column.label)}</th>`;
+      }).join("")}
     </tr>
   `;
 
@@ -272,8 +302,8 @@ function renderTable() {
         const checked = viewState.selectedIds.has(row.activityId);
         return `
       <tr data-id="${escapeHtml(row.activityId)}">
-        ${canBulk ? `<td><input type="checkbox" class="row-select" data-id="${escapeHtml(row.activityId)}" ${checked ? "checked" : ""} /></td>` : ""}
-        <td>${orderMap.get(row.activityId) ?? "-"}</td>
+        ${canBulk ? `<td class="col-sticky"><input type="checkbox" class="row-select" data-id="${escapeHtml(row.activityId)}" ${checked ? "checked" : ""} /></td>` : ""}
+        <td class="col-sticky">${orderMap.get(row.activityId) ?? "-"}</td>
         <td>
           <div class="cell-actions">
             ${
@@ -288,7 +318,7 @@ function renderTable() {
         ${columns
           .map(
             (column) =>
-              `<td class="${column.key === "subActivity" ? "col-sub-activity" : ""}">${buildControl(column, row)}</td>`,
+              `<td class="${column.key === "subActivity" ? "col-sub-activity" : ""}${column.key === "activityId" ? " col-sticky" : ""}">${buildControl(column, row)}</td>`,
           )
           .join("")}
       </tr>
@@ -527,6 +557,15 @@ function refreshFromStorage() {
   populateFilterOptions();
   renderColumnVisibility();
   renderTable();
+  updateUndoButton();
+}
+
+function updateUndoButton() {
+  if (dom.undoBtn) {
+    const ok = canUndo();
+    dom.undoBtn.style.display = ok ? "" : "none";
+    dom.undoBtn.textContent = ok ? `Undo: ${getUndoDescription() || "last action"}` : "Undo";
+  }
 }
 
 function dependencyReplace(raw, fromId, toId) {
@@ -616,6 +655,59 @@ function readExcel(file) {
   });
 }
 
+function readCsv(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read CSV file."));
+    reader.onload = () => {
+      try {
+        const text = String(reader.result || "");
+        const lines = text.split(/\r?\n/).filter((line) => line.trim());
+        if (!lines.length) {
+          resolve([]);
+          return;
+        }
+        const parseCsvLine = (line) => {
+          const result = [];
+          let current = "";
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const c = line[i];
+            if (c === '"') {
+              if (line[i + 1] === '"') {
+                current += '"';
+                i++;
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if (c === "," && !inQuotes) {
+              result.push(current.replace(/^"|"$/g, "").replace(/""/g, '"'));
+              current = "";
+            } else {
+              current += c;
+            }
+          }
+          result.push(current.replace(/^"|"$/g, "").replace(/""/g, '"'));
+          return result;
+        };
+        const headers = parseCsvLine(lines[0]);
+        const rows = lines.slice(1).map((line) => {
+          const values = parseCsvLine(line);
+          const obj = {};
+          headers.forEach((h, i) => {
+            obj[h] = values[i] ?? "";
+          });
+          return obj;
+        });
+        resolve(rows);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.readAsText(file);
+  });
+}
+
 function validateImportColumns(rows) {
   if (!rows.length) {
     return {
@@ -639,10 +731,11 @@ async function importSpreadsheet() {
     return;
   }
 
-  const hideLoading = showLoading("Reading spreadsheet...");
+  const isCsv = /\.csv$/i.test(file.name);
+  const hideLoading = showLoading(isCsv ? "Reading CSV..." : "Reading spreadsheet...");
   let rows = [];
   try {
-    rows = await readExcel(file);
+    rows = isCsv ? await readCsv(file) : await readExcel(file);
   } finally {
     hideLoading();
   }
@@ -669,6 +762,8 @@ async function importSpreadsheet() {
     secondaryLabel: "Cancel",
   });
   if (!result) return;
+
+  pushUndoSnapshot(`Import ${rows.length} rows (${mergeStrategy})`);
 
   const editor = dom.defaultEditorInput?.value || "Planner";
   const mappedActivities = rows.map((row) => ({
@@ -771,6 +866,29 @@ function wireEvents() {
     }
   });
 
+  dom.importDropZone?.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dom.importDropZone?.classList.add("drag-over");
+  });
+  dom.importDropZone?.addEventListener("dragleave", () => dom.importDropZone?.classList.remove("drag-over"));
+  dom.importDropZone?.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dom.importDropZone?.classList.remove("drag-over");
+    const file = e.dataTransfer?.files?.[0];
+    if (file && /\.(xlsx|xls|csv)$/i.test(file.name) && canImportExportData(currentUser)) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      dom.excelInput.files = dt.files;
+      try {
+        await importSpreadsheet();
+      } catch (err) {
+        notify(`Import error: ${err.message}`, "error");
+      }
+    }
+  });
+
   dom.exportCsvButton.addEventListener("click", () => {
     if (!canImportExportData(currentUser)) {
       notify("This role cannot export data.", "warning");
@@ -800,8 +918,9 @@ function wireEvents() {
       danger: true,
     });
     if (!result) return;
+    pushUndoSnapshot("Clear all activities");
     clearAllActivities();
-    notify("All activities were removed.", "warning");
+    notify("All activities were removed. Use Ctrl+Z to undo.", "warning");
     refreshFromStorage();
   });
 
@@ -880,16 +999,26 @@ function wireEvents() {
     }
   });
 
-  dom.searchInput.addEventListener("input", (event) => {
-    viewState.search = event.target.value || "";
+  dom.searchInput.addEventListener("input", debounce(() => {
+    viewState.search = dom.searchInput?.value || "";
     renderTable();
-  });
+  }, 250));
   dom.statusFilter.addEventListener("change", (event) => {
     viewState.status = event.target.value;
     renderTable();
   });
   dom.phaseFilter.addEventListener("change", (event) => {
     viewState.phase = event.target.value;
+    renderTable();
+  });
+
+  dom.tableHead.addEventListener("click", (event) => {
+    const th = event.target.closest("th[data-sort]");
+    if (!th) return;
+    const key = th.dataset.sort;
+    if (!key) return;
+    viewState.sortDir = viewState.sortKey === key ? -viewState.sortDir : 1;
+    viewState.sortKey = key;
     renderTable();
   });
 
@@ -990,9 +1119,10 @@ function wireEvents() {
       danger: true,
     }).then((ok) => {
       if (!ok) return;
+      pushUndoSnapshot(`Delete activity ${activityId}`);
       deleteActivity(activityId);
       viewState.selectedIds.delete(activityId);
-      notify(`Deleted ${activityId}.`, "warning");
+      notify(`Deleted ${activityId}. Use Ctrl+Z to undo.`, "warning");
       refreshFromStorage();
     });
   });
@@ -1030,9 +1160,10 @@ function wireEvents() {
       danger: true,
     });
     if (!result) return;
+    pushUndoSnapshot(`Delete ${count} activities`);
     idsToDelete.forEach((id) => deleteActivity(id));
     viewState.selectedIds.clear();
-    notify(`Deleted ${count} activities.`, "warning");
+    notify(`Deleted ${count} activities. Use Ctrl+Z to undo.`, "warning");
     refreshFromStorage();
   });
 
@@ -1066,6 +1197,7 @@ function wireEvents() {
 }
 
 function initialize() {
+  initShell();
   setActiveNavigation();
   currentUser = initializeAccessShell();
   if (!currentUser) return;
@@ -1086,6 +1218,18 @@ function initialize() {
   }
   wireEvents();
   applyRoleRestrictions();
+  dom.undoBtn?.addEventListener("click", () => {
+    const result = undo();
+    if (result.ok) refreshFromStorage();
+  });
+  subscribeToStateChanges(updateUndoButton);
+  window.addEventListener("industrial_planning_state_changed", (e) => {
+    if (e.detail?.savedAt && dom.lastSavedIndicator) {
+      const d = new Date(e.detail.savedAt);
+      dom.lastSavedIndicator.textContent = `Saved ${d.toLocaleTimeString()}`;
+    }
+    updateUndoButton();
+  });
   initializeProjectToolbar({
     onProjectChange: () => {
       viewState.search = "";

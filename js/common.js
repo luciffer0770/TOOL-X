@@ -80,7 +80,13 @@ export function triggerDownload(filename, content, mimeType = "text/plain;charse
   URL.revokeObjectURL(link.href);
 }
 
+const NOTIFICATION_HISTORY = [];
+const MAX_NOTIFICATIONS = 20;
+
 export function notify(message, type = "info") {
+  NOTIFICATION_HISTORY.push({ message, type, at: new Date().toISOString() });
+  if (NOTIFICATION_HISTORY.length > MAX_NOTIFICATIONS) NOTIFICATION_HISTORY.shift();
+
   let host = document.querySelector("#toast-host");
   if (!host) {
     host = document.createElement("div");
@@ -99,6 +105,40 @@ export function notify(message, type = "info") {
     toast.classList.add("toast-hide");
     setTimeout(() => toast.remove(), 240);
   }, 2600);
+}
+
+export function getNotificationHistory() {
+  return [...NOTIFICATION_HISTORY].reverse();
+}
+
+export function showNotificationHistory() {
+  const items = getNotificationHistory();
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.innerHTML = `
+    <div class="modal-dialog" style="max-width: 420px">
+      <h2 class="modal-title">Recent Notifications</h2>
+      <div class="notification-history-list">
+        ${items.length ? items.slice(0, 15).map((n) => `
+          <div class="notification-history-item toast-${n.type}">
+            <span>${escapeHtml(n.message)}</span>
+            <span class="small">${new Date(n.at).toLocaleTimeString()}</span>
+          </div>
+        `).join("") : '<p class="empty-state">No notifications yet.</p>'}
+      </div>
+      <div class="modal-actions" style="margin-top: 12px">
+        <button type="button" class="modal-secondary ghost">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const close = () => { overlay.remove(); document.body.style.overflow = ""; };
+  overlay.querySelector(".modal-secondary").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  overlay.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  document.body.style.overflow = "hidden";
 }
 
 export function renderEmptyState(target, message, suggestion = "") {
@@ -231,4 +271,67 @@ export function showLoading(message = "Loading...") {
   return () => {
     el.classList.remove("is-visible");
   };
+}
+
+const GLOBAL_SHORTCUTS = [
+  { keys: "Ctrl+K", desc: "Focus search" },
+  { keys: "Ctrl+N", desc: "Add activity (Activity Master)" },
+  { keys: "Ctrl+E", desc: "Export CSV (Activity Master)" },
+  { keys: "Ctrl+Z", desc: "Undo last action" },
+  { keys: "Ctrl+/", desc: "Show this help" },
+  { keys: "Escape", desc: "Close modal / cancel" },
+];
+
+export function showKeyboardShortcuts() {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.innerHTML = `
+    <div class="modal-dialog" style="max-width: 400px">
+      <h2 class="modal-title">Keyboard Shortcuts</h2>
+      <div class="shortcuts-list">
+        ${GLOBAL_SHORTCUTS.map((s) => `<div class="shortcut-row"><kbd>${escapeHtml(s.keys)}</kbd><span>${escapeHtml(s.desc)}</span></div>`).join("")}
+      </div>
+      <div class="modal-actions" style="margin-top: 16px">
+        <button type="button" class="modal-secondary ghost">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const close = () => {
+    overlay.remove();
+    document.body.style.overflow = "";
+  };
+  overlay.querySelector(".modal-secondary").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+  overlay.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+    }
+  });
+  document.body.style.overflow = "hidden";
+}
+
+let lastSavedAt = null;
+
+export function setLastSavedAt(date) {
+  lastSavedAt = date || new Date();
+}
+
+export function getLastSavedAt() {
+  return lastSavedAt;
+}
+
+export function setupBeforeUnload(hasUnsavedChanges) {
+  const handler = (e) => {
+    if (hasUnsavedChanges()) {
+      e.preventDefault();
+    }
+  };
+  window.addEventListener("beforeunload", handler);
+  return () => window.removeEventListener("beforeunload", handler);
 }

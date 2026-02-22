@@ -162,9 +162,9 @@
         </div>
         <div class="panel-body">
           <div class="form-grid">
-            <label class="field"
-              >Upload Excel (.xlsx / .xls)
-              <input id="excel-input" type="file" accept=".xlsx,.xls" />
+            <label class="field import-drop-zone" id="import-drop-zone"
+              >Upload Excel or CSV (drag & drop)
+              <input id="excel-input" type="file" accept=".xlsx,.xls,.csv" />
             </label>
             <label class="field"
               >Merge Strategy
@@ -230,6 +230,8 @@
         <div class="panel-header">
           <h2>Activity Data Grid</h2>
           <span class="panel-subtitle" id="activity-grid-stats"></span>
+          <span class="last-saved" id="last-saved-indicator"></span>
+          <button id="undo-btn" class="ghost" title="Undo last action (Ctrl+Z)" style="display:none">Undo</button>
         </div>
         <div class="panel-body">
           <div class="form-grid" style="margin-bottom: 12px">

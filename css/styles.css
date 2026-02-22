@@ -762,6 +762,134 @@ td.col-sub-activity textarea {
   color: var(--text);
 }
 
+/* Keyboard shortcuts modal */
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.shortcut-row kbd {
+  min-width: 90px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel-elev);
+}
+
+/* Sortable table headers */
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.sortable:hover {
+  background: rgba(47, 143, 255, 0.1);
+}
+
+th.sortable::after {
+  content: " ⇅";
+  opacity: 0.5;
+  font-size: 0.7em;
+}
+
+th.sortable.sort-asc::after {
+  content: " ↑";
+  opacity: 1;
+}
+
+th.sortable.sort-desc::after {
+  content: " ↓";
+  opacity: 1;
+}
+
+/* Sticky first column */
+.col-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: inherit;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.06);
+}
+
+tbody tr:nth-child(even) .col-sticky {
+  background: rgba(245, 250, 255, 0.9);
+}
+
+thead th.col-sticky {
+  background: rgba(232, 241, 255, 0.98);
+  z-index: 6;
+}
+
+/* Last saved indicator */
+.last-saved {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+/* Mobile nav toggle */
+.nav-toggle {
+  display: none;
+  padding: 10px;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (max-width: 768px) {
+  .nav-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .nav:not(.is-open) {
+    max-height: 0;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+  .nav.is-open {
+    max-height: 500px;
+  }
+}
+
+/* Dark mode variables (optional) */
+[data-theme="dark"] {
+  --bg: #1a2332;
+  --bg-panel: #243447;
+  --text: #e8eef5;
+  --text-dim: #8fa3bf;
+  --border: #3d5266;
+}
+
+.import-drop-zone.drag-over {
+  border: 2px dashed var(--accent);
+  background: rgba(47, 143, 255, 0.08);
+}
+
+.notification-history-list {
+  max-height: 300px;
+  overflow: auto;
+}
+
+.notification-history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel);
+}
+
 .toast-host {
   position: fixed;
   right: 16px;

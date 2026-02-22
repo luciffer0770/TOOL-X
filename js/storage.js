@@ -199,10 +199,12 @@ function writeState(state) {
 
 function emitStateChange() {
   if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
+  const now = new Date();
   window.dispatchEvent(
     new CustomEvent(STATE_CHANGE_EVENT, {
       detail: {
         key: STORAGE_KEY,
+        savedAt: now.toISOString(),
       },
     }),
   );
