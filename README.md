@@ -43,7 +43,19 @@
 
 ## Run
 
-Serve as static files from any web server, for example:
+**Startup tool (recommended):**
+
+```bash
+./start.sh
+```
+
+Or with npm:
+
+```bash
+npm start
+```
+
+Or serve manually:
 
 ```bash
 python3 -m http.server 8080
