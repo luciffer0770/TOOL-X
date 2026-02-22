@@ -7,9 +7,7 @@ import { canUndo, undo } from "./undo.js";
 
 export function initShell() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.getRegistrations().then((regs) => {
-      regs.forEach((r) => r.unregister());
-    });
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
   const nav = document.querySelector(".nav");
   const helpBtn = document.createElement("button");
