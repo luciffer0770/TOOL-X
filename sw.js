@@ -1,4 +1,4 @@
-const CACHE_NAME = "industrial-planning-v1";
+const CACHE_NAME = "atlas-v2";
 const ASSETS = [
   "/",
   "/index.html",
@@ -43,6 +43,11 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  const isNav = e.request.mode === "navigate" || e.request.destination === "document";
+  if (isNav) {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then((cached) => cached || fetch(e.request).catch(() => caches.match(e.request)))
   );
