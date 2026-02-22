@@ -1,6 +1,6 @@
-# ATLAS – Digital Twin Engineering Preparation Platform
+# ATLAS Planning
 
-**Advanced Twin-based Lifecycle and Activity System** – Enterprise-class, frontend-only planning and decision intelligence system for preparation and build-up lifecycle control.
+**Activity & Timeline Lifecycle Planning** – Enterprise-class, frontend-only planning and decision intelligence system for preparation and build-up lifecycle control.
 
 ## Highlights
 

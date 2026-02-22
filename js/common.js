@@ -155,6 +155,7 @@ export function showModal(options = {}) {
   const {
     title = "Confirm",
     body = "",
+    bodyHtml = "",
     fields = [],
     primaryLabel = "Confirm",
     secondaryLabel = "Cancel",
@@ -181,10 +182,12 @@ export function showModal(options = {}) {
     )
     .join("");
 
+  const bodyContent = bodyHtml ? `<div class="modal-body">${bodyHtml}</div>` : (body ? `<p class="modal-body">${escapeHtml(body)}</p>` : "");
+
   overlay.innerHTML = `
     <div class="modal-dialog">
       <h2 id="modal-title" class="modal-title">${escapeHtml(title)}</h2>
-      ${body ? `<p class="modal-body">${escapeHtml(body)}</p>` : ""}
+      ${bodyContent}
       <div class="modal-fields">${fieldHtml}</div>
       <div class="modal-actions">
         <button type="button" class="modal-secondary ghost">${escapeHtml(secondaryLabel)}</button>
@@ -275,6 +278,7 @@ export function showLoading(message = "Loading...") {
 
 const GLOBAL_SHORTCUTS = [
   { keys: "Ctrl+K", desc: "Focus search" },
+  { keys: "Ctrl+Shift+K", desc: "Global search (cross-page)" },
   { keys: "Ctrl+N", desc: "Add activity (Activity Master)" },
   { keys: "Ctrl+E", desc: "Export CSV (Activity Master)" },
   { keys: "Ctrl+Z", desc: "Undo last action" },

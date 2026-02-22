@@ -1,6 +1,6 @@
 import { enrichActivities, getCriticalPath, getDependencyHealth, getTimelineBounds, parseDate } from "./analytics.js";
 import { escapeHtml, formatDate, formatHours, notify, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
-import { getActivities, subscribeToStateChanges } from "./storage.js";
+import { getActivities, subscribeToStateChanges, updateActivity } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { initShell } from "./shell.js";
@@ -138,9 +138,12 @@ function renderGantt() {
         <div
           class="gantt-bar ${delayed ? "is-delayed" : ""} ${criticalSet.has(activity.activityId) ? "is-critical" : ""}"
           style="left:${leftPct}%; width:${widthPct}%"
+          data-original-start="${clampedStart.toISOString().slice(0, 10)}"
+          data-original-end="${clampedEnd.toISOString().slice(0, 10)}"
         >
           <div class="gantt-progress" style="width:${progressPct}%"></div>
           <div class="gantt-caption">${escapeHtml(activity.activityId)} (${progressPct}%)</div>
+          <div class="gantt-bar-resize-handle" title="Drag to resize"></div>
         </div>
       </div>
     `);
@@ -158,8 +161,114 @@ function renderGantt() {
   }
 
   dom.ganttGrid.innerHTML = html.join("");
+  wireGanttBarDrag(rows, start, end, spanMs);
   renderDependencyLines(rows, rowIndexById);
   renderDependencyTable(rows);
+}
+
+function wireGanttBarDrag(rows, rangeStart, rangeEnd, spanMs) {
+  const bars = dom.ganttGrid.querySelectorAll(".gantt-bar");
+  const trackWidth = dom.ganttGrid.querySelector(".gantt-track")?.offsetWidth || 1;
+  const msPerPx = spanMs / trackWidth;
+
+  bars.forEach((bar) => {
+    const trackEl = bar.closest(".gantt-track");
+    const activityId = trackEl?.dataset?.activityId;
+    if (!activityId) return;
+    const activity = rows.find((a) => a.activityId === activityId);
+    if (!activity) return;
+
+    bar.style.cursor = "grab";
+    bar.addEventListener("mousedown", (e) => {
+      if (e.target.classList.contains("gantt-bar-resize-handle")) return;
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const startX = e.clientX;
+      const startLeft = parseFloat(bar.style.left) || 0;
+      const startWidth = parseFloat(bar.style.width) || 10;
+
+      const onMove = (ev) => {
+        const dx = ev.clientX - startX;
+        const dxPct = (dx / trackWidth) * 100;
+        const newLeft = Math.max(0, Math.min(100 - startWidth, startLeft + dxPct));
+        bar.style.left = `${newLeft}%`;
+      };
+
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        bar.style.cursor = "grab";
+
+        const newLeft = parseFloat(bar.style.left) || startLeft;
+        const deltaPct = (newLeft - startLeft) / 100;
+        const deltaMs = deltaPct * spanMs;
+
+        const oldStart = parseDate(activity.plannedStartDate) || parseDate(activity.actualStartDate) || rangeStart;
+        const oldEnd = parseDate(activity.plannedEndDate) || parseDate(activity.actualEndDate) || new Date(oldStart.getTime() + 24 * 60 * 60 * 1000);
+        const durationMs = oldEnd.getTime() - oldStart.getTime();
+
+        const newStart = new Date(oldStart.getTime() + deltaMs);
+        const newEnd = new Date(newStart.getTime() + durationMs);
+
+        if (newStart.getTime() !== oldStart.getTime()) {
+          updateActivity(activityId, {
+            plannedStartDate: newStart.toISOString().slice(0, 10),
+            plannedEndDate: newEnd.toISOString().slice(0, 10),
+          });
+          loadProjectActivities({ resetView: false });
+        }
+      };
+
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+      bar.style.cursor = "grabbing";
+    });
+
+    const resizeHandle = bar.querySelector(".gantt-bar-resize-handle");
+    if (resizeHandle) {
+      resizeHandle.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const startX = e.clientX;
+        const startLeft = parseFloat(bar.style.left) || 0;
+        const startWidth = parseFloat(bar.style.width) || 10;
+
+        const onMove = (ev) => {
+          const dx = ev.clientX - startX;
+          const dxPct = (dx / trackWidth) * 100;
+          const newWidth = Math.max(2, Math.min(100 - startLeft, startWidth + dxPct));
+          bar.style.width = `${newWidth}%`;
+        };
+
+        const onUp = () => {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+
+          const newWidth = parseFloat(bar.style.width) || startWidth;
+          const widthDeltaPct = (newWidth - startWidth) / 100;
+          const deltaMs = widthDeltaPct * spanMs;
+
+          const origStart = bar.dataset.originalStart ? parseDate(bar.dataset.originalStart) : parseDate(activity.plannedStartDate) || rangeStart;
+          const origEnd = bar.dataset.originalEnd ? parseDate(bar.dataset.originalEnd) : parseDate(activity.plannedEndDate) || new Date(origStart.getTime() + 24 * 60 * 60 * 1000);
+          const newEnd = new Date(origEnd.getTime() + deltaMs);
+
+          if (newEnd.getTime() > origStart.getTime()) {
+            updateActivity(activityId, {
+              plannedEndDate: newEnd.toISOString().slice(0, 10),
+            });
+            loadProjectActivities({ resetView: false });
+          }
+        };
+
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+      });
+    }
+  });
 }
 
 function renderDependencyLines(rows, rowIndexById) {
