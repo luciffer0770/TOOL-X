@@ -1,0 +1,9 @@
+{
+  "name": "atlas-planning-platform",
+  "version": "1.0.0",
+  "description": "ATLAS – Digital Twin Engineering Preparation Platform",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "serve": "npx --yes serve -p 8080 ."
+  }
+}
