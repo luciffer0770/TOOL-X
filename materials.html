@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Material Intelligence | Industrial Planning Intelligence</title>
+    <title>Material Intelligence | ATLAS</title>
     <link rel="stylesheet" href="./css/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <header class="top-bar">
         <div class="title-block">
-          <h1>Digital Twin – Activity Control Center</h1>
-          <p>Enterprise lifecycle planning, structured activity control, and intelligent bulk data management</p>
+          <h1>ATLAS – Digital Twin Engineering Preparation Platform</h1>
+          <p>Advanced Twin-based Lifecycle and Activity System – Engineering readiness intelligence</p>
         </div>
         <div class="header-meta">
           <div class="session-chip">
@@ -42,6 +42,11 @@
             <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate Template</button>
             <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
             <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export Project</button>
+            <label class="ghost" style="margin:0; cursor:pointer" data-role-hide="technician">
+              Import Project
+              <input id="project-import-input" type="file" accept=".json" hidden />
+            </label>
           </div>
           <div id="project-summary" class="small"></div>
         </div>
@@ -107,6 +112,7 @@
         <div class="panel-header">
           <h2>Material Responsibility Matrix</h2>
           <span class="panel-subtitle" id="material-table-summary"></span>
+          <button id="material-export-btn" class="ghost">Export CSV</button>
         </div>
         <div class="panel-body">
           <div class="table-wrap">

@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Anomaly, Baseline & Actions | Industrial Planning Intelligence</title>
+    <title>Anomaly, Baseline & Actions | ATLAS</title>
     <link rel="stylesheet" href="./css/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <header class="top-bar">
         <div class="title-block">
-          <h1>Digital Twin – Activity Control Center</h1>
-          <p>Enterprise lifecycle planning, structured activity control, and intelligent bulk data management</p>
+          <h1>ATLAS – Digital Twin Engineering Preparation Platform</h1>
+          <p>Advanced Twin-based Lifecycle and Activity System – Engineering readiness intelligence</p>
         </div>
         <div class="header-meta">
           <div class="session-chip">
@@ -42,6 +42,11 @@
             <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate Template</button>
             <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
             <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export Project</button>
+            <label class="ghost" style="margin:0; cursor:pointer" data-role-hide="technician">
+              Import Project
+              <input id="project-import-input" type="file" accept=".json" hidden />
+            </label>
           </div>
           <div id="project-summary" class="small"></div>
         </div>
@@ -80,6 +85,7 @@
                   <th>Severity</th>
                   <th>Details</th>
                   <th>Recommended Action</th>
+                  <th>Workflow</th>
                 </tr>
               </thead>
               <tbody id="anomaly-table-body"></tbody>
@@ -108,6 +114,7 @@
           </div>
           <div class="row-actions" style="margin-top: 10px">
             <button id="baseline-lock-btn">Lock Baseline Snapshot</button>
+            <button id="baseline-export-variance-btn" class="ghost">Export Variance Report</button>
           </div>
           <div id="baseline-summary" class="small" style="margin-top: 8px"></div>
 

@@ -4,6 +4,7 @@ import {
   IMPORT_REQUIRED_KEYS,
   IMPORT_REQUIRED_LABELS,
   MATERIAL_STATUSES,
+  normalizePhase,
   OWNERSHIP_TYPES,
   PRIORITY_LEVELS,
   RISK_LEVELS,
@@ -12,9 +13,11 @@ import {
   getColumnByHeader,
   mapRowToActivity,
 } from "./schema.js";
-import { notify, setActiveNavigation, toCsv, triggerDownload } from "./common.js";
+import { debounce, escapeHtml, notify, setActiveNavigation, showLoading, showModal, toCsv, triggerDownload } from "./common.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
+import { initShell } from "./shell.js";
+import { canUndo, getUndoDescription, pushUndoSnapshot, undo } from "./undo.js";
 import { canEditActivityField, canImportExportData, canManageProjects, canModifyActivityStructure } from "./auth.js";
 import {
   addActivity,
@@ -28,11 +31,19 @@ import {
   saveActivities,
   saveColumnVisibility,
   setDefaultEditor,
+  subscribeToStateChanges,
   updateActivity,
   upsertActivities,
 } from "./storage.js";
 
-const longTextFields = new Set(["requiredMaterials", "requiredTools", "remarks", "delayReason", "overrideReason"]);
+const longTextFields = new Set([
+  "subActivity",
+  "requiredMaterials",
+  "requiredTools",
+  "remarks",
+  "delayReason",
+  "overrideReason",
+]);
 const selectMap = {
   activityStatus: ACTIVITY_STATUSES,
   priority: PRIORITY_LEVELS,
@@ -44,9 +55,15 @@ const selectMap = {
 const dom = {
   addButton: document.querySelector("#add-activity-btn"),
   addEmptyButton: document.querySelector("#add-empty-btn"),
+  bulkActions: document.querySelector("#bulk-actions"),
+  bulkSelectionCount: document.querySelector("#bulk-selection-count"),
+  bulkDeleteBtn: document.querySelector("#bulk-delete-btn"),
+  bulkStatusSelect: document.querySelector("#bulk-status-select"),
+  bulkStatusApplyBtn: document.querySelector("#bulk-status-apply-btn"),
   loadSampleButton: document.querySelector("#load-sample-btn"),
   importButton: document.querySelector("#import-btn"),
   excelInput: document.querySelector("#excel-input"),
+  importDropZone: document.querySelector("#import-drop-zone"),
   mergeStrategy: document.querySelector("#merge-strategy"),
   exportCsvButton: document.querySelector("#export-csv-btn"),
   exportJsonButton: document.querySelector("#export-json-btn"),
@@ -63,6 +80,7 @@ const dom = {
   columnSearchInput: document.querySelector("#column-search-input"),
   columnSelectAllButton: document.querySelector("#column-select-all-btn"),
   columnSelectCoreButton: document.querySelector("#column-select-core-btn"),
+  columnSelectCompactButton: document.querySelector("#column-select-compact-btn"),
   columnSelectNoneButton: document.querySelector("#column-select-none-btn"),
   mandatoryHint: document.querySelector("#mandatory-columns-hint"),
   searchInput: document.querySelector("#search-input"),
@@ -70,6 +88,8 @@ const dom = {
   phaseFilter: document.querySelector("#phase-filter"),
   stats: document.querySelector("#activity-grid-stats"),
   defaultEditorInput: document.querySelector("#default-editor"),
+  lastSavedIndicator: document.querySelector("#last-saved-indicator"),
+  undoBtn: document.querySelector("#undo-btn"),
 };
 
 let viewState = {
@@ -78,6 +98,9 @@ let viewState = {
   search: "",
   status: "",
   phase: "",
+  selectedIds: new Set(),
+  sortKey: "",
+  sortDir: 1,
 };
 
 const uiState = {
@@ -89,15 +112,6 @@ const uiState = {
 };
 
 let currentUser = null;
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
 function getInputValue(id) {
   const node = document.querySelector(`#${id}`);
@@ -113,30 +127,40 @@ function buildManualActivityDraft() {
     plannedStartDate: getInputValue("plannedStartDate"),
     plannedEndDate: getInputValue("plannedEndDate"),
     baseEffortHours: Number(getInputValue("baseEffortHours")) || 0,
+    requiredMaterials: getInputValue("requiredMaterials"),
+    requiredTools: getInputValue("requiredTools"),
+    materialLeadTime: Number(getInputValue("materialLeadTime")) || 0,
+    dependencies: getInputValue("dependencies"),
     assignedManpower: Number(getInputValue("assignedManpower")) || 0,
     resourceDepartment: getInputValue("resourceDepartment"),
     materialOwnership: getInputValue("materialOwnership"),
     materialStatus: getInputValue("materialStatus"),
     priority: getInputValue("priority"),
     remarks: getInputValue("remarks"),
-    lastModifiedBy: dom.defaultEditorInput.value || "Planner",
+    lastModifiedBy: dom.defaultEditorInput?.value || "Planner",
     lastModifiedDate: new Date().toISOString().slice(0, 10),
   };
 }
 
+const MANUAL_ENTRY_IDS = [
+  "activityId",
+  "phase",
+  "activityName",
+  "subActivity",
+  "plannedStartDate",
+  "plannedEndDate",
+  "baseEffortHours",
+  "requiredMaterials",
+  "requiredTools",
+  "materialLeadTime",
+  "dependencies",
+  "assignedManpower",
+  "resourceDepartment",
+  "remarks",
+];
+
 function clearManualEntryForm() {
-  [
-    "activityId",
-    "phase",
-    "activityName",
-    "subActivity",
-    "plannedStartDate",
-    "plannedEndDate",
-    "baseEffortHours",
-    "assignedManpower",
-    "resourceDepartment",
-    "remarks",
-  ].forEach((id) => {
+  MANUAL_ENTRY_IDS.forEach((id) => {
     const input = document.querySelector(`#${id}`);
     if (input) input.value = "";
   });
@@ -172,13 +196,23 @@ function buildControl(column, row) {
   return `<input data-field="${column.key}" type="text" value="${escapeHtml(value)}" ${lockAttribute} />`;
 }
 
+function updateBulkStatusOptions() {
+  if (!dom.bulkStatusSelect) return;
+  const opts = ['<option value="">-- Set status --</option>'].concat(
+    ACTIVITY_STATUSES.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`),
+  );
+  dom.bulkStatusSelect.innerHTML = opts.join("");
+}
+
 function populateFilterOptions() {
   const statuses = new Set(ACTIVITY_STATUSES);
   const phases = new Set();
+  updateBulkStatusOptions();
 
   viewState.activities.forEach((activity) => {
     if (activity.activityStatus) statuses.add(activity.activityStatus);
-    if (activity.phase) phases.add(activity.phase);
+    const p = normalizePhase(activity.phase);
+    if (p) phases.add(p);
   });
 
   const statusOptions = ['<option value="">All</option>']
@@ -204,13 +238,26 @@ function populateFilterOptions() {
 
 function filterActivities() {
   const query = viewState.search.toLowerCase().trim();
-  return viewState.activities.filter((activity) => {
+  const phaseFilter = viewState.phase ? normalizePhase(viewState.phase) : "";
+  let rows = viewState.activities.filter((activity) => {
     if (viewState.status && activity.activityStatus !== viewState.status) return false;
-    if (viewState.phase && activity.phase !== viewState.phase) return false;
+    if (phaseFilter && normalizePhase(activity.phase) !== phaseFilter) return false;
     if (!query) return true;
-
     return COLUMN_SCHEMA.some((column) => String(activity[column.key] ?? "").toLowerCase().includes(query));
   });
+  if (viewState.sortKey) {
+    const key = viewState.sortKey;
+    const dir = viewState.sortDir;
+    rows = [...rows].sort((a, b) => {
+      const va = a[key];
+      const vb = b[key];
+      const cmp = typeof va === "number" && typeof vb === "number"
+        ? va - vb
+        : String(va ?? "").localeCompare(String(vb ?? ""));
+      return dir * (cmp || 0);
+    });
+  }
+  return rows;
 }
 
 function renderTable() {
@@ -220,25 +267,43 @@ function renderTable() {
   dom.stats.textContent = `${activeProject.name}: ${filteredRows.length} shown of ${viewState.activities.length} activities`;
   const orderMap = new Map(viewState.activities.map((activity, index) => [activity.activityId, index + 1]));
 
+  const canBulk = canModifyActivityStructure(currentUser);
+  const sortableKeys = new Set(["activityId", "activityName", "phase", "activityStatus", "completionPercentage", "baseEffortHours", "plannedStartDate"]);
+  const sortClass = (key) => {
+    if (viewState.sortKey !== key) return "sortable";
+    return `sortable sort-${viewState.sortDir > 0 ? "asc" : "desc"}`;
+  };
   dom.tableHead.innerHTML = `
     <tr>
-      <th>#</th>
+      ${canBulk ? '<th class="col-sticky"><input type="checkbox" id="select-all-rows" title="Select all visible" aria-label="Select all visible" /></th>' : ""}
+      <th class="col-sticky sortable ${sortClass("activityId")}" data-sort="activityId">#</th>
       <th>Row Actions</th>
-      ${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}
+      ${columns.map((column) => {
+        const isSortable = sortableKeys.has(column.key);
+        const sticky = column.key === "activityId" ? "col-sticky " : "";
+        const cls = isSortable ? sticky + sortClass(column.key) : sticky || "";
+        return `<th class="${cls.trim() || ""}" ${isSortable ? `data-sort="${column.key}"` : ""}>${escapeHtml(column.label)}</th>`;
+      }).join("")}
     </tr>
   `;
 
   if (!filteredRows.length) {
-    dom.tableBody.innerHTML = `<tr><td colspan="${columns.length + 2}"><div class="empty-state">No activities match current filters.</div></td></tr>`;
+    viewState.selectedIds.clear();
+    if (dom.bulkActions) dom.bulkActions.hidden = true;
+    dom.tableBody.innerHTML = `<tr><td colspan="${columns.length + (canBulk ? 3 : 2)}"><div class="empty-state">No activities match current filters.</div></td></tr>`;
     requestAnimationFrame(refreshFloatingScrollbar);
     return;
   }
 
+  const selectAllChecked = canBulk && filteredRows.length > 0 && filteredRows.every((r) => viewState.selectedIds.has(r.activityId));
   dom.tableBody.innerHTML = filteredRows
     .map(
-      (row) => `
+      (row) => {
+        const checked = viewState.selectedIds.has(row.activityId);
+        return `
       <tr data-id="${escapeHtml(row.activityId)}">
-        <td>${orderMap.get(row.activityId) ?? "-"}</td>
+        ${canBulk ? `<td class="col-sticky"><input type="checkbox" class="row-select" data-id="${escapeHtml(row.activityId)}" ${checked ? "checked" : ""} /></td>` : ""}
+        <td class="col-sticky">${orderMap.get(row.activityId) ?? "-"}</td>
         <td>
           <div class="cell-actions">
             ${
@@ -250,11 +315,26 @@ function renderTable() {
             }
           </div>
         </td>
-        ${columns.map((column) => `<td>${buildControl(column, row)}</td>`).join("")}
+        ${columns
+          .map(
+            (column) =>
+              `<td class="${column.key === "subActivity" ? "col-sub-activity" : ""}${column.key === "activityId" ? " col-sticky" : ""}">${buildControl(column, row)}</td>`,
+          )
+          .join("")}
       </tr>
-    `,
+    `;
+      },
     )
     .join("");
+  if (canBulk && dom.bulkActions) {
+    dom.bulkActions.hidden = viewState.selectedIds.size === 0;
+    if (dom.bulkSelectionCount) dom.bulkSelectionCount.textContent = `${viewState.selectedIds.size} selected`;
+  }
+  const selectAllEl = document.querySelector("#select-all-rows");
+  if (selectAllEl) {
+    selectAllEl.checked = selectAllChecked;
+    selectAllEl.indeterminate = viewState.selectedIds.size > 0 && !selectAllChecked;
+  }
   requestAnimationFrame(refreshFloatingScrollbar);
 }
 
@@ -358,6 +438,20 @@ function shouldDropColumnPanelUpward() {
   return spaceBelow < panelHeight && spaceAbove > spaceBelow;
 }
 
+const COMPACT_COLUMNS = new Set([
+  "activityId",
+  "phase",
+  "activityName",
+  "subActivity",
+  "baseEffortHours",
+  "plannedStartDate",
+  "plannedEndDate",
+  "activityStatus",
+  "completionPercentage",
+  "requiredMaterials",
+  "delayReason",
+]);
+
 function applyVisibilityPreset(mode) {
   const nextVisibility = {};
   COLUMN_SCHEMA.forEach((column) => {
@@ -367,6 +461,10 @@ function applyVisibilityPreset(mode) {
     }
     if (mode === "core") {
       nextVisibility[column.key] = IMPORT_REQUIRED_KEYS.includes(column.key);
+      return;
+    }
+    if (mode === "compact") {
+      nextVisibility[column.key] = COMPACT_COLUMNS.has(column.key);
       return;
     }
     nextVisibility[column.key] = false;
@@ -411,6 +509,7 @@ function applyRoleRestrictions() {
     dom.columnDropdownToggle,
     dom.columnSelectAllButton,
     dom.columnSelectCoreButton,
+    dom.columnSelectCompactButton,
     dom.columnSelectNoneButton,
   ].forEach((button) => {
     if (!button) return;
@@ -458,6 +557,15 @@ function refreshFromStorage() {
   populateFilterOptions();
   renderColumnVisibility();
   renderTable();
+  updateUndoButton();
+}
+
+function updateUndoButton() {
+  if (dom.undoBtn) {
+    const ok = canUndo();
+    dom.undoBtn.style.display = ok ? "" : "none";
+    dom.undoBtn.textContent = ok ? `Undo: ${getUndoDescription() || "last action"}` : "Undo";
+  }
 }
 
 function dependencyReplace(raw, fromId, toId) {
@@ -547,6 +655,59 @@ function readExcel(file) {
   });
 }
 
+function readCsv(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read CSV file."));
+    reader.onload = () => {
+      try {
+        const text = String(reader.result || "");
+        const lines = text.split(/\r?\n/).filter((line) => line.trim());
+        if (!lines.length) {
+          resolve([]);
+          return;
+        }
+        const parseCsvLine = (line) => {
+          const result = [];
+          let current = "";
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const c = line[i];
+            if (c === '"') {
+              if (line[i + 1] === '"') {
+                current += '"';
+                i++;
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if (c === "," && !inQuotes) {
+              result.push(current.replace(/^"|"$/g, "").replace(/""/g, '"'));
+              current = "";
+            } else {
+              current += c;
+            }
+          }
+          result.push(current.replace(/^"|"$/g, "").replace(/""/g, '"'));
+          return result;
+        };
+        const headers = parseCsvLine(lines[0]);
+        const rows = lines.slice(1).map((line) => {
+          const values = parseCsvLine(line);
+          const obj = {};
+          headers.forEach((h, i) => {
+            obj[h] = values[i] ?? "";
+          });
+          return obj;
+        });
+        resolve(rows);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.readAsText(file);
+  });
+}
+
 function validateImportColumns(rows) {
   if (!rows.length) {
     return {
@@ -564,27 +725,54 @@ function validateImportColumns(rows) {
 }
 
 async function importSpreadsheet() {
-  const file = dom.excelInput.files?.[0];
+  const file = dom.excelInput?.files?.[0];
   if (!file) {
     notify("Select an Excel file before import.", "warning");
     return;
   }
 
-  const rows = await readExcel(file);
+  const isCsv = /\.csv$/i.test(file.name);
+  const hideLoading = showLoading(isCsv ? "Reading CSV..." : "Reading spreadsheet...");
+  let rows = [];
+  try {
+    rows = isCsv ? await readCsv(file) : await readExcel(file);
+  } finally {
+    hideLoading();
+  }
   const validation = validateImportColumns(rows);
   if (!validation.valid) {
     notify(`Import failed. Missing mandatory columns: ${validation.missingLabels.join(", ")}`, "error");
     return;
   }
 
-  const editor = dom.defaultEditorInput.value || "Planner";
+  const mergeStrategy = dom.mergeStrategy?.value || "merge";
+  const sampleIds = rows
+    .slice(0, 5)
+    .map((r) => {
+      const key = Object.keys(r).find((k) => /activity\s*id|activityid/i.test(String(k)));
+      return key ? r[key] : "-";
+    })
+    .join(", ");
+
+  const result = await showModal({
+    title: "Import Preview",
+    body: `Found ${rows.length} rows. Strategy: ${mergeStrategy === "replace" ? "Replace all" : "Merge by Activity ID"}. Sample IDs: ${sampleIds}. Proceed?`,
+    fields: [],
+    primaryLabel: "Import",
+    secondaryLabel: "Cancel",
+  });
+  if (!result) return;
+
+  pushUndoSnapshot(`Import ${rows.length} rows (${mergeStrategy})`);
+
+  const editor = dom.defaultEditorInput?.value || "Planner";
   const mappedActivities = rows.map((row) => ({
     ...mapRowToActivity(row),
     lastModifiedBy: editor,
     lastModifiedDate: new Date().toISOString().slice(0, 10),
   }));
 
-  if (dom.mergeStrategy.value === "replace") {
+  if (mergeStrategy === "replace") {
     saveActivities(mappedActivities);
     notify(`Imported ${mappedActivities.length} activities (replace mode).`, "success");
   } else {
@@ -647,13 +835,19 @@ function wireEvents() {
     refreshFromStorage();
   });
 
-  dom.loadSampleButton.addEventListener("click", () => {
+  dom.loadSampleButton.addEventListener("click", async () => {
     if (!canManageProjects(currentUser)) {
       notify("This role cannot replace project data.", "warning");
       return;
     }
-    const shouldLoad = confirm("This will replace current activities with sample data. Continue?");
-    if (!shouldLoad) return;
+    const result = await showModal({
+      title: "Load Sample Dataset",
+      body: "This will replace current activities with sample data. Continue?",
+      fields: [],
+      primaryLabel: "Load",
+      secondaryLabel: "Cancel",
+    });
+    if (!result) return;
     saveActivities(createSampleDataset());
     notify("Loaded sample planning dataset.", "success");
     refreshFromStorage();
@@ -672,6 +866,29 @@ function wireEvents() {
     }
   });
 
+  dom.importDropZone?.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dom.importDropZone?.classList.add("drag-over");
+  });
+  dom.importDropZone?.addEventListener("dragleave", () => dom.importDropZone?.classList.remove("drag-over"));
+  dom.importDropZone?.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dom.importDropZone?.classList.remove("drag-over");
+    const file = e.dataTransfer?.files?.[0];
+    if (file && /\.(xlsx|xls|csv)$/i.test(file.name) && canImportExportData(currentUser)) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      dom.excelInput.files = dt.files;
+      try {
+        await importSpreadsheet();
+      } catch (err) {
+        notify(`Import error: ${err.message}`, "error");
+      }
+    }
+  });
+
   dom.exportCsvButton.addEventListener("click", () => {
     if (!canImportExportData(currentUser)) {
       notify("This role cannot export data.", "warning");
@@ -687,14 +904,23 @@ function wireEvents() {
     exportAsJson();
   });
 
-  dom.clearButton.addEventListener("click", () => {
+  dom.clearButton.addEventListener("click", async () => {
     if (!canManageProjects(currentUser)) {
       notify("This role cannot clear activities.", "warning");
       return;
     }
-    if (!confirm("Clear all activities from local state?")) return;
+    const result = await showModal({
+      title: "Clear All Activities",
+      body: "Remove all activities from this project? This cannot be undone.",
+      fields: [],
+      primaryLabel: "Clear",
+      secondaryLabel: "Cancel",
+      danger: true,
+    });
+    if (!result) return;
+    pushUndoSnapshot("Clear all activities");
     clearAllActivities();
-    notify("All activities were removed.", "warning");
+    notify("All activities were removed. Use Ctrl+Z to undo.", "warning");
     refreshFromStorage();
   });
 
@@ -741,6 +967,11 @@ function wireEvents() {
     applyVisibilityPreset("core");
   });
 
+  dom.columnSelectCompactButton?.addEventListener("click", () => {
+    if (!canModifyActivityStructure(currentUser)) return;
+    applyVisibilityPreset("compact");
+  });
+
   dom.columnSelectNoneButton.addEventListener("click", () => {
     if (!canModifyActivityStructure(currentUser)) return;
     applyVisibilityPreset("none");
@@ -768,16 +999,26 @@ function wireEvents() {
     }
   });
 
-  dom.searchInput.addEventListener("input", (event) => {
-    viewState.search = event.target.value || "";
+  dom.searchInput.addEventListener("input", debounce(() => {
+    viewState.search = dom.searchInput?.value || "";
     renderTable();
-  });
+  }, 250));
   dom.statusFilter.addEventListener("change", (event) => {
     viewState.status = event.target.value;
     renderTable();
   });
   dom.phaseFilter.addEventListener("change", (event) => {
     viewState.phase = event.target.value;
+    renderTable();
+  });
+
+  dom.tableHead.addEventListener("click", (event) => {
+    const th = event.target.closest("th[data-sort]");
+    if (!th) return;
+    const key = th.dataset.sort;
+    if (!key) return;
+    viewState.sortDir = viewState.sortKey === key ? -viewState.sortDir : 1;
+    viewState.sortKey = key;
     renderTable();
   });
 
@@ -810,6 +1051,28 @@ function wireEvents() {
   dom.tableBody.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+
+    if (target.id === "select-all-rows" || target.classList.contains("row-select")) {
+      if (target.id === "select-all-rows") {
+        const filtered = filterActivities();
+        if (target.checked) {
+          filtered.forEach((r) => viewState.selectedIds.add(r.activityId));
+        } else {
+          filtered.forEach((r) => viewState.selectedIds.delete(r.activityId));
+        }
+      } else {
+        const id = target.dataset.id;
+        if (id) {
+          if (target.checked) viewState.selectedIds.add(id);
+          else viewState.selectedIds.delete(id);
+        }
+      }
+      renderTable();
+      if (dom.bulkActions) dom.bulkActions.hidden = viewState.selectedIds.size === 0;
+      if (dom.bulkSelectionCount) dom.bulkSelectionCount.textContent = `${viewState.selectedIds.size} selected`;
+      return;
+    }
+
     const button = target.closest("button");
     if (!button) return;
 
@@ -847,10 +1110,21 @@ function wireEvents() {
       notify("This role cannot delete activity rows.", "warning");
       return;
     }
-    if (!confirm(`Delete activity ${activityId}?`)) return;
-    deleteActivity(activityId);
-    notify(`Deleted ${activityId}.`, "warning");
-    refreshFromStorage();
+    showModal({
+      title: "Delete Activity",
+      body: `Delete activity ${activityId}?`,
+      fields: [],
+      primaryLabel: "Delete",
+      secondaryLabel: "Cancel",
+      danger: true,
+    }).then((ok) => {
+      if (!ok) return;
+      pushUndoSnapshot(`Delete activity ${activityId}`);
+      deleteActivity(activityId);
+      viewState.selectedIds.delete(activityId);
+      notify(`Deleted ${activityId}. Use Ctrl+Z to undo.`, "warning");
+      refreshFromStorage();
+    });
   });
 
   dom.tableBody.addEventListener("change", (event) => {
@@ -868,22 +1142,94 @@ function wireEvents() {
     handleCellUpdate(row.dataset.id, field, target.value);
   });
 
-  dom.defaultEditorInput.addEventListener("change", (event) => {
+  dom.defaultEditorInput?.addEventListener("change", (event) => {
     setDefaultEditor(event.target.value || "Planner");
     notify("Default editor updated.", "success");
+  });
+
+  dom.bulkDeleteBtn?.addEventListener("click", async () => {
+    if (!canModifyActivityStructure(currentUser) || viewState.selectedIds.size === 0) return;
+    const count = viewState.selectedIds.size;
+    const idsToDelete = [...viewState.selectedIds];
+    const result = await showModal({
+      title: "Delete Selected Activities",
+      body: `Delete ${count} selected activities? This cannot be undone.`,
+      fields: [],
+      primaryLabel: "Delete",
+      secondaryLabel: "Cancel",
+      danger: true,
+    });
+    if (!result) return;
+    pushUndoSnapshot(`Delete ${count} activities`);
+    idsToDelete.forEach((id) => deleteActivity(id));
+    viewState.selectedIds.clear();
+    notify(`Deleted ${count} activities. Use Ctrl+Z to undo.`, "warning");
+    refreshFromStorage();
+  });
+
+  dom.bulkStatusApplyBtn?.addEventListener("click", () => {
+    const status = dom.bulkStatusSelect?.value;
+    if (!status || viewState.selectedIds.size === 0) return;
+    viewState.selectedIds.forEach((id) => {
+      updateActivity(id, { activityStatus: status });
+    });
+    notify(`Updated ${viewState.selectedIds.size} activities to ${status}.`, "success");
+    viewState.selectedIds.clear();
+    refreshFromStorage();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === "k") {
+        e.preventDefault();
+        dom.searchInput?.focus();
+      }
+      if (e.key === "n") {
+        e.preventDefault();
+        if (canModifyActivityStructure(currentUser)) dom.addButton?.click();
+      }
+      if (e.key === "e") {
+        e.preventDefault();
+        if (canImportExportData(currentUser)) dom.exportCsvButton?.click();
+      }
+    }
   });
 }
 
 function initialize() {
+  initShell();
   setActiveNavigation();
   currentUser = initializeAccessShell();
   if (!currentUser) return;
-  dom.defaultEditorInput.value = getDefaultEditor();
-  dom.mandatoryHint.textContent = `Mandatory import columns: ${IMPORT_REQUIRED_LABELS.join(", ")}`;
+  if (dom.defaultEditorInput) dom.defaultEditorInput.value = getDefaultEditor();
+  if (dom.mandatoryHint) dom.mandatoryHint.textContent = `Mandatory import columns: ${IMPORT_REQUIRED_LABELS.join(", ")}`;
   dom.columnDropdownToggle.setAttribute("aria-expanded", "false");
   dom.columnDropdownToggle.textContent = "Select Visible Columns ▼";
+  const params = new URLSearchParams(location.search);
+  const statusParam = params.get("status");
+  const phaseParam = params.get("phase");
+  if (statusParam) {
+    viewState.status = statusParam;
+    if (dom.statusFilter) dom.statusFilter.value = statusParam;
+  }
+  if (phaseParam) {
+    viewState.phase = normalizePhase(phaseParam) || phaseParam;
+    if (dom.phaseFilter) dom.phaseFilter.value = viewState.phase;
+  }
   wireEvents();
   applyRoleRestrictions();
+  dom.undoBtn?.addEventListener("click", () => {
+    const result = undo();
+    if (result.ok) refreshFromStorage();
+  });
+  subscribeToStateChanges(updateUndoButton);
+  window.addEventListener("industrial_planning_state_changed", (e) => {
+    if (e.detail?.savedAt && dom.lastSavedIndicator) {
+      const d = new Date(e.detail.savedAt);
+      dom.lastSavedIndicator.textContent = `Saved ${d.toLocaleTimeString()}`;
+    }
+    updateUndoButton();
+  });
   initializeProjectToolbar({
     onProjectChange: () => {
       viewState.search = "";

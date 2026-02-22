@@ -1,6 +1,6 @@
-# Industrial Planning Intelligence Platform
+# ATLAS – Digital Twin Engineering Preparation Platform
 
-Enterprise-class, frontend-only planning and decision intelligence system for preparation and build-up lifecycle control.
+**Advanced Twin-based Lifecycle and Activity System** – Enterprise-class, frontend-only planning and decision intelligence system for preparation and build-up lifecycle control.
 
 ## Highlights
 

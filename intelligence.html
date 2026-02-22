@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Delay, Risk & Optimization | Industrial Planning Intelligence</title>
+    <title>Delay, Risk & Optimization | ATLAS</title>
     <link rel="stylesheet" href="./css/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <header class="top-bar">
         <div class="title-block">
-          <h1>Digital Twin – Activity Control Center</h1>
-          <p>Enterprise lifecycle planning, structured activity control, and intelligent bulk data management</p>
+          <h1>ATLAS – Digital Twin Engineering Preparation Platform</h1>
+          <p>Advanced Twin-based Lifecycle and Activity System – Engineering readiness intelligence</p>
         </div>
         <div class="header-meta">
           <div class="session-chip">
@@ -42,6 +42,11 @@
             <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate Template</button>
             <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
             <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export Project</button>
+            <label class="ghost" style="margin:0; cursor:pointer" data-role-hide="technician">
+              Import Project
+              <input id="project-import-input" type="file" accept=".json" hidden />
+            </label>
           </div>
           <div id="project-summary" class="small"></div>
         </div>
@@ -155,6 +160,9 @@
           </div>
           <div class="row-actions" style="margin-top: 12px">
             <button id="run-sim-btn">Run Scenario</button>
+            <button id="sim-preset-overtime" class="ghost">Preset: Overtime</button>
+            <button id="sim-preset-manpower" class="ghost">Preset: Extra Manpower</button>
+            <button id="sim-preset-leadtime" class="ghost">Preset: Lead Time Cut</button>
           </div>
           <div id="sim-summary" class="hint" style="margin-top: 12px"></div>
           <div class="table-wrap" style="margin-top: 12px">

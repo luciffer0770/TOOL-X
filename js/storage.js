@@ -199,10 +199,12 @@ function writeState(state) {
 
 function emitStateChange() {
   if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
+  const now = new Date();
   window.dispatchEvent(
     new CustomEvent(STATE_CHANGE_EVENT, {
       detail: {
         key: STORAGE_KEY,
+        savedAt: now.toISOString(),
       },
     }),
   );
@@ -543,4 +545,44 @@ export function subscribeToStateChanges(listener) {
     window.removeEventListener(STATE_CHANGE_EVENT, onInternalStateChange);
     window.removeEventListener("storage", onStorage);
   };
+}
+
+const STATE_VERSION = 1;
+
+export function exportFullProject() {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  const payload = {
+    version: STATE_VERSION,
+    exportedAt: new Date().toISOString(),
+    project: {
+      id: project.id,
+      name: project.name,
+      activities: project.activities,
+      baselines: project.baselines ?? [],
+      actions: project.actions ?? [],
+    },
+  };
+  return JSON.stringify(payload, null, 2);
+}
+
+export function importProjectFromJson(jsonString) {
+  try {
+    const payload = JSON.parse(jsonString);
+    const project = payload?.project ?? payload;
+    const activities = Array.isArray(project.activities) ? project.activities : [];
+    const baselines = Array.isArray(project.baselines) ? project.baselines : [];
+    const actions = Array.isArray(project.actions) ? project.actions : [];
+    const name = String(project?.name ?? "Imported Project").trim() || "Imported Project";
+    const state = getState();
+    const id = getNextProjectId(state.projects);
+    const newProject = createProject(id, name, activities, baselines, actions);
+    state.projects.push(newProject);
+    state.activeProjectId = newProject.id;
+    saveState(state);
+    return { success: true, project: newProject };
+  } catch (error) {
+    console.error("Import failed:", error);
+    return { success: false, error: error.message };
+  }
 }

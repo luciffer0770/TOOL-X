@@ -1,4 +1,4 @@
-import { parseDependencies, sanitizeActivity } from "./schema.js";
+import { normalizePhase, parseDependencies, sanitizeActivity } from "./schema.js";
 
 const HOURS_TO_MS = 60 * 60 * 1000;
 const DAY_TO_MS = 24 * HOURS_TO_MS;
@@ -691,7 +691,7 @@ export function getPhaseProgress(activities) {
   const enriched = enrichActivities(activities);
   const buckets = {};
   enriched.forEach((activity) => {
-    const phase = activity.phase || "Unassigned";
+    const phase = normalizePhase(activity.phase) || "Unassigned";
     if (!buckets[phase]) {
       buckets[phase] = {
         count: 0,
