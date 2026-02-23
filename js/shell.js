@@ -3,6 +3,7 @@
  * Load this on all app pages (not login).
  */
 import { notify, showKeyboardShortcuts, showModal, showNotificationHistory } from "./common.js";
+import { toAppUrl } from "./auth.js";
 import { resetApplicationData } from "./storage.js";
 import { canUndo, undo } from "./undo.js";
 
@@ -81,7 +82,7 @@ export function initShell() {
     if (confirmed) {
       resetApplicationData();
       notify("Data cleared. Reloading…", "info");
-      location.href = "login.html";
+      location.replace(toAppUrl("login.html"));
     }
   });
 

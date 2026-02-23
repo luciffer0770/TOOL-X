@@ -133,10 +133,16 @@ function currentPageName() {
   return location.pathname.split("/").pop() || "index.html";
 }
 
+export function toAppUrl(page) {
+  const path = location.pathname;
+  const dir = path.replace(/\/[^/]*$/, "/");
+  return location.origin + dir + page;
+}
+
 function redirectToLogin() {
   const page = currentPageName();
   const next = encodeURIComponent(page);
-  location.href = `login.html?next=${next}`;
+  location.replace(toAppUrl(`login.html?next=${next}`));
 }
 
 export function getDefaultHomeForRole(roleOrUser) {
@@ -163,7 +169,7 @@ export function requireAuthenticatedUser({ allowedRoles = [] } = {}) {
     return null;
   }
   if (!isAllowedRole(user, allowedRoles)) {
-    location.href = getDefaultHomeForRole(user);
+    location.replace(toAppUrl(getDefaultHomeForRole(user)));
     return null;
   }
   return user;

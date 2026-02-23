@@ -1,4 +1,4 @@
-import { getRoleBadgeClass, getRoleLabel, getDefaultHomeForRole, logout, requireAuthenticatedUser } from "./auth.js";
+import { getRoleBadgeClass, getRoleLabel, getDefaultHomeForRole, logout, requireAuthenticatedUser, toAppUrl } from "./auth.js";
 
 const NAV_HIDDEN_BY_ROLE = {};
 
@@ -44,7 +44,7 @@ function renderSession(user) {
   if (logoutButton) {
     logoutButton.addEventListener("click", () => {
       logout();
-      location.href = "login.html";
+      location.replace(toAppUrl("login.html"));
     });
   }
 }
@@ -60,5 +60,5 @@ export function initializeAccessShell({ allowedRoles = [] } = {}) {
 
 export function goToRoleHome(user) {
   const page = getDefaultHomeForRole(user);
-  location.href = page;
+  location.replace(toAppUrl(page));
 }

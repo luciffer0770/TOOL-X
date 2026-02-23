@@ -41,19 +41,19 @@
   - Critical path approximation
   - What-if scenario simulation (manpower, lead-time, overtime)
 
-## Run
+## Complete Tool Link
 
-Serve as static files from any web server, for example:
+**GitHub Pages (live):** https://luciffer0770.github.io/TOOL-X/login.html
+
+**Local:** Serve as static files from any web server:
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Then open:
+Then open: `http://localhost:8080/login.html`
 
-`http://localhost:8080/` or `http://localhost:8080/login.html`
-
-**Quick access:** Use the "Quick Demo (Planner)" button on the login page, or add `?dev=1` to any app URL to auto-login as planner (e.g. `http://localhost:8080/index.html?dev=1`).
+**Quick access:** Click "Quick Demo (Planner)" on the login page to go straight to the dashboard. Or add `?dev=1` to bypass login (e.g. `index.html?dev=1`).
 
 **Note:** In remote dev environments (e.g. Cursor cloud), use the port-forwarding URL shown in the Ports panel instead of localhost.
 

@@ -14,6 +14,12 @@ function parseNextPage() {
   return next;
 }
 
+function toAppUrl(page) {
+  const path = location.pathname;
+  const dir = path.replace(/\/[^/]*$/, "/");
+  return location.origin + dir + page;
+}
+
 function roleBadgeText(role) {
   if (role === "planner") return "PL";
   if (role === "management") return "MG";
@@ -70,7 +76,8 @@ function wireDemoUserQuickFill() {
 function handleExistingSession() {
   const currentUser = getCurrentUser();
   if (!currentUser) return;
-  location.href = parseNextPage() || getDefaultHomeForRole(currentUser);
+  const page = parseNextPage() || getDefaultHomeForRole(currentUser);
+  location.replace(toAppUrl(page));
 }
 
 function wirePasswordToggle() {
@@ -101,8 +108,8 @@ function initialize() {
     quickDemoBtn.addEventListener("click", () => {
       const user = login("planner", "planner123", false);
       if (user) {
-        const nextPage = parseNextPage() || getDefaultHomeForRole(user);
-        location.href = nextPage;
+        const page = parseNextPage() || getDefaultHomeForRole(user);
+        location.replace(toAppUrl(page));
       }
     });
   }
@@ -122,8 +129,8 @@ function initialize() {
         return;
       }
       notify(`Welcome ${user.displayName}.`, "success");
-      const nextPage = parseNextPage() || getDefaultHomeForRole(user);
-      location.href = nextPage;
+      const page = parseNextPage() || getDefaultHomeForRole(user);
+      location.replace(toAppUrl(page));
     });
   }
 
