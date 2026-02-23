@@ -27,7 +27,7 @@
             <h2>Sign In</h2>
           </div>
           <div class="signin-panel-body">
-            <form id="login-form" class="login-form" autocomplete="off">
+            <form id="login-form" class="login-form" autocomplete="off" action="javascript:void(0)">
               <label class="field login-field">
                 Username
                 <div class="login-input-wrap">
@@ -62,6 +62,9 @@
           <p class="login-reset-hint">
             <button type="button" id="reset-data-btn" class="ghost small">Reset application data</button>
             <span class="small">— if data is mixed up or corrupted, clears everything and starts fresh.</span>
+          </p>
+          <p class="login-reset-hint">
+            <a href="index.html?dev=1" class="ghost small">Skip to dashboard (bypass login)</a>
           </p>
         </section>
       </section>

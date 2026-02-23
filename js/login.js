@@ -77,7 +77,7 @@ function handleExistingSession() {
   const currentUser = getCurrentUser();
   if (!currentUser) return;
   const page = parseNextPage() || getDefaultHomeForRole(currentUser);
-  location.replace(toAppUrl(page));
+  window.location.href = toAppUrl(page);
 }
 
 function wirePasswordToggle() {
@@ -109,7 +109,8 @@ function initialize() {
       const user = login("planner", "planner123", false);
       if (user) {
         const page = parseNextPage() || getDefaultHomeForRole(user);
-        location.replace(toAppUrl(page));
+        const url = toAppUrl(page);
+        setTimeout(() => { window.location.href = url; }, 100);
       }
     });
   }
@@ -130,7 +131,8 @@ function initialize() {
       }
       notify(`Welcome ${user.displayName}.`, "success");
       const page = parseNextPage() || getDefaultHomeForRole(user);
-      location.replace(toAppUrl(page));
+      const url = toAppUrl(page);
+      setTimeout(() => { window.location.href = url; }, 100);
     });
   }
 
