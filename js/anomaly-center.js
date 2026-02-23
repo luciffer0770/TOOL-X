@@ -120,6 +120,7 @@ function renderAnomalySection() {
     { title: "Medium/Low", value: bySeverity.Medium + bySeverity.Low, note: "Monitor and clean during review" },
   ];
 
+  if (!dom.anomalyKpiGrid) return;
   dom.anomalyKpiGrid.innerHTML = cards
     .map(
       (card) => `
@@ -132,8 +133,8 @@ function renderAnomalySection() {
     )
     .join("");
 
-  const severityFilter = dom.anomalySeverityFilter.value;
-  const searchQuery = String(dom.anomalySearchInput.value || "")
+  const severityFilter = dom.anomalySeverityFilter?.value ?? "";
+  const searchQuery = String(dom.anomalySearchInput?.value || "")
     .trim()
     .toLowerCase();
   const filtered = anomalyRows.filter((row) => {
@@ -143,8 +144,9 @@ function renderAnomalySection() {
     return target.includes(searchQuery);
   });
 
-  dom.anomalySummary.textContent = `${filtered.length} shown of ${anomalyRows.length} anomalies`;
+  if (dom.anomalySummary) dom.anomalySummary.textContent = `${filtered.length} shown of ${anomalyRows.length} anomalies`;
 
+  if (!dom.anomalyTableBody) return;
   if (!filtered.length) {
     dom.anomalyTableBody.innerHTML = `<tr><td colspan="6"><div class="empty-state">No anomalies for selected filters.</div></td></tr>`;
     return;
@@ -172,6 +174,7 @@ function renderAnomalySection() {
 }
 
 function renderBaselineHistoryTable() {
+  if (!dom.baselineHistoryBody) return;
   if (!baselineRows.length) {
     dom.baselineHistoryBody.innerHTML = `<tr><td colspan="4"><div class="empty-state">No baseline snapshots yet.</div></td></tr>`;
     return;
@@ -193,9 +196,9 @@ function renderBaselineHistoryTable() {
 
 function renderBaselineComparison(baseline) {
   if (!baseline) {
-    dom.baselineVarianceGrid.innerHTML = `<div class="empty-state">Lock a baseline to activate variance tracking.</div>`;
-    dom.baselineCompareBody.innerHTML = `<tr><td colspan="4"><div class="empty-state">No baseline selected.</div></td></tr>`;
-    dom.baselineSummary.textContent = "No baseline selected for comparison.";
+    if (dom.baselineVarianceGrid) dom.baselineVarianceGrid.innerHTML = `<div class="empty-state">Lock a baseline to activate variance tracking.</div>`;
+    if (dom.baselineCompareBody) dom.baselineCompareBody.innerHTML = `<tr><td colspan="4"><div class="empty-state">No baseline selected.</div></td></tr>`;
+    if (dom.baselineSummary) dom.baselineSummary.textContent = "No baseline selected for comparison.";
     return;
   }
 
@@ -239,6 +242,7 @@ function renderBaselineComparison(baseline) {
     },
   ];
 
+  if (!dom.baselineVarianceGrid) return;
   dom.baselineVarianceGrid.innerHTML = varianceCards
     .map(
       (card) => `
@@ -296,6 +300,7 @@ function renderBaselineComparison(baseline) {
     },
   ];
 
+  if (!dom.baselineCompareBody) return;
   dom.baselineCompareBody.innerHTML = rows
     .map(
       (row) => `
@@ -309,12 +314,13 @@ function renderBaselineComparison(baseline) {
     )
     .join("");
 
-  dom.baselineSummary.textContent = `Comparing against ${baseline.name} (${baseline.id}) captured on ${formatDate(baseline.createdAt)} by ${
+  if (dom.baselineSummary) dom.baselineSummary.textContent = `Comparing against ${baseline.name} (${baseline.id}) captured on ${formatDate(baseline.createdAt)} by ${
     baseline.createdBy || "-"
   }.`;
 }
 
 function renderBaselineSection() {
+  if (!dom.baselineCompareSelect) return;
   const previousSelectedBaseline = dom.baselineCompareSelect.value;
   if (!baselineRows.length) {
     dom.baselineCompareSelect.innerHTML = `<option value="">No baseline available</option>`;
@@ -340,6 +346,7 @@ function renderBaselineSection() {
 }
 
 function populateActionActivitySelect() {
+  if (!dom.actionActivitySelect) return;
   const previous = dom.actionActivitySelect.value;
   const options = ['<option value="">Select activity</option>']
     .concat(
@@ -373,8 +380,9 @@ function renderActionTable() {
 
   const openCount = actionRows.filter((action) => isActionOpen(action)).length;
   const overdueCount = actionRows.filter((action) => isActionOverdue(action)).length;
-  dom.actionSummary.textContent = `${filtered.length} shown of ${actionRows.length} actions | Open: ${openCount} | Overdue: ${overdueCount}`;
+  if (dom.actionSummary) dom.actionSummary.textContent = `${filtered.length} shown of ${actionRows.length} actions | Open: ${openCount} | Overdue: ${overdueCount}`;
 
+  if (!dom.actionTableBody) return;
   if (!filtered.length) {
     dom.actionTableBody.innerHTML = `<tr><td colspan="10"><div class="empty-state">No actions for selected filters.</div></td></tr>`;
     return;
@@ -422,27 +430,27 @@ function renderAll() {
 }
 
 function wireEvents() {
-  dom.anomalySeverityFilter.addEventListener("change", renderAnomalySection);
-  dom.anomalySearchInput.addEventListener("input", renderAnomalySection);
+  dom.anomalySeverityFilter?.addEventListener("change", renderAnomalySection);
+  dom.anomalySearchInput?.addEventListener("input", renderAnomalySection);
 
-  dom.baselineLockButton.addEventListener("click", () => {
+  dom.baselineLockButton?.addEventListener("click", () => {
     if (!canManageProjects(currentUser)) {
       notify("Only planning and management roles can lock baselines.", "warning");
       return;
     }
-    const baselineName = dom.baselineNameInput.value.trim();
+    const baselineName = (dom.baselineNameInput?.value ?? "").trim();
     const created = addProjectBaseline({
       name: baselineName,
       createdBy: currentUser.displayName || currentUser.username,
     });
     notify(`Baseline locked: ${created.name}.`, "success");
-    dom.baselineNameInput.value = "";
+    if (dom.baselineNameInput) dom.baselineNameInput.value = "";
     renderAll();
-    dom.baselineCompareSelect.value = created.id;
+    if (dom.baselineCompareSelect) dom.baselineCompareSelect.value = created.id;
     renderBaselineSection();
   });
 
-  dom.baselineCompareSelect.addEventListener("change", renderBaselineSection);
+  dom.baselineCompareSelect?.addEventListener("change", renderBaselineSection);
 
   dom.baselineExportVarianceBtn?.addEventListener("click", () => {
     const selectedId = dom.baselineCompareSelect?.value;
@@ -470,11 +478,11 @@ function wireEvents() {
     notify("Variance report exported.", "success");
   });
 
-  dom.actionCreateButton.addEventListener("click", () => {
-    const activityId = dom.actionActivitySelect.value;
-    const title = dom.actionTitleInput.value.trim();
-    const owner = dom.actionOwnerInput.value.trim();
-    const dueDate = dom.actionDueDateInput.value;
+  dom.actionCreateButton?.addEventListener("click", () => {
+    const activityId = dom.actionActivitySelect?.value ?? "";
+    const title = (dom.actionTitleInput?.value ?? "").trim();
+    const owner = (dom.actionOwnerInput?.value ?? "").trim();
+    const dueDate = dom.actionDueDateInput?.value ?? "";
 
     if (!activityId) {
       notify("Select an activity before creating an action.", "warning");
@@ -494,22 +502,22 @@ function wireEvents() {
       title,
       owner,
       dueDate,
-      priority: dom.actionPrioritySelect.value,
-      status: dom.actionStatusSelect.value,
-      notes: dom.actionNotesInput.value.trim(),
+      priority: dom.actionPrioritySelect?.value ?? "Medium",
+      status: dom.actionStatusSelect?.value ?? "Open",
+      notes: (dom.actionNotesInput?.value ?? "").trim(),
       createdBy: currentUser.displayName || currentUser.username,
     });
 
     notify(`Action created: ${created.id}.`, "success");
-    dom.actionTitleInput.value = "";
-    dom.actionNotesInput.value = "";
+    if (dom.actionTitleInput) dom.actionTitleInput.value = "";
+    if (dom.actionNotesInput) dom.actionNotesInput.value = "";
     renderAll();
   });
 
-  dom.actionFilterStatus.addEventListener("change", renderActionTable);
-  dom.actionFilterPriority.addEventListener("change", renderActionTable);
+  dom.actionFilterStatus?.addEventListener("change", renderActionTable);
+  dom.actionFilterPriority?.addEventListener("change", renderActionTable);
 
-  dom.anomalyTableBody.addEventListener("click", (event) => {
+  dom.anomalyTableBody?.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
     if (target.matches("[data-create-action-from-anomaly]")) {
@@ -517,15 +525,15 @@ function wireEvents() {
       const activityId = row?.dataset.anomalyActivity || "";
       const issue = row?.dataset.anomalyIssue || "";
       const recommendation = row?.dataset.anomalyRecommendation || "";
-      dom.actionActivitySelect.value = activityId;
-      dom.actionTitleInput.value = issue;
-      dom.actionNotesInput.value = recommendation;
-      dom.actionOwnerInput.focus();
+      if (dom.actionActivitySelect) dom.actionActivitySelect.value = activityId;
+      if (dom.actionTitleInput) dom.actionTitleInput.value = issue;
+      if (dom.actionNotesInput) dom.actionNotesInput.value = recommendation;
+      dom.actionOwnerInput?.focus();
       notify("Action form pre-filled. Enter owner and due date.", "success");
     }
   });
 
-  dom.actionTableBody.addEventListener("click", (event) => {
+  dom.actionTableBody?.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
     const row = target.closest("tr[data-action-id]");
@@ -554,7 +562,7 @@ function initialize() {
   currentUser = initializeAccessShell();
   if (!currentUser) return;
 
-  if (!canManageProjects(currentUser)) {
+  if (!canManageProjects(currentUser) && dom.baselineLockButton) {
     dom.baselineLockButton.disabled = true;
     dom.baselineLockButton.title = "Only planning and management roles can lock baselines.";
   }

@@ -785,7 +785,7 @@ async function importSpreadsheet() {
     const next = getActivities().length;
     notify(`Imported ${mappedActivities.length} rows. Dataset size: ${current} -> ${next}.`, "success");
   }
-  dom.excelInput.value = "";
+  if (dom.excelInput) dom.excelInput.value = "";
   refreshFromStorage();
 }
 
@@ -809,7 +809,7 @@ function exportAsJson() {
 }
 
 function wireEvents() {
-  dom.addButton.addEventListener("click", () => {
+  dom.addButton?.addEventListener("click", () => {
     if (!canModifyActivityStructure(currentUser)) {
       notify("This role cannot add new activities.", "warning");
       return;
@@ -825,7 +825,7 @@ function wireEvents() {
     refreshFromStorage();
   });
 
-  dom.addEmptyButton.addEventListener("click", () => {
+  dom.addEmptyButton?.addEventListener("click", () => {
     if (!canModifyActivityStructure(currentUser)) {
       notify("This role cannot add new activities.", "warning");
       return;
@@ -839,7 +839,7 @@ function wireEvents() {
     refreshFromStorage();
   });
 
-  dom.loadSampleButton.addEventListener("click", async () => {
+  dom.loadSampleButton?.addEventListener("click", async () => {
     if (!canManageProjects(currentUser)) {
       notify("This role cannot replace project data.", "warning");
       return;
@@ -857,7 +857,7 @@ function wireEvents() {
     refreshFromStorage();
   });
 
-  dom.importButton.addEventListener("click", async () => {
+  dom.importButton?.addEventListener("click", async () => {
     if (!canImportExportData(currentUser)) {
       notify("This role cannot import data.", "warning");
       return;
@@ -884,7 +884,7 @@ function wireEvents() {
     if (file && /\.(xlsx|xls|csv)$/i.test(file.name) && canImportExportData(currentUser)) {
       const dt = new DataTransfer();
       dt.items.add(file);
-      dom.excelInput.files = dt.files;
+      if (dom.excelInput) dom.excelInput.files = dt.files;
       try {
         await importSpreadsheet();
       } catch (err) {
@@ -893,14 +893,14 @@ function wireEvents() {
     }
   });
 
-  dom.exportCsvButton.addEventListener("click", () => {
+  dom.exportCsvButton?.addEventListener("click", () => {
     if (!canImportExportData(currentUser)) {
       notify("This role cannot export data.", "warning");
       return;
     }
     exportAsCsv();
   });
-  dom.exportJsonButton.addEventListener("click", () => {
+  dom.exportJsonButton?.addEventListener("click", () => {
     if (!canImportExportData(currentUser)) {
       notify("This role cannot export data.", "warning");
       return;
@@ -908,7 +908,7 @@ function wireEvents() {
     exportAsJson();
   });
 
-  dom.clearButton.addEventListener("click", async () => {
+  dom.clearButton?.addEventListener("click", async () => {
     if (!canManageProjects(currentUser)) {
       notify("This role cannot clear activities.", "warning");
       return;
@@ -928,7 +928,7 @@ function wireEvents() {
     refreshFromStorage();
   });
 
-  dom.columnChipGroup.addEventListener("change", (event) => {
+  dom.columnChipGroup?.addEventListener("change", (event) => {
     if (!canModifyActivityStructure(currentUser)) {
       notify("Column layout changes are restricted for this role.", "warning");
       renderColumnVisibility();
@@ -949,7 +949,7 @@ function wireEvents() {
     renderTable();
   });
 
-  dom.columnDropdownToggle.addEventListener("click", () => {
+  dom.columnDropdownToggle?.addEventListener("click", () => {
     if (!canModifyActivityStructure(currentUser)) {
       notify("Column layout changes are restricted for this role.", "warning");
       return;
@@ -957,16 +957,16 @@ function wireEvents() {
     setColumnPanelOpen(!uiState.columnPanelOpen);
   });
 
-  dom.columnSearchInput.addEventListener("input", (event) => {
+  dom.columnSearchInput?.addEventListener("input", (event) => {
     applyColumnSearch(event.target.value || "");
   });
 
-  dom.columnSelectAllButton.addEventListener("click", () => {
+  dom.columnSelectAllButton?.addEventListener("click", () => {
     if (!canModifyActivityStructure(currentUser)) return;
     applyVisibilityPreset("all");
   });
 
-  dom.columnSelectCoreButton.addEventListener("click", () => {
+  dom.columnSelectCoreButton?.addEventListener("click", () => {
     if (!canModifyActivityStructure(currentUser)) return;
     applyVisibilityPreset("core");
   });
@@ -976,7 +976,7 @@ function wireEvents() {
     applyVisibilityPreset("compact");
   });
 
-  dom.columnSelectNoneButton.addEventListener("click", () => {
+  dom.columnSelectNoneButton?.addEventListener("click", () => {
     if (!canModifyActivityStructure(currentUser)) return;
     applyVisibilityPreset("none");
   });
@@ -991,7 +991,8 @@ function wireEvents() {
     if (!uiState.columnPanelOpen) return;
     const target = event.target;
     if (!(target instanceof Node)) return;
-    const withinPanel = dom.columnDropdownPanel.contains(target) || dom.columnDropdownToggle.contains(target);
+    const withinPanel =
+      (dom.columnDropdownPanel?.contains(target) || dom.columnDropdownToggle?.contains(target)) ?? false;
     if (!withinPanel) {
       setColumnPanelOpen(false);
     }
@@ -1003,20 +1004,20 @@ function wireEvents() {
     }
   });
 
-  dom.searchInput.addEventListener("input", debounce(() => {
+  dom.searchInput?.addEventListener("input", debounce(() => {
     viewState.search = dom.searchInput?.value || "";
     renderTable();
   }, 250));
-  dom.statusFilter.addEventListener("change", (event) => {
+  dom.statusFilter?.addEventListener("change", (event) => {
     viewState.status = event.target.value;
     renderTable();
   });
-  dom.phaseFilter.addEventListener("change", (event) => {
+  dom.phaseFilter?.addEventListener("change", (event) => {
     viewState.phase = event.target.value;
     renderTable();
   });
 
-  dom.tableHead.addEventListener("click", (event) => {
+  dom.tableHead?.addEventListener("click", (event) => {
     const th = event.target.closest("th[data-sort]");
     if (!th) return;
     const key = th.dataset.sort;
@@ -1026,14 +1027,14 @@ function wireEvents() {
     renderTable();
   });
 
-  dom.tableWrap.addEventListener("scroll", () => {
+  dom.tableWrap?.addEventListener("scroll", () => {
     if (uiState.syncingFloatingScroll) return;
     uiState.syncingTableScroll = true;
     dom.floatingXScroll.scrollLeft = dom.tableWrap.scrollLeft;
     uiState.syncingTableScroll = false;
   });
 
-  dom.floatingXScroll.addEventListener("scroll", () => {
+  dom.floatingXScroll?.addEventListener("scroll", () => {
     if (uiState.syncingTableScroll) return;
     uiState.syncingFloatingScroll = true;
     dom.tableWrap.scrollLeft = dom.floatingXScroll.scrollLeft;
@@ -1052,7 +1053,7 @@ function wireEvents() {
     { passive: true },
   );
 
-  dom.tableBody.addEventListener("click", (event) => {
+  dom.tableBody?.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
 

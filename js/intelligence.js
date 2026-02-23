@@ -36,13 +36,6 @@ const SCENARIO_PRESETS = {
 let activities = [];
 let currentUser = null;
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
 function refreshActivities() {
   activities = getActivities();
 }
@@ -86,12 +79,13 @@ function renderRootCauseSelector(rows) {
 
 function renderBlockedList(metrics) {
   if (!dom.blockedList) return;
-  if (!metrics.blockedActivities.length) {
+  const blocked = metrics?.blockedActivities ?? [];
+  if (!blocked.length) {
     dom.blockedList.innerHTML = `<li>No dependency stress nodes currently active.</li>`;
     return;
   }
 
-  dom.blockedList.innerHTML = metrics.blockedActivities
+  dom.blockedList.innerHTML = blocked
     .slice(0, 12)
     .map(
       (activity) => `
@@ -205,56 +199,60 @@ function wireEvents() {
     patch.completionPercentage = Number(dom.rootCauseCompletion?.value) || 0;
     updateActivity(activityId, patch);
     notify(`Root cause updated for ${activityId}.`, "success");
-    dom.rootCauseText.value = "";
+    if (dom.rootCauseText) dom.rootCauseText.value = "";
     renderAll();
   });
 
   dom.runSimButton?.addEventListener("click", renderSimulation);
 
   dom.simPresetOvertime?.addEventListener("click", () => {
-    dom.simManpower.value = SCENARIO_PRESETS.overtime.manpower;
-    dom.simLeadTime.value = SCENARIO_PRESETS.overtime.leadtime;
-    dom.simOvertime.value = SCENARIO_PRESETS.overtime.overtime;
+    if (dom.simManpower) dom.simManpower.value = SCENARIO_PRESETS.overtime.manpower;
+    if (dom.simLeadTime) dom.simLeadTime.value = SCENARIO_PRESETS.overtime.leadtime;
+    if (dom.simOvertime) dom.simOvertime.value = SCENARIO_PRESETS.overtime.overtime;
     renderSimulation();
   });
   dom.simPresetManpower?.addEventListener("click", () => {
-    dom.simManpower.value = SCENARIO_PRESETS.manpower.manpower;
-    dom.simLeadTime.value = SCENARIO_PRESETS.manpower.leadtime;
-    dom.simOvertime.value = SCENARIO_PRESETS.manpower.overtime;
+    if (dom.simManpower) dom.simManpower.value = SCENARIO_PRESETS.manpower.manpower;
+    if (dom.simLeadTime) dom.simLeadTime.value = SCENARIO_PRESETS.manpower.leadtime;
+    if (dom.simOvertime) dom.simOvertime.value = SCENARIO_PRESETS.manpower.overtime;
     renderSimulation();
   });
   dom.simPresetLeadtime?.addEventListener("click", () => {
-    dom.simManpower.value = SCENARIO_PRESETS.leadtime.manpower;
-    dom.simLeadTime.value = SCENARIO_PRESETS.leadtime.leadtime;
-    dom.simOvertime.value = SCENARIO_PRESETS.leadtime.overtime;
+    if (dom.simManpower) dom.simManpower.value = SCENARIO_PRESETS.leadtime.manpower;
+    if (dom.simLeadTime) dom.simLeadTime.value = SCENARIO_PRESETS.leadtime.leadtime;
+    if (dom.simOvertime) dom.simOvertime.value = SCENARIO_PRESETS.leadtime.overtime;
     renderSimulation();
   });
 }
 
 function initialize() {
-  initShell();
-  setActiveNavigation();
-  currentUser = initializeAccessShell();
-  if (!currentUser) return;
-  if (dom.rootCauseAuthor) {
-    dom.rootCauseAuthor.value = currentUser.displayName || currentUser.username || "Planner";
+  try {
+    initShell();
+    setActiveNavigation();
+    currentUser = initializeAccessShell();
+    if (!currentUser) return;
+    if (dom.rootCauseAuthor) {
+      dom.rootCauseAuthor.value = currentUser.displayName || currentUser.username || "Planner";
+    }
+    if (!canRunOptimization(currentUser)) {
+      if (dom.rootCauseCompletion) dom.rootCauseCompletion.disabled = true;
+      if (dom.rootCauseAuthor) dom.rootCauseAuthor.readOnly = true;
+      if (dom.runSimButton) dom.runSimButton.disabled = true;
+    }
+    wireEvents();
+    initializeProjectToolbar({ onProjectChange: renderAll });
+    const unsubscribe = subscribeToStateChanges(renderAll);
+    window.addEventListener(
+      "pagehide",
+      () => {
+        unsubscribe();
+      },
+      { once: true },
+    );
+    renderAll();
+  } catch (err) {
+    console.error("Intelligence init error:", err);
   }
-  if (!canRunOptimization(currentUser)) {
-    if (dom.rootCauseCompletion) dom.rootCauseCompletion.disabled = true;
-    if (dom.rootCauseAuthor) dom.rootCauseAuthor.readOnly = true;
-    if (dom.runSimButton) dom.runSimButton.disabled = true;
-  }
-  wireEvents();
-  initializeProjectToolbar({ onProjectChange: renderAll });
-  const unsubscribe = subscribeToStateChanges(renderAll);
-  window.addEventListener(
-    "pagehide",
-    () => {
-      unsubscribe();
-    },
-    { once: true },
-  );
-  renderAll();
 }
 
 initialize();
