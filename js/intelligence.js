@@ -62,7 +62,7 @@ function renderKpis() {
     { title: "Medium Risk", value: medium, note: "Risk score 30-54" },
     { title: "Low Risk", value: low, note: "Risk score below 30" },
   ];
-  dom.riskKpis.innerHTML = cards
+  if (dom.riskKpis) dom.riskKpis.innerHTML = cards
     .map(
       (card) => `
       <article class="kpi-card">
@@ -81,10 +81,11 @@ function renderRootCauseSelector(rows) {
   const options = ['<option value="">Select delayed activity</option>']
     .concat(rows.map((row) => `<option value="${escapeHtml(row.activityId)}">${escapeHtml(row.activityId)} - ${escapeHtml(row.activityName || "-")}</option>`))
     .join("");
-  dom.rootCauseActivity.innerHTML = options;
+  if (dom.rootCauseActivity) dom.rootCauseActivity.innerHTML = options;
 }
 
 function renderBlockedList(metrics) {
+  if (!dom.blockedList) return;
   if (!metrics.blockedActivities.length) {
     dom.blockedList.innerHTML = `<li>No dependency stress nodes currently active.</li>`;
     return;
@@ -104,6 +105,7 @@ function renderBlockedList(metrics) {
 }
 
 function renderRiskTable(rows) {
+  if (!dom.riskTableBody) return;
   if (!rows.length) {
     dom.riskTableBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">No delayed or elevated-risk activities found.</div></td></tr>`;
     return;
@@ -135,6 +137,7 @@ function isStatusDelayed(row) {
 }
 
 function renderSimulation() {
+  if (!dom.simSummary || !dom.simTableBody) return;
   if (!canRunOptimization(currentUser)) {
     dom.simSummary.textContent = "Scenario simulation is available for planning and management roles.";
     dom.simTableBody.innerHTML = `<tr><td colspan="5"><div class="empty-state">Simulation access is restricted for this role.</div></td></tr>`;
@@ -147,9 +150,9 @@ function renderSimulation() {
   }
 
   const scenario = {
-    manpowerBoostPct: Number(dom.simManpower.value) || 0,
-    leadTimeReductionPct: Number(dom.simLeadTime.value) || 0,
-    overtimeHoursPerDay: Number(dom.simOvertime.value) || 0,
+    manpowerBoostPct: Number(dom.simManpower?.value) || 0,
+    leadTimeReductionPct: Number(dom.simLeadTime?.value) || 0,
+    overtimeHoursPerDay: Number(dom.simOvertime?.value) || 0,
   };
   const result = runScenarioSimulation(activities, scenario);
 
@@ -187,15 +190,15 @@ function renderAll() {
 }
 
 function wireEvents() {
-  dom.saveRootCauseButton.addEventListener("click", () => {
-    const activityId = dom.rootCauseActivity.value;
+  dom.saveRootCauseButton?.addEventListener("click", () => {
+    const activityId = dom.rootCauseActivity?.value;
     if (!activityId) {
       notify("Select an activity before saving root cause.", "warning");
       return;
     }
     const patch = {
-      delayReason: dom.rootCauseText.value.trim(),
-      activityStatus: dom.rootCauseStatus.value,
+      delayReason: (dom.rootCauseText?.value ?? "").trim(),
+      activityStatus: dom.rootCauseStatus?.value ?? "Delayed",
       lastModifiedBy: currentUser?.displayName || dom.rootCauseAuthor?.value?.trim() || "Planner",
       lastModifiedDate: new Date().toISOString().slice(0, 10),
     };
@@ -206,7 +209,7 @@ function wireEvents() {
     renderAll();
   });
 
-  dom.runSimButton.addEventListener("click", renderSimulation);
+  dom.runSimButton?.addEventListener("click", renderSimulation);
 
   dom.simPresetOvertime?.addEventListener("click", () => {
     dom.simManpower.value = SCENARIO_PRESETS.overtime.manpower;

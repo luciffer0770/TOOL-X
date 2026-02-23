@@ -2,11 +2,9 @@ import { getDefaultHomeForRole, getCurrentUser, getDemoPassword, listDemoUsers, 
 import { escapeHtml, notify, showModal } from "./common.js";
 import { resetApplicationData } from "./storage.js";
 
-const form = document.querySelector("#login-form");
-const usernameInput = document.querySelector("#username-input");
-const passwordInput = document.querySelector("#password-input");
-const demoUserList = document.querySelector("#demo-user-list");
-const loginHint = document.querySelector("#login-hint");
+function qs(sel) {
+  return document.querySelector(sel);
+}
 
 function parseNextPage() {
   const params = new URLSearchParams(location.search);
@@ -23,6 +21,7 @@ function roleBadgeText(role) {
 }
 
 function renderDemoUsers() {
+  const demoUserList = qs("#demo-user-list");
   if (!demoUserList) return;
   const items = listDemoUsers()
     .map((user) => {
@@ -43,6 +42,7 @@ function renderDemoUsers() {
 }
 
 function wireDemoUserQuickFill() {
+  const demoUserList = qs("#demo-user-list");
   if (!demoUserList) return;
   demoUserList.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
@@ -59,9 +59,11 @@ function wireDemoUserQuickFill() {
     }
     const item = target.closest(".demo-user-item");
     if (!item) return;
-    usernameInput.value = item.dataset.username || "";
-    passwordInput.value = item.dataset.password || "";
-    passwordInput.focus();
+    const usernameInput = qs("#username-input");
+    const passwordInput = qs("#password-input");
+    if (usernameInput) usernameInput.value = item.dataset.username || "";
+    if (passwordInput) passwordInput.value = item.dataset.password || "";
+    (passwordInput || usernameInput)?.focus();
   });
 }
 
@@ -72,7 +74,8 @@ function handleExistingSession() {
 }
 
 function wirePasswordToggle() {
-  const toggle = document.querySelector("#password-toggle");
+  const toggle = qs("#password-toggle");
+  const passwordInput = qs("#password-input");
   if (!toggle || !passwordInput) return;
   toggle.addEventListener("click", () => {
     const isPassword = passwordInput.type === "password";
@@ -87,10 +90,13 @@ function initialize() {
   renderDemoUsers();
   wireDemoUserQuickFill();
   wirePasswordToggle();
+
+  const loginHint = qs("#login-hint");
+  const usernameInput = qs("#username-input");
   if (loginHint) loginHint.textContent = "Use the demo credentials below or enter custom credentials.";
   usernameInput?.focus();
 
-  const quickDemoBtn = document.querySelector("#quick-demo-btn");
+  const quickDemoBtn = qs("#quick-demo-btn");
   if (quickDemoBtn) {
     quickDemoBtn.addEventListener("click", () => {
       const user = login("planner", "planner123", false);
@@ -101,22 +107,27 @@ function initialize() {
     });
   }
 
-  form?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const rememberMe = document.querySelector("#remember-me")?.checked ?? false;
-    const user = login(usernameInput.value, passwordInput.value, rememberMe);
-    if (!user) {
-      notify("Invalid credentials. Try one of the demo users.", "error");
-      passwordInput.value = "";
-      passwordInput.focus();
-      return;
-    }
-    notify(`Welcome ${user.displayName}.`, "success");
-    const nextPage = parseNextPage() || getDefaultHomeForRole(user);
-    location.href = nextPage;
-  });
+  const form = qs("#login-form");
+  if (form) {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const uInput = qs("#username-input");
+      const pInput = qs("#password-input");
+      const rememberMe = qs("#remember-me")?.checked ?? false;
+      const user = login(uInput?.value ?? "", pInput?.value ?? "", rememberMe);
+      if (!user) {
+        notify("Invalid credentials. Try one of the demo users.", "error");
+        if (pInput) pInput.value = "";
+        (uInput || pInput)?.focus();
+        return;
+      }
+      notify(`Welcome ${user.displayName}.`, "success");
+      const nextPage = parseNextPage() || getDefaultHomeForRole(user);
+      location.href = nextPage;
+    });
+  }
 
-  const resetBtn = document.querySelector("#reset-data-btn");
+  const resetBtn = qs("#reset-data-btn");
   if (resetBtn) {
     resetBtn.addEventListener("click", async () => {
       const confirmed = await showModal({
@@ -135,4 +146,22 @@ function initialize() {
   }
 }
 
-initialize();
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    try {
+      initialize();
+    } catch (err) {
+      console.error("Login init error:", err);
+      const hint = qs("#login-hint");
+      if (hint) hint.textContent = "Load error. Ensure you're using a web server (e.g. python -m http.server 8080) and refresh.";
+    }
+  });
+} else {
+  try {
+    initialize();
+  } catch (err) {
+    console.error("Login init error:", err);
+    const hint = qs("#login-hint");
+    if (hint) hint.textContent = "Load error. Ensure you're using a web server and refresh.";
+  }
+}
