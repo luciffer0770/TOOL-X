@@ -1,33 +1,44 @@
 :root {
   color-scheme: light;
-  --bg: #dce2ef;
-  --bg-panel: #f6f9fe;
-  --bg-panel-elev: #eef3fb;
-  --border: #bfd0ea;
-  --border-soft: #ccd9ec;
-  --text: #243f66;
-  --text-dim: #5f779c;
-  --accent: #2f8fff;
-  --accent-strong: #62b0ff;
-  --good: #1db89c;
-  --warn: #2f8fff;
-  --high: #ff4d63;
-  --critical: #d9152e;
-  --radius: 12px;
-  --shadow: 0 8px 26px rgba(22, 58, 110, 0.12);
+  /* Bosch brand palette */
+  --bosch-red: #E00420;
+  --bosch-red-dark: #b8031a;
+  --bosch-dark: #31343A;
+  --bosch-black: #000000;
+  --bosch-platinum: #DFE2E4;
+  --bosch-gray: #B6BBBE;
+  --bosch-silver: #9DA5A8;
+  --bosch-blue: #005691;
+  --bosch-blue-dark: #003057;
+  /* Semantic mappings */
+  --bg: #e8eaed;
+  --bg-panel: #f4f5f7;
+  --bg-panel-elev: #eef0f3;
+  --border: #B6BBBE;
+  --border-soft: #DFE2E4;
+  --text: #31343A;
+  --text-dim: #5c6268;
+  --accent: #005691;
+  --accent-strong: #0072a3;
+  --good: #0d9b5c;
+  --warn: #f59e0b;
+  --high: #e04c4c;
+  --critical: #E00420;
+  --radius: 8px;
+  --shadow: 0 4px 16px rgba(49, 52, 58, 0.08);
 }
 
 * {
   box-sizing: border-box;
 }
 
-.atlas-version-banner {
+.bosch-version-banner {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 99999;
-  background: linear-gradient(90deg, #1a5fb4, #2f8fff);
+  background: linear-gradient(90deg, var(--bosch-dark), var(--bosch-blue));
   color: #fff;
   text-align: center;
   padding: 8px 12px;
@@ -37,7 +48,7 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
-body:has(.atlas-version-banner) {
+body:has(.bosch-version-banner) {
   padding-top: 40px;
 }
 
@@ -46,13 +57,13 @@ body {
   margin: 0;
   padding: 0;
   background:
-    linear-gradient(132deg, rgba(238, 78, 94, 0.5) 0%, rgba(238, 78, 94, 0.12) 22%, transparent 42%),
-    linear-gradient(146deg, rgba(41, 138, 230, 0.34) 16%, transparent 48%),
-    linear-gradient(28deg, rgba(37, 177, 214, 0.22) 28%, transparent 62%),
-    linear-gradient(16deg, rgba(81, 198, 132, 0.16) 70%, transparent 94%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(220, 227, 241, 0.98));
+    linear-gradient(132deg, rgba(224, 4, 32, 0.04) 0%, transparent 28%),
+    linear-gradient(146deg, rgba(0, 86, 145, 0.06) 12%, transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(232, 234, 237, 0.95));
   color: var(--text);
   font-family:
+    "Bosch Sans",
+    "Bosch Sans Web",
     Inter,
     "Segoe UI",
     Roboto,
@@ -101,7 +112,7 @@ a {
   padding: 10px;
   border-radius: var(--radius);
   border: 1px solid var(--border-soft);
-  background: rgba(246, 250, 255, 0.96);
+  background: rgba(255, 255, 255, 0.95);
   box-shadow: var(--shadow);
 }
 
@@ -117,14 +128,14 @@ a {
 .nav a:hover,
 .nav a.is-active {
   color: var(--text);
-  border-color: rgba(47, 143, 255, 0.5);
-  background: rgba(47, 143, 255, 0.14);
+  border-color: rgba(224, 4, 32, 0.35);
+  background: rgba(224, 4, 32, 0.08);
 }
 
 .panel {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(246, 249, 254, 0.98), rgba(238, 243, 251, 0.98));
+  background: #fff;
   box-shadow: var(--shadow);
 }
 
@@ -174,6 +185,28 @@ a {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+/* Bosch header / logo */
+.bosch-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.bosch-logo {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--bosch-red);
+  text-transform: uppercase;
+}
+
+.bosch-logo + .title-block h1 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--bosch-dark);
+}
+
 .kpi-grid {
   display: grid;
   gap: 12px;
@@ -181,39 +214,77 @@ a {
 }
 
 .kpi-card {
-  padding: 12px;
-  border: 1px solid rgba(174, 198, 232, 0.82);
-  border-radius: 10px;
-  background: rgba(248, 251, 255, 0.95);
+  padding: 14px 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: #fff;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .kpi-card .kpi-title {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 600;
 }
 
 .kpi-card .kpi-value {
-  margin-top: 7px;
-  font-size: 1.35rem;
+  margin-top: 8px;
+  font-size: 1.5rem;
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .kpi-card .kpi-note {
-  margin-top: 5px;
-  font-size: 0.79rem;
+  margin-top: 6px;
+  font-size: 0.78rem;
   color: var(--text-dim);
 }
 
+/* Interactive KPI – clickable with status colour variants */
 .kpi-card-link {
   display: block;
   text-decoration: none;
   color: inherit;
+  cursor: pointer;
 }
 
 .kpi-card-link:hover {
-  border-color: rgba(47, 143, 255, 0.6);
-  background: rgba(248, 251, 255, 0.98);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(49, 52, 58, 0.12);
+  border-color: var(--bosch-gray);
 }
+
+.kpi-card-link:active {
+  transform: translateY(0);
+}
+
+.kpi-card-link:focus-visible {
+  outline: 2px solid var(--bosch-red);
+  outline-offset: 2px;
+}
+
+/* KPI status colour variants (Bosch palette) */
+.kpi-card.kpi-variant-primary .kpi-value { color: var(--bosch-dark); }
+.kpi-card.kpi-variant-primary { border-left: 4px solid var(--bosch-dark); padding-left: 12px; }
+
+.kpi-card.kpi-variant-good .kpi-value { color: var(--good); }
+.kpi-card.kpi-variant-good { border-left: 4px solid var(--good); padding-left: 12px; }
+
+.kpi-card.kpi-variant-critical .kpi-value { color: var(--bosch-red); }
+.kpi-card.kpi-variant-critical { border-left: 4px solid var(--bosch-red); padding-left: 12px; }
+
+.kpi-card.kpi-variant-warning .kpi-value { color: var(--warn); }
+.kpi-card.kpi-variant-warning { border-left: 4px solid var(--warn); padding-left: 12px; }
+
+.kpi-card.kpi-variant-active .kpi-value { color: var(--bosch-blue); }
+.kpi-card.kpi-variant-active { border-left: 4px solid var(--bosch-blue); padding-left: 12px; }
+
+.kpi-card-link.kpi-variant-critical:hover { border-color: var(--bosch-red); }
+.kpi-card-link.kpi-variant-good:hover { border-color: var(--good); }
+.kpi-card-link.kpi-variant-warning:hover { border-color: var(--warn); }
+.kpi-card-link.kpi-variant-active:hover { border-color: var(--bosch-blue); }
 
 .form-grid {
   display: grid;
@@ -266,11 +337,11 @@ textarea:focus {
 }
 
 button {
-  border: 1px solid rgba(73, 126, 197, 0.8);
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(66, 157, 255, 0.94), rgba(39, 112, 209, 0.94));
-  color: #f4f9ff;
-  padding: 8px 12px;
+  border: 1px solid var(--bosch-blue);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--bosch-blue), var(--bosch-blue-dark));
+  color: #fff;
+  padding: 8px 14px;
   cursor: pointer;
   transition: 0.15s ease;
 }
@@ -288,13 +359,14 @@ button:disabled {
 }
 
 button.ghost {
-  background: rgba(239, 245, 255, 1);
-  color: #1b3f73;
+  background: var(--bosch-platinum);
+  color: var(--bosch-dark);
+  border-color: var(--bosch-gray);
 }
 
 button.danger {
-  border-color: rgba(255, 77, 99, 0.76);
-  background: linear-gradient(180deg, rgba(255, 77, 99, 0.92), rgba(217, 21, 46, 0.94));
+  border-color: var(--bosch-red);
+  background: linear-gradient(180deg, var(--bosch-red), var(--bosch-red-dark));
 }
 
 .hint {
@@ -453,33 +525,33 @@ td.col-sub-activity textarea {
 }
 
 .badge-good {
-  color: #0d6758;
-  border-color: rgba(29, 184, 156, 0.44);
-  background: rgba(29, 184, 156, 0.14);
+  color: var(--good);
+  border-color: rgba(13, 155, 92, 0.4);
+  background: rgba(13, 155, 92, 0.12);
 }
 
 .badge-medium {
-  color: #1f4e88;
-  border-color: rgba(78, 159, 255, 0.45);
-  background: rgba(78, 159, 255, 0.16);
+  color: var(--bosch-blue);
+  border-color: rgba(0, 86, 145, 0.35);
+  background: rgba(0, 86, 145, 0.1);
 }
 
 .badge-high {
-  color: #872433;
-  border-color: rgba(255, 77, 99, 0.52);
-  background: rgba(255, 77, 99, 0.14);
+  color: var(--bosch-red);
+  border-color: rgba(224, 4, 32, 0.4);
+  background: rgba(224, 4, 32, 0.1);
 }
 
 .badge-critical {
-  color: #761323;
-  border-color: rgba(217, 21, 46, 0.64);
-  background: rgba(217, 21, 46, 0.13);
+  color: var(--bosch-red);
+  border-color: rgba(224, 4, 32, 0.5);
+  background: rgba(224, 4, 32, 0.12);
 }
 
 .badge-neutral {
-  color: #2f4f7a;
-  border-color: rgba(137, 178, 236, 0.48);
-  background: rgba(137, 178, 236, 0.16);
+  color: var(--bosch-dark);
+  border-color: rgba(182, 187, 190, 0.6);
+  background: rgba(182, 187, 190, 0.15);
 }
 
 .progress {
@@ -497,7 +569,7 @@ td.col-sub-activity textarea {
   left: 0;
   top: 0;
   bottom: 0;
-  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+  background: linear-gradient(90deg, var(--bosch-blue), var(--accent-strong));
 }
 
 .gantt-container {
@@ -543,14 +615,14 @@ td.col-sub-activity textarea {
   top: 11px;
   height: 30px;
   border-radius: 7px;
-  border: 1px solid rgba(79, 179, 255, 0.8);
-  background: linear-gradient(180deg, rgba(39, 135, 233, 0.74), rgba(16, 66, 118, 0.9));
+  border: 1px solid rgba(0, 86, 145, 0.6);
+  background: linear-gradient(180deg, var(--bosch-blue), var(--bosch-blue-dark));
   overflow: hidden;
 }
 
 .gantt-bar.is-delayed {
-  border-color: rgba(217, 21, 46, 0.9);
-  background: linear-gradient(180deg, rgba(255, 77, 99, 0.82), rgba(217, 21, 46, 0.95));
+  border-color: var(--bosch-red);
+  background: linear-gradient(180deg, var(--bosch-red), var(--bosch-red-dark));
 }
 
 .gantt-bar.is-critical {
@@ -880,13 +952,13 @@ thead th.col-sticky {
   }
 }
 
-/* Dark mode variables (optional) */
+/* Dark mode variables (Bosch dark) */
 [data-theme="dark"] {
-  --bg: #1a2332;
-  --bg-panel: #243447;
-  --text: #e8eef5;
-  --text-dim: #8fa3bf;
-  --border: #3d5266;
+  --bg: #1a1d21;
+  --bg-panel: #24282d;
+  --text: #e8eaed;
+  --text-dim: #9DA5A8;
+  --border: #31343A;
 }
 
 .import-drop-zone.drag-over {
@@ -1084,11 +1156,9 @@ body.login-page::before {
   inset: 0;
   z-index: -2;
   background:
-    linear-gradient(132deg, rgba(238, 78, 94, 0.95) 0%, rgba(238, 78, 94, 0.3) 20%, transparent 38%),
-    linear-gradient(146deg, rgba(41, 138, 230, 0.62) 14%, transparent 46%),
-    linear-gradient(28deg, rgba(37, 177, 214, 0.42) 24%, transparent 59%),
-    linear-gradient(16deg, rgba(81, 198, 132, 0.26) 68%, transparent 92%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(220, 227, 241, 0.98));
+    linear-gradient(132deg, rgba(224, 4, 32, 0.08) 0%, transparent 32%),
+    linear-gradient(146deg, rgba(0, 86, 145, 0.12) 12%, transparent 44%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(232, 234, 237, 0.98));
 }
 
 body.login-page::after {
@@ -1097,8 +1167,8 @@ body.login-page::after {
   inset: 0;
   z-index: -1;
   background:
-    repeating-linear-gradient(145deg, rgba(255, 255, 255, 0.15) 0 90px, rgba(255, 255, 255, 0) 90px 180px),
-    repeating-linear-gradient(38deg, rgba(66, 127, 202, 0.07) 0 120px, rgba(66, 127, 202, 0) 120px 240px);
+    repeating-linear-gradient(145deg, rgba(255, 255, 255, 0.06) 0 90px, rgba(255, 255, 255, 0) 90px 180px),
+    repeating-linear-gradient(38deg, rgba(0, 86, 145, 0.04) 0 120px, rgba(0, 86, 145, 0) 120px 240px);
   pointer-events: none;
 }
 
@@ -1277,8 +1347,8 @@ body.login-page::after {
 .login-submit-btn {
   width: 100%;
   border: 0;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #ff3348, #d9152e);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--bosch-red), var(--bosch-red-dark));
   color: #fff;
   padding: 10px 12px;
   margin-top: 2px;
@@ -1378,15 +1448,15 @@ body.login-page::after {
 }
 
 .demo-user-item.role-planner::before {
-  background: #ff4d63;
+  background: var(--bosch-red);
 }
 
 .demo-user-item.role-management::before {
-  background: #2f8fff;
+  background: var(--bosch-blue);
 }
 
 .demo-user-item.role-technician::before {
-  background: #1db89c;
+  background: var(--good);
 }
 
 .demo-user-icon {

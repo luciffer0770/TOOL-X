@@ -38,25 +38,31 @@ function renderKpis() {
         ) / 10
       : 0;
 
+  const pendingCritical = health.pendingCritical.length;
+  const lateMaterials = health.lateMaterials.length;
+
   const cards = [
-    { title: "Tracked Material Activities", value: total, note: "Activities with material requirements" },
-    { title: "Client Ownership", value: clientCount, note: "Client-owned material responsibility" },
-    { title: "Internal Ownership", value: internalCount, note: "Internal team material responsibility" },
-    { title: "Supplier Ownership", value: supplierCount, note: "External supplier material responsibility" },
-    { title: "Pending Critical Materials", value: health.pendingCritical.length, note: "High or critical still pending" },
-    { title: "Late Material Lines", value: health.lateMaterials.length, note: "Required date missed or late receipt" },
-    { title: "Avg Lead Time", value: formatHours(avgLeadTime), note: "Mean lead time across activities" },
+    { title: "Tracked Material Activities", value: total, note: "Activities with material requirements", variant: "primary" },
+    { title: "Client Ownership", value: clientCount, note: "Client-owned material responsibility", variant: "primary" },
+    { title: "Internal Ownership", value: internalCount, note: "Internal team material responsibility", variant: "primary" },
+    { title: "Supplier Ownership", value: supplierCount, note: "External supplier material responsibility", variant: "primary" },
+    { title: "Pending Critical Materials", value: pendingCritical, note: "High or critical still pending", variant: pendingCritical > 0 ? "critical" : "primary" },
+    { title: "Late Material Lines", value: lateMaterials, note: "Required date missed or late receipt", variant: lateMaterials > 0 ? "critical" : "primary" },
+    { title: "Avg Lead Time", value: formatHours(avgLeadTime), note: "Mean lead time across activities", variant: "active" },
   ];
 
   dom.kpiHost.innerHTML = cards
     .map(
-      (card) => `
-      <article class="kpi-card">
+      (card) => {
+        const variant = card.variant || "primary";
+        return `
+      <article class="kpi-card kpi-variant-${variant}">
         <div class="kpi-title">${card.title}</div>
         <div class="kpi-value">${card.value}</div>
         <div class="kpi-note">${card.note}</div>
       </article>
-    `,
+    `;
+      },
     )
     .join("");
 }
@@ -89,13 +95,13 @@ function renderCharts() {
         {
           data: ownershipValues,
           backgroundColor: [
-            "rgba(47, 143, 255, 0.75)",
-            "rgba(29, 184, 156, 0.74)",
-            "rgba(217, 21, 46, 0.74)",
-            "rgba(225, 236, 252, 0.62)",
+            "rgba(0, 86, 145, 0.8)",
+            "rgba(13, 155, 92, 0.8)",
+            "rgba(224, 4, 32, 0.8)",
+            "rgba(157, 165, 168, 0.6)",
           ],
-          borderColor: "#e2ecfb",
-          borderWidth: 1,
+          borderColor: "#fff",
+          borderWidth: 2,
         },
       ],
     },
@@ -104,7 +110,7 @@ function renderCharts() {
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          labels: { color: "#2f4f7a" },
+          labels: { color: "#31343A" },
         },
         tooltip: {
           callbacks: {
@@ -130,7 +136,7 @@ function renderCharts() {
         {
           label: "Count",
           data: statusValues,
-          backgroundColor: "rgba(79, 179, 255, 0.76)",
+          backgroundColor: "rgba(0, 86, 145, 0.75)",
         },
       ],
     },
@@ -149,7 +155,7 @@ function renderCharts() {
         },
       },
       plugins: {
-        legend: { labels: { color: "#2f4f7a" } },
+        legend: { labels: { color: "#31343A" } },
         tooltip: {
           callbacks: {
             label: (ctx) => {

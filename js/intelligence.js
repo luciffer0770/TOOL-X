@@ -48,22 +48,25 @@ function renderKpis() {
   const low = metrics.enriched.filter((activity) => activity.riskScore < 30).length;
 
   const cards = [
-    { title: "Total Activities", value: metrics.totalActivities, note: "Current execution model" },
-    { title: "Delayed Activities", value: metrics.delayed, note: "Schedule overrun detected" },
-    { title: "Critical Risk", value: critical, note: "Risk score >= 75" },
-    { title: "High Risk", value: high, note: "Risk score 55-74" },
-    { title: "Medium Risk", value: medium, note: "Risk score 30-54" },
-    { title: "Low Risk", value: low, note: "Risk score below 30" },
+    { title: "Total Activities", value: metrics.totalActivities, note: "Current execution model", variant: "primary" },
+    { title: "Delayed Activities", value: metrics.delayed, note: "Schedule overrun detected", variant: metrics.delayed > 0 ? "critical" : "primary" },
+    { title: "Critical Risk", value: critical, note: "Risk score >= 75", variant: critical > 0 ? "critical" : "primary" },
+    { title: "High Risk", value: high, note: "Risk score 55-74", variant: high > 0 ? "warning" : "primary" },
+    { title: "Medium Risk", value: medium, note: "Risk score 30-54", variant: "active" },
+    { title: "Low Risk", value: low, note: "Risk score below 30", variant: "good" },
   ];
   if (dom.riskKpis) dom.riskKpis.innerHTML = cards
     .map(
-      (card) => `
-      <article class="kpi-card">
+      (card) => {
+        const variant = card.variant || "primary";
+        return `
+      <article class="kpi-card kpi-variant-${variant}">
         <div class="kpi-title">${card.title}</div>
         <div class="kpi-value">${card.value}</div>
         <div class="kpi-note">${card.note}</div>
       </article>
-    `,
+    `;
+      },
     )
     .join("");
 

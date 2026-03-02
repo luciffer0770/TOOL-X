@@ -11,38 +11,40 @@ let riskChart;
 let currentUser;
 let snapshotDate = new Date();
 
+/** KPI variant: primary (dark), good (green), critical (red), warning (orange), active (blue) */
 function buildKpiCards(metrics, role) {
   if (role === "management") {
     return [
-      { title: "Portfolio Activities", value: metrics.totalActivities, note: "Current monitored scope", link: "activities.html" },
-      { title: "Critical Delay Load", value: metrics.delayed, note: "Activities behind plan", link: "activities.html", filter: "Delayed" },
-      { title: "High-Risk Exposure", value: metrics.highRisk, note: "Risk score >= 55", link: "intelligence.html" },
-      { title: "Average Completion", value: `${metrics.avgCompletion}%`, note: "Execution progress" },
-      { title: "Estimated Cost", value: formatCurrency(metrics.estimatedCost), note: "Portfolio baseline" },
-      { title: "Cost Variance", value: formatCurrency(metrics.costVariance), note: "Current variance" },
+      { title: "Portfolio Activities", value: metrics.totalActivities, note: "Current monitored scope", link: "activities.html", variant: "primary" },
+      { title: "Critical Delay Load", value: metrics.delayed, note: "Activities behind plan", link: "activities.html", filter: "Delayed", variant: metrics.delayed > 0 ? "critical" : "primary" },
+      { title: "High-Risk Exposure", value: metrics.highRisk, note: "Risk score >= 55", link: "intelligence.html", variant: metrics.highRisk > 0 ? "critical" : "primary" },
+      { title: "Average Completion", value: `${metrics.avgCompletion}%`, note: "Execution progress", variant: metrics.avgCompletion >= 80 ? "good" : metrics.avgCompletion >= 50 ? "active" : "warning" },
+      { title: "Estimated Cost", value: formatCurrency(metrics.estimatedCost), note: "Portfolio baseline", variant: "primary" },
+      { title: "Cost Variance", value: formatCurrency(metrics.costVariance), note: "Current variance", variant: metrics.costVariance > 0 ? "warning" : "good" },
     ];
   }
   if (role === "technician") {
     return [
-      { title: "Assigned Activities", value: metrics.totalActivities, note: "Visible project scope" },
-      { title: "In Progress", value: metrics.inProgress, note: "Activities currently running" },
-      { title: "Delayed", value: metrics.delayed, note: "Immediate escalation queue" },
-      { title: "Blocked", value: metrics.blockedActivities.length, note: "Waiting on dependencies" },
-      { title: "Average Completion", value: `${metrics.avgCompletion}%`, note: "Execution update status" },
+      { title: "Assigned Activities", value: metrics.totalActivities, note: "Visible project scope", variant: "primary" },
+      { title: "In Progress", value: metrics.inProgress, note: "Activities currently running", link: "activities.html", filter: "In Progress", variant: "active" },
+      { title: "Delayed", value: metrics.delayed, note: "Immediate escalation queue", link: "activities.html", filter: "Delayed", variant: metrics.delayed > 0 ? "critical" : "primary" },
+      { title: "Blocked", value: metrics.blockedActivities.length, note: "Waiting on dependencies", variant: metrics.blockedActivities.length > 0 ? "warning" : "primary" },
+      { title: "Average Completion", value: `${metrics.avgCompletion}%`, note: "Execution update status", variant: metrics.avgCompletion >= 80 ? "good" : "primary" },
     ];
   }
   return [
-    { title: "Total Activities", value: metrics.totalActivities, note: "Current planning scope" },
-    { title: "Delayed Activities", value: metrics.delayed, note: "Past planned finish without closure" },
-    { title: "High/Critical Risk", value: metrics.highRisk, note: "Risk score >= 55" },
-    { title: "Average Completion", value: `${metrics.avgCompletion}%`, note: "Across all activities" },
-    { title: "Completed", value: metrics.completed, note: "Execution closed activities" },
-    { title: "Dependency Blocked", value: metrics.blockedActivities.length, note: "Waiting on predecessor release" },
-    { title: "Estimated Cost", value: formatCurrency(metrics.estimatedCost), note: "Portfolio estimate" },
+    { title: "Total Activities", value: metrics.totalActivities, note: "Current planning scope", link: "activities.html", variant: "primary" },
+    { title: "Delayed Activities", value: metrics.delayed, note: "Past planned finish without closure", link: "activities.html", filter: "Delayed", variant: metrics.delayed > 0 ? "critical" : "primary" },
+    { title: "High/Critical Risk", value: metrics.highRisk, note: "Risk score >= 55", link: "intelligence.html", variant: metrics.highRisk > 0 ? "critical" : "primary" },
+    { title: "Average Completion", value: `${metrics.avgCompletion}%`, note: "Across all activities", variant: metrics.avgCompletion >= 80 ? "good" : "primary" },
+    { title: "Completed", value: metrics.completed, note: "Execution closed activities", link: "activities.html", filter: "Completed", variant: "good" },
+    { title: "Dependency Blocked", value: metrics.blockedActivities.length, note: "Waiting on predecessor release", variant: metrics.blockedActivities.length > 0 ? "warning" : "primary" },
+    { title: "Estimated Cost", value: formatCurrency(metrics.estimatedCost), note: "Portfolio estimate", variant: "primary" },
     {
       title: "Cost Variance",
       value: formatCurrency(metrics.costVariance),
       note: metrics.costVariance > 0 ? "Over baseline" : "Within baseline",
+      variant: metrics.costVariance > 0 ? "warning" : "good",
     },
   ];
 }
@@ -53,16 +55,18 @@ function renderKpis(metrics, role) {
   host.innerHTML = cards
     .map(
       (card) => {
+        const variant = card.variant || "primary";
+        const variantClass = `kpi-variant-${variant}`;
         const href = card.link
           ? `${card.link}${card.filter ? `?status=${encodeURIComponent(card.filter)}` : ""}`
           : null;
         const wrap = href
-          ? (content) => `<a href="${escapeHtml(href)}" class="kpi-card kpi-card-link">${content}</a>`
-          : (content) => `<article class="kpi-card">${content}</article>`;
+          ? (content) => `<a href="${escapeHtml(href)}" class="kpi-card kpi-card-link ${variantClass}" data-drill-link="${escapeHtml(href)}" data-kpi-title="${escapeHtml(card.title)}">${content}</a>`
+          : (content) => `<article class="kpi-card ${variantClass}">${content}</article>`;
         return wrap(`
         <div class="kpi-title" title="${escapeHtml(card.note)}">${escapeHtml(card.title)}</div>
         <div class="kpi-value" title="${escapeHtml(card.note)}">${escapeHtml(String(card.value))}</div>
-        <div class="kpi-note">${escapeHtml(card.note)}</div>
+        <div class="kpi-note">${escapeHtml(card.note)}${href ? " — Click to drill down" : ""}</div>
       `);
       },
     )
@@ -208,13 +212,13 @@ function renderPhaseChart(phaseRows) {
           label: "Average Completion %",
           data: phaseRows.map((row) => row.avgCompletion),
           borderWidth: 1,
-          backgroundColor: "rgba(47, 143, 255, 0.72)",
+          backgroundColor: "rgba(0, 86, 145, 0.75)",
         },
         {
           label: "Delayed Activities",
           data: phaseRows.map((row) => row.delayedActivities),
           borderWidth: 1,
-          backgroundColor: "rgba(255, 77, 99, 0.76)",
+          backgroundColor: "rgba(224, 4, 32, 0.78)",
         },
       ],
     },
@@ -224,21 +228,17 @@ function renderPhaseChart(phaseRows) {
       scales: {
         y: {
           beginAtZero: true,
-          ticks: {
-            color: "#35567f",
-          },
-          grid: { color: "rgba(155, 185, 225, 0.55)" },
+          ticks: { color: "#31343A" },
+          grid: { color: "rgba(182, 187, 190, 0.5)" },
         },
         x: {
-          ticks: { color: "#35567f" },
-          grid: { color: "rgba(155, 185, 225, 0.35)" },
+          ticks: { color: "#31343A" },
+          grid: { color: "rgba(182, 187, 190, 0.35)" },
         },
       },
       plugins: {
         legend: {
-          labels: {
-            color: "#2f4f7a",
-          },
+          labels: { color: "#31343A" },
         },
       },
     },
@@ -259,14 +259,14 @@ function renderRiskChart(rows) {
         {
           data: Object.values(grouped),
           backgroundColor: [
-            "rgba(29, 184, 156, 0.78)",
-            "rgba(47, 143, 255, 0.76)",
-            "rgba(217, 21, 46, 0.78)",
-            "rgba(97, 151, 224, 0.65)",
-            "rgba(232, 241, 255, 0.62)",
+            "rgba(13, 155, 92, 0.85)",
+            "rgba(0, 86, 145, 0.8)",
+            "rgba(224, 4, 32, 0.85)",
+            "rgba(245, 158, 11, 0.8)",
+            "rgba(157, 165, 168, 0.7)",
           ],
-          borderColor: "#e2ecfb",
-          borderWidth: 1,
+          borderColor: "#fff",
+          borderWidth: 2,
         },
       ],
     },
@@ -275,9 +275,7 @@ function renderRiskChart(rows) {
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          labels: {
-            color: "#2f4f7a",
-          },
+          labels: { color: "#31343A" },
         },
       },
     },

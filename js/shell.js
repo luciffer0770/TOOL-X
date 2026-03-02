@@ -50,7 +50,7 @@ export function initShell() {
   themeToggle.setAttribute("aria-label", "Toggle theme");
   const sessionChip = document.querySelector(".session-chip");
   sessionChip?.parentElement?.insertBefore(themeToggle, sessionChip);
-  const savedTheme = localStorage.getItem("atlas_theme") || "light";
+  const savedTheme = localStorage.getItem("cursor_theme") || "light";
   if (savedTheme === "dark") {
     document.documentElement.setAttribute("data-theme", "dark");
     themeToggle.textContent = "🌙";
@@ -61,7 +61,7 @@ export function initShell() {
     const isDark = document.documentElement.getAttribute("data-theme") === "dark";
     document.documentElement.setAttribute("data-theme", isDark ? "" : "dark");
     themeToggle.textContent = isDark ? "☀" : "🌙";
-    localStorage.setItem("atlas_theme", isDark ? "light" : "dark");
+    localStorage.setItem("cursor_theme", isDark ? "light" : "dark");
   });
 
   const resetBtn = document.createElement("button");

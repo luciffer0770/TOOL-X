@@ -114,22 +114,25 @@ function renderAnomalySection() {
   });
 
   const cards = [
-    { title: "Total Anomalies", value: anomalyRows.length, note: "All active data-quality and logic checks" },
-    { title: "Critical", value: bySeverity.Critical, note: "Immediate correction required" },
-    { title: "High", value: bySeverity.High, note: "Should be corrected in current cycle" },
-    { title: "Medium/Low", value: bySeverity.Medium + bySeverity.Low, note: "Monitor and clean during review" },
+    { title: "Total Anomalies", value: anomalyRows.length, note: "All active data-quality and logic checks", variant: "primary" },
+    { title: "Critical", value: bySeverity.Critical, note: "Immediate correction required", variant: bySeverity.Critical > 0 ? "critical" : "primary" },
+    { title: "High", value: bySeverity.High, note: "Should be corrected in current cycle", variant: bySeverity.High > 0 ? "warning" : "primary" },
+    { title: "Medium/Low", value: bySeverity.Medium + bySeverity.Low, note: "Monitor and clean during review", variant: "active" },
   ];
 
   if (!dom.anomalyKpiGrid) return;
   dom.anomalyKpiGrid.innerHTML = cards
     .map(
-      (card) => `
-      <article class="kpi-card">
+      (card) => {
+        const variant = card.variant || "primary";
+        return `
+      <article class="kpi-card kpi-variant-${variant}">
         <div class="kpi-title">${escapeHtml(card.title)}</div>
         <div class="kpi-value">${card.value}</div>
         <div class="kpi-note">${escapeHtml(card.note)}</div>
       </article>
-    `,
+    `;
+      },
     )
     .join("");
 
@@ -243,15 +246,24 @@ function renderBaselineComparison(baseline) {
   ];
 
   if (!dom.baselineVarianceGrid) return;
+  const getVariant = (card) => {
+    const val = String(card.value || "");
+    if (val.startsWith("+") && val !== "+0" && val !== "+0%") return "warning";
+    if (val.startsWith("-") || val === "0" || val === "0%") return "good";
+    return "primary";
+  };
   dom.baselineVarianceGrid.innerHTML = varianceCards
     .map(
-      (card) => `
-      <article class="kpi-card">
+      (card) => {
+        const variant = getVariant(card);
+        return `
+      <article class="kpi-card kpi-variant-${variant}">
         <div class="kpi-title">${escapeHtml(card.title)}</div>
         <div class="kpi-value">${escapeHtml(card.value)}</div>
         <div class="kpi-note">${escapeHtml(card.note)}</div>
       </article>
-    `,
+    `;
+      },
     )
     .join("");
 
