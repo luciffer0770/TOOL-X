@@ -420,7 +420,7 @@ function initialize() {
     onStateChange() {
       render();
     },
-  });
+  }).catch((e) => console.error("[dashboard] init error:", e));
 }
 
 initialize();

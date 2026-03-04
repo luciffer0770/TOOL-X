@@ -1,7 +1,7 @@
 import { initShell } from "./shell.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
-import { subscribeToStateChanges } from "./storage.js";
+import { subscribeToStateChanges, stateReady } from "./storage.js";
 
 /**
  * Shared page initialization helper.
@@ -15,11 +15,12 @@ import { subscribeToStateChanges } from "./storage.js";
  *     onStateChange() { ... },        // optional
  *   });
  *
+ * - Waits for state (backend API or localStorage) before proceeding
  * - Ensures shell + access shell are initialized exactly once per page
  * - Wires project toolbar with an optional project-change callback
  * - Subscribes to state changes and returns an unsubscribe cleanup
  */
-export function initPage(options) {
+export async function initPage(options) {
   const {
     requireAuth = true,
     allowedRoles = [],
@@ -31,6 +32,8 @@ export function initPage(options) {
   if (typeof onReady !== "function") {
     throw new Error("initPage(options): onReady callback is required");
   }
+
+  await stateReady();
 
   // Shell (shortcuts, global search, audit, notifications, SW)
   initShell();

@@ -4,6 +4,7 @@ import { getActivities, subscribeToStateChanges } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { initShell } from "./shell.js";
+import { stateReady } from "./storage.js";
 
 let ownershipChart;
 let statusChart;
@@ -277,7 +278,8 @@ function restoreFilter(selectNode, value) {
   selectNode.value = hasOption ? value : "";
 }
 
-function initialize() {
+async function initialize() {
+  await stateReady();
   initShell();
   setActiveNavigation();
   const currentUser = initializeAccessShell();
@@ -317,4 +319,4 @@ function renderForActiveProject() {
   renderTable();
 }
 
-initialize();
+initialize().catch((e) => console.error("[materials] init error:", e));

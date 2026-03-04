@@ -3,6 +3,34 @@ import { logAudit } from "./audit.js";
 import { idbGetState, idbSetState } from "./idb.js";
 
 const STORAGE_KEY = "industrial_planning_intelligence_state_v1";
+
+// Backend API mode: when true, state is loaded/saved via /api/state
+let _useBackend = false;
+let _memoryCache = null;
+let _stateReadyPromise = null;
+
+/** Start loading state. Call once before app init. Resolves when state is ready (from API or localStorage). */
+export function stateReady() {
+  if (_stateReadyPromise) return _stateReadyPromise;
+  _stateReadyPromise = (async () => {
+    try {
+      const health = await fetch("/api/health");
+      if (health.ok) {
+        _useBackend = true;
+        const res = await fetch("/api/state");
+        if (res.ok) {
+          try {
+            const data = await res.json();
+            if (data && typeof data === "object") _memoryCache = data;
+          } catch (_) {}
+        }
+        return;
+      }
+    } catch (_) {}
+    _useBackend = false;
+  })();
+  return _stateReadyPromise;
+}
 const STATE_CHANGE_EVENT = "industrial_planning_state_changed";
 const PROJECT_ID_PATTERN = /^PRJ-(\d{4,})$/;
 const BASELINE_ID_PATTERN = /^BL-(\d{4,})$/;
@@ -130,25 +158,23 @@ function normalizeProjectName(rawName, index) {
 }
 
 function readRawState() {
+  if (_useBackend) {
+    if (_memoryCache) return _memoryCache;
+    return baseState();
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      // Kick off an async attempt to restore from IndexedDB if available.
-      // If a valid state is found there we populate localStorage and reload.
       try {
         idbGetState().then((idbRaw) => {
           if (idbRaw) {
             try {
               localStorage.setItem(STORAGE_KEY, idbRaw);
-              // notify and reload so synchronous app picks it up
               window.dispatchEvent(new CustomEvent("industrial_planning_state_changed", { detail: { key: STORAGE_KEY, savedAt: new Date().toISOString() } }));
-              // only reload when on a non-editing page
-              if (!location.pathname.endsWith("/activities.html")) {
-                location.reload();
-              }
+              if (!location.pathname.endsWith("/activities.html")) location.reload();
             } catch (_) {}
           }
-        }).catch(()=>{});
+        }).catch(() => {});
       } catch (_) {}
       return baseState();
     }
@@ -214,35 +240,40 @@ function normalizeState(state) {
 }
 
 function writeState(state) {
-  const payload = JSON.stringify(state);
+  const normalized = normalizeState(state);
+  const payload = JSON.stringify(normalized);
+
+  if (_useBackend) {
+    _memoryCache = normalized;
+    fetch("/api/state", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+    })
+      .then((r) => {
+        if (!r.ok) console.error("[storage] Backend save failed:", r.status);
+      })
+      .catch((e) => console.error("[storage] Backend save error:", e));
+    emitStateChange();
+    return;
+  }
+
   let savedToLocal = false;
   try {
     localStorage.setItem(STORAGE_KEY, payload);
     savedToLocal = true;
     if (localStorage.getItem("atlas_debug_verbose") === "1") {
-      // eslint-disable-next-line no-console
       console.debug("[storage] writeState saved to localStorage", { key: STORAGE_KEY, size: payload.length });
     }
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("[storage] writeState failed to save to localStorage:", err);
-    try {
-      window.__atlas_last_storage_error = String(err);
-    } catch (_) {}
+    try { window.__atlas_last_storage_error = String(err); } catch (_) {}
   }
-  // Always attempt to save to IndexedDB as a fallback/replica
   try {
     idbSetState(payload).then((ok) => {
-      if (localStorage.getItem("atlas_debug_verbose") === "1") {
-        // eslint-disable-next-line no-console
-        console.debug("[storage] writeState idbSetState result", ok);
-      }
-    }).catch((e) => {
-      // eslint-disable-next-line no-console
-      console.error("[storage] writeState idbSetState error", e);
-    });
+      if (localStorage.getItem("atlas_debug_verbose") === "1") console.debug("[storage] writeState idbSetState result", ok);
+    }).catch((e) => console.error("[storage] writeState idbSetState error", e));
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("[storage] writeState idbSetState sync error", err);
   }
   emitStateChange();

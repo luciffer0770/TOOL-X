@@ -32,9 +32,10 @@
   - Material Ownership
   - Material Lead Time
   - Dependencies
-- Entirely browser-side processing and storage:
-  - No backend required
-  - All data saved in `localStorage`
+- Python backend with persistent storage:
+  - Data stored in SQLite (`atlas_data.db`)
+  - Runs fully in Codespace (no local Python required)
+  - Falls back to `localStorage` when backend is unavailable
 - Advanced intelligence logic in frontend runtime:
   - Delay detection
   - Risk scoring and level derivation
@@ -44,19 +45,34 @@
 
 ## Run
 
-Serve as static files from any web server, for example:
+### In Codespace (recommended)
+
+No local Python installation needed. Everything runs in Codespace:
+
+```bash
+./start.sh
+```
+
+Or manually:
+
+```bash
+pip install -r requirements.txt
+python app.py
+```
+
+Then open the forwarded port (e.g. `https://your-codespace-5000.app.github.dev`) from the Ports panel. The backend serves the app and stores data in SQLite.
+
+### Static-only (no backend)
+
+If you prefer not to use the backend, serve static files:
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Then open:
+Then open `http://localhost:8080/`. Data will be stored in `localStorage` (browser-only).
 
-`http://localhost:8080/` or `http://localhost:8080/login.html`
-
-**Quick access:** Use the "Quick Demo (Planner)" button on the login page, or add `?dev=1` to any app URL to auto-login as planner (e.g. `http://localhost:8080/index.html?dev=1`).
-
-**Note:** In remote dev environments (e.g. Cursor cloud), use the port-forwarding URL shown in the Ports panel instead of localhost.
+**Quick access:** Use the "Quick Demo (Planner)" button on the login page, or add `?dev=1` to any app URL to auto-login as planner.
 
 ## Demo Login Credentials
 

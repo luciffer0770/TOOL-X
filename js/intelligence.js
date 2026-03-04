@@ -264,7 +264,7 @@ function initialize() {
     onStateChange() {
       renderAll();
     },
-  });
+  }).catch((e) => console.error("[intelligence] init error:", e));
 }
 
 initialize();

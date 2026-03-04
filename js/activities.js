@@ -1473,7 +1473,7 @@ function initialize() {
     onStateChange() {
       updateUndoButton();
     },
-  });
+  }).catch((e) => console.error("[activities] init error:", e));
 }
 
 initialize();

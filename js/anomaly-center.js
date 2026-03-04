@@ -13,6 +13,7 @@ import {
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { initShell } from "./shell.js";
+import { stateReady } from "./storage.js";
 import { canManageProjects } from "./auth.js";
 
 const dom = {
@@ -548,7 +549,8 @@ function wireEvents() {
   });
 }
 
-function initialize() {
+async function initialize() {
+  await stateReady();
   initShell();
   setActiveNavigation();
   currentUser = initializeAccessShell();
@@ -572,4 +574,4 @@ function initialize() {
   renderAll();
 }
 
-initialize();
+initialize().catch((e) => console.error("[anomaly-center] init error:", e));

@@ -4,6 +4,7 @@ import { getActivities, subscribeToStateChanges, updateActivity } from "./storag
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { initShell } from "./shell.js";
+import { stateReady } from "./storage.js";
 import { normalizePhase, parseDependencies } from "./schema.js";
 
 const dom = {
@@ -422,7 +423,8 @@ function loadProjectActivities({ resetView = false } = {}) {
   renderGantt();
 }
 
-function initialize() {
+async function initialize() {
+  await stateReady();
   initShell();
   setActiveNavigation();
   const currentUser = initializeAccessShell();
@@ -440,4 +442,4 @@ function initialize() {
   loadProjectActivities({ resetView: true });
 }
 
-initialize();
+initialize().catch((e) => console.error("[gantt] init error:", e));
