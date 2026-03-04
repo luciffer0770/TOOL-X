@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-02-23T07:31:51.487Z",
+  "steps": {
+    "login": "http://127.0.0.1:8080/index.html",
+    "open": "loaded",
+    "selectorError": "TimeoutError: page.waitForSelector: Timeout 4000ms exceeded.\nCall log:\n  - waiting for locator('#root-cause-activity option') to be visible\n    13 × locator resolved to hidden <option value=\"\">Select delayed activity</option>\n",
+    "simRows": 0
+  },
+  "console": []
+}

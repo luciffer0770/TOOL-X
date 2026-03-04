@@ -1,0 +1,40 @@
+{
+  "steps": {
+    "step1_navigate": "passed",
+    "step2_load_screenshot": "passed",
+    "step3_demo_users": "passed",
+    "step3_detail": {
+      "count": 3,
+      "roles": [
+        "planner",
+        "management",
+        "technician"
+      ]
+    },
+    "step4_fill_credentials": "passed",
+    "step4_detail": {
+      "username": "planner",
+      "passwordFilled": true
+    },
+    "step5_quick_demo": "passed",
+    "step6a_activities": "passed",
+    "step6b_gantt": "passed",
+    "step7_console": "passed"
+  },
+  "finalUrls": {
+    "afterQuickDemo": "http://127.0.0.1:8080/index.html?dev=1",
+    "activities": "http://127.0.0.1:8080/activities.html",
+    "gantt": "http://127.0.0.1:8080/gantt.html"
+  },
+  "consoleErrors": [],
+  "consoleWarnings": [],
+  "screenshotPaths": {
+    "step2": "browser-test-results/screenshot-01-login-loaded.png",
+    "step4": "browser-test-results/screenshot-02-login-filled.png",
+    "step5": "browser-test-results/screenshot-03-landing.png",
+    "step6a": "browser-test-results/screenshot-04-activities.png",
+    "step6b": "browser-test-results/screenshot-05-gantt.png"
+  },
+  "passed": true,
+  "timestamp": "2026-03-02T14:58:20.745Z"
+}

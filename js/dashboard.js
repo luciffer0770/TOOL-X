@@ -1,0 +1,426 @@
+import { computePortfolioMetrics, getDelayAndRiskRows, getMaterialHealth, getPhaseProgress, groupBy } from "./analytics.js";
+import { escapeHtml, formatCurrency, formatHours, notify, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
+import { getActivities, getProjectActions } from "./storage.js";
+import { getRoleLabel } from "./auth.js";
+import { initPage } from "./page-init.js";
+import { hasCompletedOnboarding, startOnboarding } from "./onboarding.js";
+
+let phaseChart;
+let riskChart;
+let currentUser;
+let snapshotDate = new Date();
+let timeRangeDays = 30;
+
+function filterActivitiesByTimeRange(activities, refDate, days) {
+  if (!days || days >= 365) return activities;
+  const start = new Date(refDate);
+  start.setDate(start.getDate() - Number(days));
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(refDate);
+  end.setHours(23, 59, 59, 999);
+  return activities.filter((a) => {
+    const ps = a.plannedStartDate ? new Date(a.plannedStartDate) : null;
+    const pe = a.plannedEndDate ? new Date(a.plannedEndDate) : null;
+    const as = a.actualStartDate ? new Date(a.actualStartDate) : null;
+    const ae = a.actualEndDate ? new Date(a.actualEndDate) : null;
+    const date = ae || as || pe || ps;
+    if (!date || Number.isNaN(date.getTime())) return true;
+    return date >= start && date <= end;
+  });
+}
+
+function buildKpiCards(metrics, role) {
+  if (role === "management") {
+    return [
+      { title: "Portfolio Activities", value: metrics.totalActivities, note: "Current monitored scope", link: "activities.html" },
+      { title: "Critical Delay Load", value: metrics.delayed, note: "Activities behind plan", link: "activities.html", filter: "Delayed" },
+      { title: "High-Risk Exposure", value: metrics.highRisk, note: "Risk score >= 55", link: "intelligence.html" },
+      { title: "Average Completion", value: `${metrics.avgCompletion}%`, note: "Execution progress" },
+      { title: "Estimated Cost", value: formatCurrency(metrics.estimatedCost), note: "Portfolio baseline" },
+      { title: "Cost Variance", value: formatCurrency(metrics.costVariance), note: "Current variance" },
+    ];
+  }
+  if (role === "technician") {
+    return [
+      { title: "Assigned Activities", value: metrics.totalActivities, note: "Visible project scope" },
+      { title: "In Progress", value: metrics.inProgress, note: "Activities currently running" },
+      { title: "Delayed", value: metrics.delayed, note: "Immediate escalation queue" },
+      { title: "Blocked", value: metrics.blockedActivities.length, note: "Waiting on dependencies" },
+      { title: "Average Completion", value: `${metrics.avgCompletion}%`, note: "Execution update status" },
+    ];
+  }
+  return [
+    { title: "Total Activities", value: metrics.totalActivities, note: "Current planning scope" },
+    { title: "Delayed Activities", value: metrics.delayed, note: "Past planned finish without closure" },
+    { title: "High/Critical Risk", value: metrics.highRisk, note: "Risk score >= 55" },
+    { title: "Average Completion", value: `${metrics.avgCompletion}%`, note: "Across all activities" },
+    { title: "Completed", value: metrics.completed, note: "Execution closed activities" },
+    { title: "Dependency Blocked", value: metrics.blockedActivities.length, note: "Waiting on predecessor release" },
+    { title: "Estimated Cost", value: formatCurrency(metrics.estimatedCost), note: "Portfolio estimate" },
+    {
+      title: "Cost Variance",
+      value: formatCurrency(metrics.costVariance),
+      note: metrics.costVariance > 0 ? "Over baseline" : "Within baseline",
+    },
+  ];
+}
+
+function renderKpis(metrics, role) {
+  const cards = buildKpiCards(metrics, role);
+  const host = document.querySelector("#kpi-grid");
+  host.innerHTML = cards
+    .map(
+      (card) => {
+        const href = card.link
+          ? `${card.link}${card.filter ? `?status=${encodeURIComponent(card.filter)}` : ""}`
+          : null;
+        const wrap = href
+          ? (content) => `<a href="${escapeHtml(href)}" class="kpi-card kpi-card-link">${content}</a>`
+          : (content) => `<article class="kpi-card">${content}</article>`;
+        return wrap(`
+        <div class="kpi-title" title="${escapeHtml(card.note)}">${escapeHtml(card.title)}</div>
+        <div class="kpi-value" title="${escapeHtml(card.note)}">${escapeHtml(String(card.value))}</div>
+        <div class="kpi-note">${escapeHtml(card.note)}</div>
+      `);
+      },
+    )
+    .join("");
+}
+
+function renderCriticalPath(metrics) {
+  const host = document.querySelector("#critical-path-list");
+  if (!metrics.criticalPath.path.length) {
+    renderEmptyState(host, "No dependency path found. Add activities with dependencies to compute the critical chain.");
+    return;
+  }
+
+  const byId = new Map(metrics.enriched.map((activity) => [activity.activityId, activity]));
+  host.innerHTML = metrics.criticalPath.path
+    .map((activityId, index) => {
+      const activity = byId.get(activityId);
+      return `
+      <li>
+        <div><strong>${index + 1}. ${activityId}</strong> - ${activity?.activityName ?? "Unknown Activity"}</div>
+        <div class="small">Duration: ${formatHours(activity?.plannedDurationHours)} | Priority: ${activity?.priority || "-"}</div>
+      </li>
+    `;
+    })
+    .join("");
+  host.insertAdjacentHTML(
+    "beforeend",
+    `<li><strong>Total Critical Path Duration:</strong> ${formatHours(metrics.criticalPath.durationHours)}</li>`,
+  );
+}
+
+function renderBlocked(metrics) {
+  const host = document.querySelector("#blocked-list");
+  if (!metrics.blockedActivities.length) {
+    renderEmptyState(host, "No activities are currently blocked by dependencies.");
+    return;
+  }
+  host.innerHTML = metrics.blockedActivities
+    .slice(0, 10)
+    .map(
+      (activity) => `
+      <li>
+        <div><strong>${activity.activityId}</strong> - ${activity.activityName || "-"}</div>
+        <div class="small">Blocked by: ${activity.blockingDependencies.join(", ")}</div>
+      </li>
+    `,
+    )
+    .join("");
+}
+
+function renderRiskTable(rows) {
+  const body = document.querySelector("#risk-table-body");
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="8"><div class="empty-state">No delayed or high-risk activities detected.</div></td></tr>`;
+    return;
+  }
+
+  body.innerHTML = rows
+    .slice(0, 14)
+    .map(
+      (row) => `
+      <tr>
+        <td><strong>${row.activityId}</strong><br /><span class="small">${row.activityName || "-"}</span></td>
+        <td>${row.phase || "-"}</td>
+        <td><span class="${statusClass(row.activityStatus)}">${row.activityStatus}</span></td>
+        <td>
+          <div class="progress"><span style="width:${row.completionPercentage}%"></span></div>
+          <div class="small">${row.completionPercentage}%</div>
+        </td>
+        <td>${Math.round(row.delayHours)}</td>
+        <td><span class="${statusClass(row.riskLevel)}">${row.riskLevel} (${row.riskScore})</span></td>
+        <td>${row.resourceDepartment || "-"}</td>
+        <td>${row.delayReason || "-"}</td>
+      </tr>
+    `,
+    )
+    .join("");
+}
+
+function renderAlertCenter(metrics, activities) {
+  const host = document.querySelector("#dashboard-alert-list");
+  if (!host) return;
+  const materialHealth = getMaterialHealth(activities);
+  const alerts = [];
+
+  if (metrics.delayed > 0) {
+    alerts.push(`Delayed activities detected: ${metrics.delayed}`);
+  }
+  if (metrics.highRisk > 0) {
+    alerts.push(`High-risk activities requiring escalation: ${metrics.highRisk}`);
+  }
+  if (materialHealth.lateMaterials.length > 0) {
+    alerts.push(`Late material lines impacting execution: ${materialHealth.lateMaterials.length}`);
+  }
+  if (metrics.blockedActivities.length > 0) {
+    alerts.push(`Dependency blockers active: ${metrics.blockedActivities.length}`);
+  }
+
+  const actions = getProjectActions();
+  const openActions = actions.filter((action) => String(action.status || "").toLowerCase() !== "closed");
+  const overdueActions = openActions.filter((action) => {
+    if (!action.dueDate) return false;
+    const dueDate = new Date(action.dueDate);
+    if (Number.isNaN(dueDate.getTime())) return false;
+    dueDate.setHours(23, 59, 59, 999);
+    return dueDate.getTime() < Date.now();
+  });
+  if (openActions.length > 0) {
+    alerts.push(`Open mitigation actions: ${openActions.length}`);
+  }
+  if (overdueActions.length > 0) {
+    alerts.push(`Overdue mitigation actions: ${overdueActions.length}`);
+  }
+
+  if (!alerts.length) {
+    renderEmptyState(host, "No active alerts. Portfolio is within control thresholds.");
+    return;
+  }
+
+  host.innerHTML = alerts
+    .map(
+      (alert) => `
+      <li>
+        <strong>Action Required</strong>
+        <div class="small">${alert}</div>
+      </li>
+    `,
+    )
+    .join("");
+}
+
+function exportChartAsPng(canvasId, filename) {
+  const canvas = document.querySelector(`#${canvasId}`);
+  if (!canvas) return;
+  const dataUrl = canvas.toDataURL("image/png");
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = `${filename}_${new Date().toISOString().slice(0, 10)}.png`;
+  link.click();
+  notify("Chart exported as PNG.", "success");
+}
+
+let chartJsLoaded = null;
+async function loadChartJs() {
+  if (chartJsLoaded) return chartJsLoaded;
+  chartJsLoaded = new Promise((resolve) => {
+    if (typeof window.Chart !== "undefined") {
+      resolve(window.Chart);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js";
+    script.onload = () => resolve(window.Chart);
+    document.head.appendChild(script);
+  });
+  return chartJsLoaded;
+}
+
+async function renderPhaseChart(phaseRows) {
+  const context = document.querySelector("#phase-chart");
+  if (phaseChart) phaseChart.destroy();
+  if (!phaseRows.length) return;
+
+  const Chart = await loadChartJs();
+  phaseChart = new Chart(context, {
+    type: "bar",
+    data: {
+      labels: phaseRows.map((row) => row.phase),
+      datasets: [
+        {
+          label: "Average Completion %",
+          data: phaseRows.map((row) => row.avgCompletion),
+          borderWidth: 1,
+          backgroundColor: "rgba(47, 143, 255, 0.72)",
+        },
+        {
+          label: "Delayed Activities",
+          data: phaseRows.map((row) => row.delayedActivities),
+          borderWidth: 1,
+          backgroundColor: "rgba(255, 77, 99, 0.76)",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            color: "#35567f",
+          },
+          grid: { color: "rgba(155, 185, 225, 0.55)" },
+        },
+        x: {
+          ticks: { color: "#35567f" },
+          grid: { color: "rgba(155, 185, 225, 0.35)" },
+        },
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: "#2f4f7a",
+          },
+        },
+      },
+    },
+  });
+}
+
+async function renderRiskChart(rows) {
+  const context = document.querySelector("#risk-chart");
+  if (riskChart) riskChart.destroy();
+  if (!rows.length) return;
+
+  const Chart = await loadChartJs();
+  const grouped = groupBy(rows, (row) => row.riskLevel || "Unspecified");
+  riskChart = new Chart(context, {
+    type: "doughnut",
+    data: {
+      labels: Object.keys(grouped),
+      datasets: [
+        {
+          data: Object.values(grouped),
+          backgroundColor: [
+            "rgba(29, 184, 156, 0.78)",
+            "rgba(47, 143, 255, 0.76)",
+            "rgba(217, 21, 46, 0.78)",
+            "rgba(97, 151, 224, 0.65)",
+            "rgba(232, 241, 255, 0.62)",
+          ],
+          borderColor: "#e2ecfb",
+          borderWidth: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: {
+            color: "#2f4f7a",
+          },
+        },
+      },
+    },
+  });
+}
+
+function render() {
+  if (!currentUser) return;
+  const role = currentUser.role;
+  const allActivities = getActivities();
+  const activities = filterActivitiesByTimeRange(allActivities, snapshotDate, timeRangeDays);
+  const metrics = computePortfolioMetrics(activities, snapshotDate);
+  renderKpis(metrics, role);
+
+  const phaseGrid = document.querySelector("#dashboard-phase-risk-grid");
+  const dependencyGrid = document.querySelector("#dashboard-dependency-grid");
+  if (role === "technician") {
+    if (phaseGrid) phaseGrid.hidden = true;
+    if (dependencyGrid) dependencyGrid.hidden = true;
+    if (phaseChart) {
+      phaseChart.destroy();
+      phaseChart = null;
+    }
+    if (riskChart) {
+      riskChart.destroy();
+      riskChart = null;
+    }
+  } else {
+    if (phaseGrid) phaseGrid.hidden = false;
+    if (dependencyGrid) dependencyGrid.hidden = false;
+    renderCriticalPath(metrics);
+    renderBlocked(metrics);
+    renderPhaseChart(getPhaseProgress(activities)).catch(() => {});
+    renderRiskChart(metrics.enriched).catch(() => {});
+  }
+
+  const riskRows = getDelayAndRiskRows(activities, snapshotDate);
+  const roleRows =
+    role === "technician"
+      ? riskRows.filter((row) => String(row.activityStatus).toLowerCase() !== "completed")
+      : riskRows;
+  renderRiskTable(roleRows);
+  renderAlertCenter(metrics, activities);
+
+  const datePicker = document.querySelector("#dashboard-date-picker");
+  if (datePicker) {
+    datePicker.value = snapshotDate.toISOString().slice(0, 10);
+  }
+}
+
+function wireDashboardEvents() {
+  const datePicker = document.querySelector("#dashboard-date-picker");
+  const timeRangeSelect = document.querySelector("#dashboard-time-range");
+  const refreshBtn = document.querySelector("#dashboard-refresh-btn");
+  datePicker?.addEventListener("change", (e) => {
+    snapshotDate = new Date(e.target.value || Date.now());
+    render();
+  });
+  timeRangeSelect?.addEventListener("change", (e) => {
+    timeRangeDays = Number(e.target.value) || 30;
+    render();
+  });
+  refreshBtn?.addEventListener("click", () => {
+    snapshotDate = new Date();
+    if (datePicker) datePicker.value = snapshotDate.toISOString().slice(0, 10);
+    render();
+  });
+}
+
+function initialize() {
+  setActiveNavigation();
+  initPage({
+    requireAuth: true,
+    onReady(user) {
+      currentUser = user;
+      if (!currentUser) return;
+      wireDashboardEvents();
+      document.querySelector("#dashboard-tour-btn")?.addEventListener("click", startOnboarding);
+      document
+        .querySelector("#phase-chart-export-btn")
+        ?.addEventListener("click", () => exportChartAsPng("phase-chart", "phase-completion-chart"));
+      document
+        .querySelector("#risk-chart-export-btn")
+        ?.addEventListener("click", () => exportChartAsPng("risk-chart", "risk-distribution-chart"));
+      if (!hasCompletedOnboarding()) {
+        setTimeout(() => startOnboarding(), 800);
+      }
+      render();
+    },
+    onProjectChange() {
+      render();
+    },
+    onStateChange() {
+      render();
+    },
+  });
+}
+
+initialize();

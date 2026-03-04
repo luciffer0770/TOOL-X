@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gantt & Dependencies | ATLAS</title>
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260222" />
+  </head>
+  <body>
+    <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="title-block">
+          <h1>ATLAS – Digital Twin Engineering Preparation Platform</h1>
+          <p>Advanced Twin-based Lifecycle and Activity System – Engineering readiness intelligence</p>
+        </div>
+        <div class="header-meta">
+          <div class="session-chip">
+            <span id="user-role-badge" class="badge badge-neutral"></span>
+            <span id="user-display-name" class="small"></span>
+            <button id="logout-btn" class="ghost">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="nav">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+        <a data-nav href="anomaly-center.html">Anomaly, Baseline & Actions</a>
+      </nav>
+
+      <section class="panel">
+        <div class="panel-body project-toolbar">
+          <label class="field project-select-field"
+            >Active Project
+            <select id="project-select"></select>
+          </label>
+          <div class="row-actions">
+            <button id="project-add-btn" data-role-hide="technician">New Project</button>
+            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate Template</button>
+            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
+            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export Project</button>
+            <label class="ghost" style="margin:0; cursor:pointer" data-role-hide="technician">
+              Import Project
+              <input id="project-import-input" type="file" accept=".json" hidden />
+            </label>
+          </div>
+          <div id="project-summary" class="small"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Timeline Controls</h2>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="field"
+              >Phase Filter
+              <select id="phase-filter">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="field"
+              >Status Filter
+              <select id="status-filter">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="field"
+              >From
+              <input id="range-start" type="date" />
+            </label>
+            <label class="field"
+              >To
+              <input id="range-end" type="date" />
+            </label>
+            <label class="field"
+              >Sort By
+              <select id="sort-mode">
+                <option value="start">Planned Start</option>
+                <option value="risk">Risk Score</option>
+                <option value="delay">Delay Hours</option>
+                <option value="completion">Completion</option>
+              </select>
+            </label>
+            <label class="field"
+              >Zoom
+              <select id="zoom-mode">
+                <option value="day">Day</option>
+                <option value="week" selected>Week</option>
+                <option value="month">Month</option>
+              </select>
+            </label>
+          </div>
+          <div class="row-actions" style="margin-top: 10px">
+            <button id="apply-filters-btn">Apply Filters</button>
+            <button id="reset-range-btn" class="ghost">Reset Timeline Window</button>
+            <button id="today-btn" class="ghost">Go to Today</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Execution Gantt</h2>
+          <span class="panel-subtitle" id="gantt-summary"></span>
+          <details class="gantt-help-details">
+            <summary>Help</summary>
+            <ul class="list small" style="margin-top: 8px">
+              <li>Shows planned/actual activity windows. Delayed and critical-path activities are highlighted.</li>
+              <li>Use Zoom and date range to adjust the view. "Go to Today" centers on current date.</li>
+            </ul>
+          </details>
+        </div>
+        <div class="panel-body">
+          <div class="gantt-container">
+            <div id="gantt-grid" class="gantt-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Dependency Risk Register</h2>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>Dependencies</th>
+                  <th>Dependency Type</th>
+                  <th>Status</th>
+                  <th>Delay</th>
+                  <th>Predicted Delay</th>
+                  <th>Risk</th>
+                  <th>Dependency Health</th>
+                </tr>
+              </thead>
+              <tbody id="dependency-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="./js/gantt.js?v=atlas20260222"></script>
+  </body>
+</html>

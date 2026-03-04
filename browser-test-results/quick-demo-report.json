@@ -1,0 +1,8 @@
+{
+  "step1_openAndClear": "passed",
+  "step2_clickQuickDemoAndNavigate": "passed",
+  "finalUrl": "http://127.0.0.1:8080/index.html?dev=1",
+  "consoleErrors": [],
+  "screenshotPath": "browser-test-results/landing-after-quick-demo.png",
+  "timestamp": "2026-02-22T09:30:19.122Z"
+}
