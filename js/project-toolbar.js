@@ -12,13 +12,21 @@ import {
 } from "./storage.js";
 import { canManageProjects, getCurrentUser } from "./auth.js";
 
+async function hasBackend() {
+  try {
+    const r = await fetch("/api/health");
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 const PROJECT_NAME_MAX_LENGTH = 120;
 
 export function initializeProjectToolbar({ onProjectChange } = {}) {
-  // Retry initialization a few times if DOM isn't fully ready (prevents silent failure)
   let attempts = 0;
   const maxAttempts = 6;
-  function tryInit() {
+  async function tryInit() {
     attempts++;
     const select = document.querySelector("#project-select");
     const addButton = document.querySelector("#project-add-btn");
@@ -28,6 +36,7 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
     const exportButton = document.querySelector("#project-export-btn");
     const importInput = document.querySelector("#project-import-input");
     const summary = document.querySelector("#project-summary");
+    const rowActions = document.querySelector(".project-toolbar .row-actions");
     const currentUser = getCurrentUser();
     const canManage = canManageProjects(currentUser);
 
@@ -249,8 +258,71 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
     e.target.value = "";
   });
 
+  if (rowActions && canManage) {
+    const backendAvailable = await hasBackend();
+    if (backendAvailable) {
+      const backupBtn = document.createElement("button");
+      backupBtn.className = "ghost";
+      backupBtn.type = "button";
+      backupBtn.textContent = "Backup DB";
+      backupBtn.title = "Download full database backup";
+      backupBtn.addEventListener("click", async () => {
+        try {
+          const r = await fetch("/api/backup");
+          if (!r.ok) throw new Error("Backup failed");
+          const blob = await r.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `atlas_backup_${new Date().toISOString().slice(0, 10)}.db`;
+          a.click();
+          URL.revokeObjectURL(url);
+          notify("Database backup downloaded.", "success");
+        } catch (e) {
+          notify("Backup failed: " + (e.message || "Unknown error"), "error");
+        }
+      });
+      rowActions.appendChild(backupBtn);
+
+      const restoreLabel = document.createElement("label");
+      restoreLabel.className = "ghost label-as-button";
+      restoreLabel.innerHTML = "Restore DB <input id=\"project-restore-input\" type=\"file\" accept=\".db\" hidden />";
+      const restoreInput = restoreLabel.querySelector("input");
+      restoreInput?.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const result = await showModal({
+          title: "Restore Database",
+          body: "This will replace all data with the backup. Continue?",
+          primaryLabel: "Restore",
+          secondaryLabel: "Cancel",
+          danger: true,
+        });
+        if (!result) {
+          e.target.value = "";
+          return;
+        }
+        try {
+          const form = new FormData();
+          form.append("file", file);
+          const r = await fetch("/api/restore", { method: "POST", body: form });
+          const data = await r.json();
+          if (data?.ok) {
+            notify("Database restored. Reloading...", "success");
+            setTimeout(() => location.reload(), 800);
+          } else {
+            notify("Restore failed: " + (data?.error || "Unknown"), "error");
+          }
+        } catch (err) {
+          notify("Restore failed: " + err.message, "error");
+        }
+        e.target.value = "";
+      });
+      rowActions.appendChild(restoreLabel);
+    }
+  }
+
   render();
-}
-// start initialization attempts
-tryInit();
+  }
+  tryInit();
 }

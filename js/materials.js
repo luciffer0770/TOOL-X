@@ -25,8 +25,11 @@ function renderKpis() {
   const clientCount = health.enriched.filter((activity) =>
     String(activity.materialOwnership).toLowerCase().includes("client"),
   ).length;
-  const internalCount = health.enriched.filter((activity) =>
-    String(activity.materialOwnership).toLowerCase().includes("internal"),
+  const mechanicalCount = health.enriched.filter((activity) =>
+    String(activity.materialOwnership).toLowerCase().includes("mechanical"),
+  ).length;
+  const electricalCount = health.enriched.filter((activity) =>
+    String(activity.materialOwnership).toLowerCase().includes("electrical"),
   ).length;
   const supplierCount = health.enriched.filter((activity) =>
     String(activity.materialOwnership).toLowerCase().includes("supplier"),
@@ -42,7 +45,8 @@ function renderKpis() {
   const cards = [
     { title: "Tracked Material Activities", value: total, note: "Activities with material requirements" },
     { title: "Client Ownership", value: clientCount, note: "Client-owned material responsibility" },
-    { title: "Internal Ownership", value: internalCount, note: "Internal team material responsibility" },
+    { title: "Mechanical", value: mechanicalCount, note: "Mechanical internal ownership" },
+    { title: "Electrical", value: electricalCount, note: "Electrical internal ownership" },
     { title: "Supplier Ownership", value: supplierCount, note: "External supplier material responsibility" },
     { title: "Pending Critical Materials", value: health.pendingCritical.length, note: "High or critical still pending" },
     { title: "Late Material Lines", value: health.lateMaterials.length, note: "Required date missed or late receipt" },

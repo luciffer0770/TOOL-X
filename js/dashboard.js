@@ -409,9 +409,6 @@ function initialize() {
       document
         .querySelector("#risk-chart-export-btn")
         ?.addEventListener("click", () => exportChartAsPng("risk-chart", "risk-distribution-chart"));
-      if (!hasCompletedOnboarding()) {
-        setTimeout(() => startOnboarding(), 800);
-      }
       render();
     },
     onProjectChange() {

@@ -115,6 +115,8 @@ function baseState() {
     settings: {
       tableColumnVisibility: createDefaultVisibility(),
       defaultEditor: "Planner",
+      activityTemplates: [],
+      savedFilters: [],
     },
   };
 }
@@ -231,6 +233,8 @@ function normalizeState(state) {
     ...createDefaultVisibility(),
     ...(state.settings?.tableColumnVisibility ?? {}),
   };
+  if (!Array.isArray(settings.activityTemplates)) settings.activityTemplates = [];
+  if (!Array.isArray(settings.savedFilters)) settings.savedFilters = [];
 
   return {
     projects: normalizedProjects,
@@ -672,6 +676,78 @@ export function setDefaultEditor(editorName) {
 
 export function getDefaultEditor() {
   return getState().settings.defaultEditor || "Planner";
+}
+
+export function getActivityTemplates() {
+  return getState().settings.activityTemplates || [];
+}
+
+export function saveActivityTemplate(name, activity) {
+  const state = getState();
+  if (!state.settings.activityTemplates) state.settings.activityTemplates = [];
+  const id = "TMPL-" + Date.now();
+  state.settings.activityTemplates.push({ id, name: String(name || "Template").trim(), activity: sanitizeActivity(activity) });
+  saveState(state);
+  return state.settings.activityTemplates[state.settings.activityTemplates.length - 1];
+}
+
+export function deleteActivityTemplate(templateId) {
+  const state = getState();
+  if (!state.settings.activityTemplates) return;
+  state.settings.activityTemplates = state.settings.activityTemplates.filter((t) => t.id !== templateId);
+  saveState(state);
+}
+
+export function getSavedFilters() {
+  return getState().settings.savedFilters || [];
+}
+
+export function saveFilterPreset(name, filter) {
+  const state = getState();
+  if (!state.settings.savedFilters) state.settings.savedFilters = [];
+  const id = "FLT-" + Date.now();
+  state.settings.savedFilters.push({ id, name: String(name || "Filter").trim(), ...filter });
+  saveState(state);
+  return state.settings.savedFilters[state.settings.savedFilters.length - 1];
+}
+
+export function deleteFilterPreset(presetId) {
+  const state = getState();
+  if (!state.settings.savedFilters) return;
+  state.settings.savedFilters = state.settings.savedFilters.filter((f) => f.id !== presetId);
+  saveState(state);
+}
+
+export function addActivityComment(activityId, text, author) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  const index = project.activities.findIndex((a) => a.activityId === activityId);
+  if (index === -1) return null;
+  const comments = project.activities[index].comments || [];
+  const comment = {
+    id: "CMT-" + Date.now(),
+    text: String(text || "").trim(),
+    author: String(author || "Planner").trim(),
+    createdAt: new Date().toISOString(),
+  };
+  comments.push(comment);
+  project.activities[index].comments = comments;
+  saveState(state);
+  return comment;
+}
+
+export function bulkUpdateActivities(activityIds, patch) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  let count = 0;
+  project.activities.forEach((a) => {
+    if (activityIds.includes(a.activityId)) {
+      Object.assign(a, sanitizeActivity({ ...a, ...patch, activityId: a.activityId }));
+      count++;
+    }
+  });
+  saveState(state);
+  return count;
 }
 
 export function subscribeToStateChanges(listener) {

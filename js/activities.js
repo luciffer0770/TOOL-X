@@ -19,20 +19,26 @@ import { canUndo, getUndoDescription, pushUndoSnapshot, undo, canRedo, redo, get
 import { canEditActivityField, canImportExportData, canManageProjects, canModifyActivityStructure } from "./auth.js";
 import {
   addActivity,
+  bulkUpdateActivities,
   clearAllActivities,
   deleteActivity,
   getActiveProject,
   getActivities,
   getColumnVisibility,
   getDefaultEditor,
+  getSavedFilters,
   insertActivityAt,
   saveActivities,
   saveColumnVisibility,
+  saveFilterPreset,
+  deleteFilterPreset,
   setDefaultEditor,
   subscribeToStateChanges,
   updateActivity,
   upsertActivities,
 } from "./storage.js";
+import { openTemplatesModal, saveCurrentAsTemplate } from "./templates.js";
+import { openCommentsModal } from "./comments.js";
 import { registerShortcut } from "./shortcuts.js";
 
 const longTextFields = new Set([
@@ -56,10 +62,13 @@ const dom = {
   addEmptyButton: document.querySelector("#add-empty-btn"),
   bulkActions: document.querySelector("#bulk-actions"),
   bulkSelectionCount: document.querySelector("#bulk-selection-count"),
+  bulkEditBtn: document.querySelector("#bulk-edit-btn"),
   bulkDeleteBtn: document.querySelector("#bulk-delete-btn"),
   bulkStatusSelect: document.querySelector("#bulk-status-select"),
   bulkStatusApplyBtn: document.querySelector("#bulk-status-apply-btn"),
   loadSampleButton: document.querySelector("#load-sample-btn"),
+  saveTemplateButton: document.querySelector("#save-template-btn"),
+  loadTemplateButton: document.querySelector("#load-template-btn"),
   importButton: document.querySelector("#import-btn"),
   excelInput: document.querySelector("#excel-input"),
   importDropZone: document.querySelector("#import-drop-zone"),
@@ -88,6 +97,8 @@ const dom = {
   searchInput: document.querySelector("#search-input"),
   statusFilter: document.querySelector("#status-filter"),
   phaseFilter: document.querySelector("#phase-filter"),
+  filterPresets: document.querySelector("#filter-presets"),
+  saveFilterBtn: document.querySelector("#save-filter-btn"),
   stats: document.querySelector("#activity-grid-stats"),
   defaultEditorInput: document.querySelector("#default-editor"),
   lastSavedIndicator: document.querySelector("#last-saved-indicator"),
@@ -208,10 +219,19 @@ function updateBulkStatusOptions() {
   dom.bulkStatusSelect.innerHTML = opts.join("");
 }
 
+function populateFilterPresets() {
+  if (!dom.filterPresets) return;
+  const presets = getSavedFilters();
+  dom.filterPresets.innerHTML =
+    '<option value="">-- Load preset --</option>' +
+    presets.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("");
+}
+
 function populateFilterOptions() {
   const statuses = new Set(ACTIVITY_STATUSES);
   const phases = new Set();
   updateBulkStatusOptions();
+  populateFilterPresets();
 
   viewState.activities.forEach((activity) => {
     if (activity.activityStatus) statuses.add(activity.activityStatus);
@@ -311,6 +331,7 @@ function renderTable() {
         <td class="col-sticky">${orderMap.get(row.activityId) ?? "-"}</td>
         <td>
           <div class="cell-actions">
+            <button class="ghost" data-comments="${escapeHtml(row.activityId)}" title="Comments">💬 ${(row.comments || []).length}</button>
             ${
               canModifyActivityStructure(currentUser)
                 ? `<button class="ghost" data-insert-above="${escapeHtml(row.activityId)}">Insert Above</button>
@@ -964,7 +985,7 @@ function exportAsPdfReport() {
 }
 
 function wireEvents() {
-  dom.addButton.addEventListener("click", () => {
+  dom.addButton?.addEventListener("click", () => {
     if (!canModifyActivityStructure(currentUser)) {
       notify("This role cannot add new activities.", "warning");
       return;
@@ -980,7 +1001,7 @@ function wireEvents() {
     refreshFromStorage();
   });
 
-  dom.addEmptyButton.addEventListener("click", () => {
+  dom.addEmptyButton?.addEventListener("click", () => {
     if (!canModifyActivityStructure(currentUser)) {
       notify("This role cannot add new activities.", "warning");
       return;
@@ -994,7 +1015,16 @@ function wireEvents() {
     refreshFromStorage();
   });
 
-  dom.loadSampleButton.addEventListener("click", async () => {
+  dom.saveTemplateButton?.addEventListener("click", async () => {
+    if (!canModifyActivityStructure(currentUser)) return;
+    await saveCurrentAsTemplate(buildManualActivityDraft, refreshFromStorage);
+    notify("Template saved.", "success");
+  });
+  dom.loadTemplateButton?.addEventListener("click", () => {
+    if (!canModifyActivityStructure(currentUser)) return;
+    openTemplatesModal({ onApply: () => { refreshFromStorage(); notify("Template applied.", "success"); } });
+  });
+  dom.loadSampleButton?.addEventListener("click", async () => {
     if (!canManageProjects(currentUser)) {
       notify("This role cannot replace project data.", "warning");
       return;
@@ -1012,7 +1042,7 @@ function wireEvents() {
     refreshFromStorage();
   });
 
-  dom.importButton.addEventListener("click", async () => {
+  dom.importButton?.addEventListener("click", async () => {
     if (!canImportExportData(currentUser)) {
       notify("This role cannot import data.", "warning");
       return;
@@ -1048,7 +1078,7 @@ function wireEvents() {
     }
   });
 
-  dom.exportCsvButton.addEventListener("click", () => {
+  dom.exportCsvButton?.addEventListener("click", () => {
     if (!canImportExportData(currentUser)) {
       notify("This role cannot export data.", "warning");
       return;
@@ -1062,7 +1092,7 @@ function wireEvents() {
     }
     exportAsExcel();
   });
-  dom.exportJsonButton.addEventListener("click", () => {
+  dom.exportJsonButton?.addEventListener("click", () => {
     if (!canImportExportData(currentUser)) {
       notify("This role cannot export data.", "warning");
       return;
@@ -1277,6 +1307,12 @@ function wireEvents() {
       return;
     }
 
+    const commentsId = button.dataset.comments;
+    if (commentsId) {
+      openCommentsModal(commentsId, refreshFromStorage);
+      return;
+    }
+
     const activityId = button.dataset.delete;
     if (!activityId) return;
     if (!canModifyActivityStructure(currentUser)) {
@@ -1327,6 +1363,36 @@ function wireEvents() {
     notify("Default editor updated.", "success");
   });
 
+  dom.bulkEditBtn?.addEventListener("click", async () => {
+    if (!canModifyActivityStructure(currentUser) || viewState.selectedIds.size === 0) return;
+    const fieldOptions = [
+      { key: "phase", label: "Phase" },
+      { key: "activityStatus", label: "Status" },
+      { key: "priority", label: "Priority" },
+      { key: "riskLevel", label: "Risk Level" },
+      { key: "materialStatus", label: "Material Status" },
+      { key: "materialOwnership", label: "Material Ownership" },
+    ];
+    const result = await showModal({
+      title: "Bulk Edit " + viewState.selectedIds.size + " Activities",
+      body: "Choose a field and enter the new value for all selected activities.",
+      fields: [
+        { id: "field", label: "Field to update", type: "select", options: fieldOptions.map((f) => ({ value: f.key, label: f.label })) },
+        { id: "value", label: "New value", type: "text", placeholder: "e.g. Preparation" },
+      ],
+      primaryLabel: "Apply",
+      secondaryLabel: "Cancel",
+    });
+    if (!result || !result.field?.trim()) return;
+    const field = result.field.trim();
+    const val = result.value?.trim() ?? "";
+    const patch = { [field]: val };
+    const count = bulkUpdateActivities([...viewState.selectedIds], patch);
+    viewState.selectedIds.clear();
+    notify(`Updated ${count} activities.`, "success");
+    refreshFromStorage();
+  });
+
   dom.bulkDeleteBtn?.addEventListener("click", async () => {
     if (!canModifyActivityStructure(currentUser) || viewState.selectedIds.size === 0) return;
     const count = viewState.selectedIds.size;
@@ -1347,6 +1413,35 @@ function wireEvents() {
     refreshFromStorage();
   });
 
+  dom.filterPresets?.addEventListener("change", (e) => {
+    const id = e.target.value;
+    if (!id) return;
+    const preset = getSavedFilters().find((f) => f.id === id);
+    if (preset) {
+      viewState.search = preset.search ?? "";
+      viewState.status = preset.status ?? "";
+      viewState.phase = preset.phase ?? "";
+      if (dom.searchInput) dom.searchInput.value = viewState.search;
+      if (dom.statusFilter) dom.statusFilter.value = viewState.status;
+      if (dom.phaseFilter) dom.phaseFilter.value = viewState.phase;
+      dom.filterPresets.value = "";
+      refreshFromStorage();
+      notify("Filter preset applied.", "success");
+    }
+  });
+  dom.saveFilterBtn?.addEventListener("click", async () => {
+    const result = await showModal({
+      title: "Save Filter Preset",
+      body: "Save current search and filters for quick reuse.",
+      fields: [{ id: "name", label: "Preset name", placeholder: "e.g. Delayed Mechanical", required: true }],
+      primaryLabel: "Save",
+      secondaryLabel: "Cancel",
+    });
+    if (!result?.name?.trim()) return;
+    saveFilterPreset(result.name.trim(), { search: viewState.search, status: viewState.status, phase: viewState.phase });
+    populateFilterPresets();
+    notify("Filter preset saved.", "success");
+  });
   dom.bulkStatusApplyBtn?.addEventListener("click", () => {
     const status = dom.bulkStatusSelect?.value;
     if (!status || viewState.selectedIds.size === 0) return;

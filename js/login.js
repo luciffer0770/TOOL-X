@@ -85,7 +85,8 @@ function wireDemoUserQuickFill() {
 function handleExistingSession() {
   const currentUser = getCurrentUser();
   if (!currentUser) return;
-  location.href = parseNextPage() || getDefaultHomeForRole(currentUser);
+  const target = parseNextPage() || getDefaultHomeForRole(currentUser);
+  window.location.href = location.origin + "/" + target;
 }
 
 function wirePasswordToggle() {
@@ -116,42 +117,35 @@ function initialize() {
 
   const quickDemoBtn = document.querySelector("#quick-demo-btn");
   if (quickDemoBtn) {
-    quickDemoBtn.addEventListener("click", () => {
-      const user = login("planner", "planner123", false);
+    quickDemoBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      quickDemoBtn.disabled = true;
+      const user = await login("planner", "planner123", false);
       if (user) {
-        const nextPage = parseNextPage() || getDefaultHomeForRole(user);
-        location.href = nextPage;
+        notify("Welcome " + user.displayName + ".", "success");
+        window.location.href = location.origin + "/" + (parseNextPage() || getDefaultHomeForRole(user));
+      } else {
+        notify("Login failed.", "error");
+        quickDemoBtn.disabled = false;
       }
     });
   }
-  form?.addEventListener("submit", (event) => {
+  form?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const submitBtn = form?.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
     const rememberMe = document.querySelector("#remember-me")?.checked ?? false;
-    const user = login(usernameInput.value, passwordInput.value, rememberMe);
+    const user = await login(usernameInput.value, passwordInput.value, rememberMe);
     if (!user) {
       notify("Invalid credentials. Try one of the demo users.", "error");
       passwordInput.value = "";
       passwordInput.focus();
+      if (submitBtn) submitBtn.disabled = false;
       return;
     }
-    notify(`Welcome ${user.displayName}.`, "success");
+    notify("Welcome " + user.displayName + ".", "success");
     const nextPage = parseNextPage() || getDefaultHomeForRole(user);
-    try {
-      // primary redirect
-      location.assign(nextPage);
-    } catch (err) {
-      // fallback
-      location.href = nextPage;
-    }
-    // safety fallback: if redirect didn't occur (some older browsers or blockers),
-    // force navigation after a short delay.
-    setTimeout(() => {
-      try {
-        if (location.pathname.endsWith("login.html")) {
-          location.replace(nextPage);
-        }
-      } catch (_) {}
-    }, 800);
+    window.location.href = location.origin + "/" + nextPage;
   });
 }
 

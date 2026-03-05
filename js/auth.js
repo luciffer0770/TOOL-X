@@ -81,6 +81,27 @@ function writeSession(session) {
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
 }
 
+async function loginViaBackend(username, password, rememberMe) {
+  try {
+    const r = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, rememberMe }),
+    });
+    const data = await r.json();
+    if (data?.ok && data?.user) {
+      const session = {
+        ...sanitizeSession(data.user, rememberMe),
+        token: data.token,
+        expiresAt: new Date(data.expiresAt).getTime(),
+      };
+      writeSession(session);
+      return session;
+    }
+  } catch (_) {}
+  return null;
+}
+
 export function getRoleLabel(roleOrUser) {
   const role = toRole(roleOrUser);
   return ROLE_LABELS[role] || "User";
@@ -103,10 +124,18 @@ export function getCurrentUser() {
   return readSession();
 }
 
-export function login(username, password, rememberMe = false) {
+export async function login(username, password, rememberMe = false) {
   const normalizedUsername = String(username ?? "").trim().toLowerCase();
+  const pw = String(password ?? "");
+  try {
+    const health = await fetch("/api/health");
+    if (health.ok) {
+      const session = await loginViaBackend(normalizedUsername, pw, rememberMe);
+      if (session) return session;
+    }
+  } catch (_) {}
   const user = DEFAULT_USERS.find(
-    (entry) => entry.username.toLowerCase() === normalizedUsername && entry.password === String(password ?? ""),
+    (entry) => entry.username.toLowerCase() === normalizedUsername && entry.password === pw,
   );
   if (!user) return null;
   const session = sanitizeSession(user, rememberMe);
@@ -119,7 +148,17 @@ export function getDemoPassword(username) {
   return u?.password ?? "";
 }
 
-export function logout() {
+export async function logout() {
+  const session = readSession();
+  if (session?.token) {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.token}` },
+        body: JSON.stringify({ token: session.token }),
+      });
+    } catch (_) {}
+  }
   writeSession(null);
 }
 
@@ -130,13 +169,15 @@ export function isAllowedRole(roleOrUser, allowedRoles = []) {
 }
 
 function currentPageName() {
-  return location.pathname.split("/").pop() || "index.html";
+  const p = location.pathname.split("/").filter(Boolean).pop() || "";
+  return p === "" || p === "index.html" ? "index.html" : p;
 }
 
 function redirectToLogin() {
-  const page = currentPageName();
-  const next = encodeURIComponent(page);
-  location.href = `login.html?next=${next}`;
+  const next = currentPageName();
+  const q = next !== "index.html" ? `?next=${encodeURIComponent(next)}` : "";
+  const loginPath = "/login.html" + q;
+  location.replace(location.origin + loginPath);
 }
 
 export function getDefaultHomeForRole(roleOrUser) {
@@ -145,19 +186,18 @@ export function getDefaultHomeForRole(roleOrUser) {
   return "index.html";
 }
 
-function isDevBypass() {
-  try {
-    return new URLSearchParams(location.search).get("dev") === "1";
-  } catch {
-    return false;
-  }
+function loginLocal(username, password) {
+  const u = DEFAULT_USERS.find(
+    (e) => e.username === String(username ?? "").toLowerCase() && e.password === String(password ?? ""),
+  );
+  if (!u) return null;
+  const session = sanitizeSession(u, false);
+  writeSession(session);
+  return session;
 }
 
 export function requireAuthenticatedUser({ allowedRoles = [] } = {}) {
   let user = getCurrentUser();
-  if (!user && isDevBypass()) {
-    user = login("planner", "planner123");
-  }
   if (!user) {
     redirectToLogin();
     return null;

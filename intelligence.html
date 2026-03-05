@@ -18,7 +18,7 @@
           <div class="session-chip">
             <span id="user-role-badge" class="badge badge-neutral"></span>
             <span id="user-display-name" class="small"></span>
-            <button id="logout-btn" class="ghost">Logout</button>
+            <button type="button" id="logout-btn" class="ghost">Logout</button>
           </div>
         </div>
       </header>
@@ -27,8 +27,11 @@
         <a data-nav href="index.html">Executive Dashboard</a>
         <a data-nav href="activities.html">Activity Master</a>
         <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="calendar.html">Calendar</a>
+        <a data-nav href="network.html">Network Diagram</a>
         <a data-nav href="materials.html">Material Intelligence</a>
         <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+        <a data-nav href="risk-register.html">Risk Register</a>
         <a data-nav href="anomaly-center.html">Anomaly, Baseline & Actions</a>
       </nav>
 
@@ -44,7 +47,7 @@
             <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
             <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
             <button id="project-export-btn" class="ghost" data-role-hide="technician">Export Project</button>
-            <label class="ghost" style="margin:0; cursor:pointer" data-role-hide="technician">
+            <label class="ghost label-as-button" data-role-hide="technician">
               Import Project
               <input id="project-import-input" type="file" accept=".json" hidden />
             </label>

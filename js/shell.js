@@ -8,6 +8,8 @@ import { canUndo, undo, canRedo, redo, getRedoDescription } from "./undo.js";
 import { initGlobalSearch } from "./global-search.js";
 import { showAuditTrail } from "./audit.js";
 import { handleShortcutEvent } from "./shortcuts.js";
+import { initThemeToggle } from "./theme.js";
+import { initAlertsBell } from "./alerts.js";
 
 export function initShell() {
   initGlobalSearch();
@@ -62,11 +64,20 @@ export function initShell() {
   const notifBtn = document.createElement("button");
   notifBtn.className = "ghost";
   notifBtn.type = "button";
-  notifBtn.textContent = "🔔";
+  notifBtn.textContent = "📜";
   notifBtn.title = "Notification history";
   notifBtn.setAttribute("aria-label", "Notification history");
   nav?.appendChild(notifBtn);
   notifBtn?.addEventListener("click", showNotificationHistory);
+
+  const themeBtn = document.createElement("button");
+  themeBtn.id = "theme-toggle-btn";
+  themeBtn.className = "ghost";
+  themeBtn.type = "button";
+  themeBtn.title = "Toggle theme";
+  nav?.appendChild(themeBtn);
+  try { initThemeToggle(); } catch (e) { console.warn("[shell] theme init:", e); }
+  try { initAlertsBell(); } catch (e) { console.warn("[shell] alerts init:", e); }
 
   const auditBtn = document.createElement("button");
   auditBtn.className = "ghost";
@@ -89,12 +100,6 @@ export function initShell() {
   });
 
   helpBtn?.addEventListener("click", showKeyboardShortcuts);
-
-  // Theme toggle disabled per request - force light theme
-  try {
-    document.documentElement.removeAttribute("data-theme");
-    localStorage.setItem("industrial_planning_theme", "light");
-  } catch (_) {}
 
   document.addEventListener("keydown", (e) => {
     // Built-in shortcuts (always available)

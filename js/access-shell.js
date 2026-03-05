@@ -43,8 +43,12 @@ function renderSession(user) {
   }
   if (logoutButton) {
     logoutButton.addEventListener("click", () => {
-      logout();
-      location.href = "login.html";
+      logoutButton.disabled = true;
+      logout()
+        .catch(() => {})
+        .finally(() => {
+          window.location.href = location.origin + "/login.html";
+        });
     });
   }
 }

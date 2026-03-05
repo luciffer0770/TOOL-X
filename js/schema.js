@@ -58,7 +58,7 @@ export const ACTIVITY_STATUSES = ["Not Started", "In Progress", "Blocked", "Dela
 export const PRIORITY_LEVELS = ["Low", "Medium", "High", "Critical"];
 export const RISK_LEVELS = ["Low", "Medium", "High", "Critical"];
 export const MATERIAL_STATUSES = ["Not Ordered", "Ordered", "In Transit", "Received", "Delayed"];
-export const OWNERSHIP_TYPES = ["Client", "Internal Team", "Supplier"];
+export const OWNERSHIP_TYPES = ["Client", "Mechanical", "Electrical", "Supplier"];
 
 const headerToColumn = new Map();
 
@@ -95,15 +95,16 @@ function parseDate(value) {
 
 function normalizeOwnership(value) {
   const rawValue = String(value ?? "").trim();
-  if (!rawValue) return "";
+  if (!rawValue) return "Mechanical";
 
   const normalized = rawValue.toLowerCase();
-  if (normalized.includes("internal")) return "Internal Team";
+  if (normalized.includes("electrical")) return "Electrical";
+  if (normalized.includes("mechanical") || normalized.includes("internal")) return "Mechanical";
   if (normalized.includes("third") || normalized.includes("supplier") || normalized.includes("vendor")) return "Supplier";
   if (normalized.includes("client") || normalized.includes("customer") || normalized.includes("joint")) return "Client";
 
   const known = OWNERSHIP_TYPES.find((entry) => entry.toLowerCase() === normalized);
-  return known || rawValue;
+  return known || "Mechanical";
 }
 
 export function getColumnByHeader(header) {
@@ -163,11 +164,15 @@ export function sanitizeActivity(rawActivity) {
   sanitized.activityStatus = sanitized.activityStatus || "Not Started";
   sanitized.priority = sanitized.priority || "Medium";
   sanitized.materialStatus = sanitized.materialStatus || "Not Ordered";
-  sanitized.materialOwnership = normalizeOwnership(sanitized.materialOwnership);
+  sanitized.materialOwnership = normalizeOwnership(sanitized.materialOwnership) || "Mechanical";
   sanitized.riskLevel = sanitized.riskLevel || "Low";
   sanitized.completionPercentage = Math.min(100, Math.max(0, parseNumber(sanitized.completionPercentage)));
   sanitized.lastModifiedDate = sanitized.lastModifiedDate || nowIsoDate();
   sanitized.lastModifiedBy = sanitized.lastModifiedBy || "Planner";
+  if (Array.isArray(merged.comments)) sanitized.comments = merged.comments;
+  else sanitized.comments = [];
+  if (Array.isArray(merged.attachments)) sanitized.attachments = merged.attachments;
+  else sanitized.attachments = [];
   return sanitized;
 }
 
@@ -203,7 +208,7 @@ export function createSampleDataset() {
       baseEffortHours: 40,
       requiredMaterials: "Fixture Frame, Mounting Plate",
       requiredTools: "CAD Suite, Review Board",
-      materialOwnership: "Internal Team",
+      materialOwnership: "Mechanical",
       materialLeadTime: 12,
       dependencies: "",
       plannedStartDate: "2026-02-12",

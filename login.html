@@ -44,7 +44,7 @@
                 <span>Remember me (30 days)</span>
               </label>
               <button type="submit" class="login-submit-btn">Sign In</button>
-              <a id="quick-demo-btn" class="login-submit-btn ghost" href="index.html?dev=1">Quick Demo (Planner)</a>
+              <button type="button" id="quick-demo-btn" class="login-submit-btn ghost">Quick Demo (Planner)</button>
             </form>
             <p class="hint login-hint" id="login-hint"></p>
           </div>
@@ -73,57 +73,38 @@
       </section>
     </main>
     <script type="module" src="./js/login.js?v=atlas20260222"></script>
-    <!-- Non-module fallback for Sign In (ensures manual login works even if module blocked) -->
+    <!-- Fallback: if module fails, form and Quick Demo still work -->
     <script>
       (function () {
         const AUTH_KEY = 'industrial_planning_auth_session_v1';
         function setSession(user, remember) {
           const now = Date.now();
           const expiresAt = remember ? now + 30*24*60*60*1000 : now + 8*60*60*1000;
-          const session = {
-            username: user.username,
-            displayName: user.displayName || user.username,
-            role: user.role || 'planner',
-            loginAt: new Date().toISOString(),
-            expiresAt,
-            rememberMe: !!remember
-          };
+          const session = { username: user.username, displayName: user.displayName || user.username, role: user.role || 'planner', loginAt: new Date().toISOString(), expiresAt, rememberMe: !!remember };
           try { localStorage.setItem(AUTH_KEY, JSON.stringify(session)); } catch (e) { console.warn('localStorage set failed', e); }
         }
-
+        function goHome() { window.location.href = location.origin + '/index.html'; }
         const formEl = document.querySelector('#login-form');
         const quickDemo = document.getElementById('quick-demo-btn');
-        // attach fallback submit handler to ensure Sign In works even if module fails
         if (formEl) {
           formEl.addEventListener('submit', function (ev) {
             ev.preventDefault();
             try {
-              const user = document.getElementById('username-input')?.value?.trim();
-              const pass = document.getElementById('password-input')?.value || '';
-              if (!user) return;
-              const creds = {
-                planner: 'planner123',
-                management: 'management123',
-                technician: 'technician123'
-              };
-              if (creds[user.toLowerCase()] && creds[user.toLowerCase()] === pass) {
-                setSession({ username: user.toLowerCase(), displayName: user, role: user.toLowerCase() }, document.getElementById('remember-me')?.checked);
-                location.href = 'index.html';
-                return;
+              var u = (document.getElementById('username-input')?.value || '').trim().toLowerCase();
+              var p = (document.getElementById('password-input')?.value || '');
+              var creds = { planner: 'planner123', management: 'management123', technician: 'technician123' };
+              if (u && creds[u] === p) {
+                setSession({ username: u, displayName: u.charAt(0).toUpperCase() + u.slice(1), role: u }, document.getElementById('remember-me')?.checked);
+                goHome();
               }
-            } catch (e) {
-              console.error('fallback signin error', e);
-            }
-            // let module handle invalid credentials (shows notification)
+            } catch (e) { console.error('login error', e); }
           });
         }
-
-        // ensure quick demo link works even if JS modules blocked
-        if (quickDemo && quickDemo.tagName === 'A') {
-          quickDemo.addEventListener('click', function () {
-            try {
-              setSession({ username: 'planner', displayName: 'Planner', role: 'planner' }, false);
-            } catch (_) {}
+        if (quickDemo) {
+          quickDemo.addEventListener('click', function (e) {
+            e.preventDefault();
+            setSession({ username: 'planner', displayName: 'Planner', role: 'planner' }, false);
+            goHome();
           });
         }
       })();

@@ -12,6 +12,9 @@
   - `materials.html` - material ownership and supply intelligence
   - `intelligence.html` - delay, risk, root-cause, and what-if optimization
   - `anomaly-center.html` - anomaly, baseline, and action workflow
+  - `calendar.html` - calendar view of activities by planned dates
+  - `network.html` - network diagram of activity dependencies
+  - `risk-register.html` - risk register for high-risk activities
 - Role-based experience and control:
   - Planner: full planning and optimization access
   - Management: full portfolio visibility and decision controls
@@ -36,6 +39,11 @@
   - Data stored in SQLite (`atlas_data.db`)
   - Runs fully in Codespace (no local Python required)
   - Falls back to `localStorage` when backend is unavailable
+- Planning productivity features:
+  - Activity templates (save/load reusable activity presets)
+  - Bulk edit (multi-select and update phase, status, priority, etc.)
+  - Activity comments (per-activity notes with author and timestamp)
+  - Saved filter presets (save and reuse search/filter combinations)
 - Advanced intelligence logic in frontend runtime:
   - Delay detection
   - Risk scoring and level derivation
@@ -60,7 +68,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Then open the forwarded port (e.g. `https://your-codespace-5000.app.github.dev`) from the Ports panel. The backend serves the app and stores data in SQLite.
+Then open the **forwarded port URL** (e.g. `https://your-codespace-5000.app.github.dev`) from the Ports panel. That URL serves the **full ATLAS app**: login, dashboard, Activity Master, Gantt, Materials, Intelligence, and Anomaly Center. Data is stored in SQLite.
 
 ### Static-only (no backend)
 

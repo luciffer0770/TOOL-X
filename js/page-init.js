@@ -35,29 +35,20 @@ export async function initPage(options) {
 
   await stateReady();
 
-  // Shell (shortcuts, global search, audit, notifications, SW)
-  initShell();
-
-  // Access + role wiring (unless explicitly disabled)
   let currentUser = null;
   if (requireAuth) {
     currentUser = initializeAccessShell({ allowedRoles });
-    if (!currentUser) {
-      // initializeAccessShell already handled redirect when unauthenticated
-      return { user: null, unsubscribe: () => {} };
-    }
+    if (!currentUser) return { user: null, unsubscribe: () => {} };
   }
 
-  // Project toolbar + initial render hook
+  try { initShell(); } catch (e) { console.error("[initPage] shell:", e); }
+
   const toolbarOptions = {};
-  if (typeof onProjectChange === "function") {
-    toolbarOptions.onProjectChange = onProjectChange;
-  }
-  if (Object.keys(toolbarOptions).length) {
-    initializeProjectToolbar(toolbarOptions);
-  } else {
-    initializeProjectToolbar();
-  }
+  if (typeof onProjectChange === "function") toolbarOptions.onProjectChange = onProjectChange;
+  try {
+    if (Object.keys(toolbarOptions).length) initializeProjectToolbar(toolbarOptions);
+    else initializeProjectToolbar();
+  } catch (e) { console.error("[initPage] toolbar:", e); }
 
   // State change subscription (optional)
   let unsubscribe = () => {};

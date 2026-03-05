@@ -170,16 +170,20 @@ export function showModal(options = {}) {
   overlay.setAttribute("aria-labelledby", "modal-title");
 
   const fieldHtml = fields
-    .map(
-      (f) => `
+    .map((f) => {
+      if (f.type === "select" && Array.isArray(f.options)) {
+        const opts = f.options.map((o) => `<option value="${escapeHtml(String(o.value))}" ${o.value === (f.value ?? defaultValue) ? "selected" : ""}>${escapeHtml(String(o.label ?? o.value))}</option>`).join("");
+        return `<label class="field">${escapeHtml(f.label)}<select id="modal-${f.id}">${opts}</select></label>`;
+      }
+      return `
     <label class="field">
       ${escapeHtml(f.label)}
       <input type="${f.type || "text"}" id="modal-${f.id}" value="${escapeHtml(f.value ?? defaultValue)}"
         placeholder="${escapeHtml(f.placeholder || "")}" ${f.required ? "required" : ""}
         maxlength="${f.maxLength ?? 200}" autocomplete="off" />
     </label>
-  `,
-    )
+  `;
+    })
     .join("");
 
   const bodyContent = bodyHtml ? `<div class="modal-body">${bodyHtml}</div>` : (body ? `<p class="modal-body">${escapeHtml(body)}</p>` : "");

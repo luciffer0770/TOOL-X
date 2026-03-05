@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Network Diagram | ATLAS</title>
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260222" />
+  </head>
+  <body>
+    <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="title-block">
+          <h1>ATLAS – Digital Twin Engineering Preparation Platform</h1>
+          <p>Network Diagram – Activity dependencies</p>
+        </div>
+        <div class="header-meta">
+          <div class="session-chip">
+            <span id="user-role-badge" class="badge badge-neutral"></span>
+            <span id="user-display-name" class="small"></span>
+            <button type="button" id="logout-btn" class="ghost">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="nav">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="calendar.html">Calendar</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="network.html">Network Diagram</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+        <a data-nav href="risk-register.html">Risk Register</a>
+        <a data-nav href="anomaly-center.html">Anomaly, Baseline & Actions</a>
+      </nav>
+
+      <section class="panel">
+        <div class="panel-body project-toolbar">
+          <label class="field project-select-field">Active Project <select id="project-select"></select></label>
+          <div class="row-actions">
+            <button id="project-add-btn" data-role-hide="technician">New Project</button>
+            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate</button>
+            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
+            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export</button>
+            <label class="ghost label-as-button" data-role-hide="technician">Import <input id="project-import-input" type="file" accept=".json" hidden /></label>
+          </div>
+          <div id="project-summary" class="small"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Dependency Network</h2>
+          <span class="panel-subtitle">Activities and their dependencies (→ points to dependent)</span>
+        </div>
+        <div class="panel-body">
+          <div id="network-diagram" class="network-diagram"></div>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="./js/network.js?v=atlas20260222"></script>
+  </body>
+</html>
