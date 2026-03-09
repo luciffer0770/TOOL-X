@@ -28,6 +28,31 @@ let dependencyHealth = getDependencyHealth([]);
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+function formatDateShort(date) {
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function getDateTicks(rangeStart, rangeEnd) {
+  const spanDays = (rangeEnd.getTime() - rangeStart.getTime()) / MS_PER_DAY;
+  let stepDays = 14;
+  if (spanDays <= 7) stepDays = 1;
+  else if (spanDays <= 21) stepDays = 3;
+  else if (spanDays <= 60) stepDays = 7;
+  else if (spanDays <= 120) stepDays = 14;
+  const spanMs = rangeEnd.getTime() - rangeStart.getTime();
+  const ticks = [];
+  let d = new Date(rangeStart);
+  d.setHours(0, 0, 0, 0);
+  const endTime = rangeEnd.getTime();
+  while (d.getTime() <= endTime) {
+    const pct = ((d.getTime() - rangeStart.getTime()) / spanMs) * 100;
+    ticks.push({ date: new Date(d), pct });
+    d.setDate(d.getDate() + stepDays);
+  }
+  return ticks;
+}
+
 function getZoomDays() {
   const zoom = dom.zoomMode?.value || "week";
   if (zoom === "day") return 7;
@@ -107,15 +132,26 @@ function renderGantt() {
   const todayMarkerHtml =
     todayPct != null ? `<div class="gantt-today-marker" style="left:${todayPct}%" aria-hidden="true"></div>` : "";
 
+  const dateTicks = getDateTicks(start, end);
+  const dateHeaderHtml = dateTicks
+    .map(
+      (t) =>
+        `<span class="gantt-date-tick" style="left:${t.pct}%">${formatDateShort(t.date)}</span>`,
+    )
+    .join("");
+  const headerSpacer = `<div class="gantt-header-spacer" aria-hidden="true"></div>`;
+  const headerDates = `<div class="gantt-header-dates">${dateHeaderHtml}</div>`;
+
   const rowIndexById = new Map();
-  const html = [];
+  const html = [headerSpacer, headerDates];
   let rowIdx = 0;
   rows.forEach((activity) => {
     const startDate = parseDate(activity.actualStartDate) || parseDate(activity.plannedStartDate) || start;
+    const durationHours = Math.max(8, activity.plannedDurationHours || activity.baseEffortHours || 8);
     const endDate =
       parseDate(activity.actualEndDate) ||
       parseDate(activity.plannedEndDate) ||
-      new Date(startDate.getTime() + Math.max(1, activity.plannedDurationHours || activity.baseEffortHours) * 60 * 60 * 1000);
+      new Date(startDate.getTime() + durationHours * 60 * 60 * 1000);
 
     if (endDate < start || startDate > end) return;
 
@@ -151,7 +187,7 @@ function renderGantt() {
     rowIdx++;
   });
 
-  if (!html.length) {
+  if (rowIdx === 0) {
     renderEmptyState(
       dom.ganttGrid,
       "No activities fall inside the selected date window.",
