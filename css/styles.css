@@ -368,6 +368,12 @@ a {
   color: var(--text-dim);
 }
 
+.kpi-card .kpi-compare {
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
 .kpi-card-link {
   display: block;
   text-decoration: none;
@@ -2409,6 +2415,38 @@ body.login-page::after {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+  min-height: 360px;
+}
+
+.network-diagram.graph-container {
+  position: relative;
+}
+
+.network-graph-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  background: rgba(246, 249, 254, 0.95);
+  min-height: 500px;
+  cursor: grab;
+}
+
+.network-graph-wrapper:active {
+  cursor: grabbing;
+}
+
+.network-svg {
+  display: block;
+  min-height: 500px;
+}
+
+.network-svg .network-node rect {
+  transition: fill 0.15s, stroke 0.15s;
+}
+
+.network-svg .network-node:hover rect {
+  filter: brightness(0.97);
 }
 
 .network-row {
@@ -2445,6 +2483,39 @@ body.login-page::after {
 
 .network-deps .network-dep.missing {
   background: rgba(255, 77, 99, 0.15);
+}
+
+.material-row-clickable {
+  cursor: pointer;
+}
+
+.material-row-clickable:hover {
+  background: rgba(47, 143, 255, 0.06);
+}
+
+.material-forecast-link {
+  display: block;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: inherit;
+}
+
+.material-forecast-link:hover {
+  background: rgba(47, 143, 255, 0.1);
+}
+
+.material-supplier-input,
+.material-status-select {
+  max-width: 140px;
+}
+
+.intelligence-row-clickable {
+  cursor: pointer;
+}
+
+.intelligence-row-clickable:hover {
+  background: rgba(47, 143, 255, 0.06);
 }
 
 /* Project toolbar alignment */

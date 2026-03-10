@@ -239,6 +239,7 @@ function normalizeState(state) {
   };
   if (!Array.isArray(settings.activityTemplates)) settings.activityTemplates = [];
   if (!Array.isArray(settings.savedFilters)) settings.savedFilters = [];
+  if (!Array.isArray(settings.savedScenarios)) settings.savedScenarios = [];
 
   return {
     projects: normalizedProjects,
@@ -638,6 +639,16 @@ export function addProjectBaseline({ name = "", createdBy = "Planner" } = {}) {
   return baseline;
 }
 
+export function restoreProjectToBaseline(baselineId) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  const baseline = (project.baselines || []).find((b) => b.id === baselineId);
+  if (!baseline || !Array.isArray(baseline.activities)) return false;
+  project.activities = baseline.activities.map((a) => sanitizeActivity(a));
+  saveState(state);
+  return true;
+}
+
 export function getProjectActions() {
   const state = getState();
   const project = getActiveProjectRecord(state);
@@ -692,6 +703,20 @@ export function deleteProjectAction(actionId) {
   saveState(state);
 }
 
+export function getDashboardKpiConfig() {
+  const c = getState().settings.dashboardKpiConfig || {};
+  return {
+    order: Array.isArray(c.order) ? c.order : [],
+    hidden: Array.isArray(c.hidden) ? c.hidden : [],
+  };
+}
+
+export function saveDashboardKpiConfig(config) {
+  const state = getState();
+  state.settings.dashboardKpiConfig = { ...config };
+  saveState(state);
+}
+
 export function getColumnVisibility() {
   return getState().settings.tableColumnVisibility;
 }
@@ -737,6 +762,32 @@ export function deleteActivityTemplate(templateId) {
 
 export function getSavedFilters() {
   return getState().settings.savedFilters || [];
+}
+
+export function getSavedScenarios() {
+  return getState().settings.savedScenarios || [];
+}
+
+export function saveScenario({ name = "", scenario = {}, result = {} } = {}) {
+  const state = getState();
+  if (!state.settings.savedScenarios) state.settings.savedScenarios = [];
+  const id = "SCN-" + Date.now();
+  state.settings.savedScenarios.push({
+    id,
+    name: String(name || "Unnamed scenario").trim(),
+    scenario: { ...scenario },
+    result: { ...result },
+    savedAt: new Date().toISOString(),
+  });
+  saveState(state);
+  return state.settings.savedScenarios[state.settings.savedScenarios.length - 1];
+}
+
+export function deleteScenario(scenarioId) {
+  const state = getState();
+  if (!state.settings.savedScenarios) return;
+  state.settings.savedScenarios = state.settings.savedScenarios.filter((s) => s.id !== scenarioId);
+  saveState(state);
 }
 
 export function saveFilterPreset(name, filter) {

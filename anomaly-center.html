@@ -118,10 +118,14 @@
           </div>
           <div class="row-actions" style="margin-top: 10px">
             <button id="baseline-lock-btn">Lock Baseline Snapshot</button>
+            <button id="baseline-restore-btn" class="ghost">Restore Plan to Baseline</button>
             <button id="baseline-export-variance-btn" class="ghost">Export Variance Report</button>
           </div>
           <div id="baseline-summary" class="small" style="margin-top: 8px"></div>
 
+          <div class="panel-body chart-shell" style="margin-top:12px">
+            <canvas id="baseline-comparison-chart"></canvas>
+          </div>
           <div id="baseline-variance-grid" class="kpi-grid" style="margin-top: 12px"></div>
 
           <div class="grid cols-2" style="margin-top: 10px">
@@ -170,7 +174,16 @@
             </label>
             <label class="field"
               >Action Title
-              <input id="action-title-input" type="text" placeholder="Example: Escalate supplier heat-treatment bottleneck" />
+              <select id="action-template-select" style="margin-bottom:6px">
+                <option value="">-- Use template --</option>
+                <option value="Escalate supplier heat-treatment bottleneck">Escalate supplier heat-treatment bottleneck</option>
+                <option value="Update root cause and mitigation plan">Update root cause and mitigation plan</option>
+                <option value="Correct completion percentage to match status">Correct completion percentage to match status</option>
+                <option value="Fix actual dates (start before end)">Fix actual dates (start before end)</option>
+                <option value="Add material received date">Add material received date</option>
+                <option value="Resolve missing dependency references">Resolve missing dependency references</option>
+              </select>
+              <input id="action-title-input" type="text" placeholder="Or type custom action title" />
             </label>
             <label class="field"
               >Owner
@@ -252,6 +265,7 @@
       </section>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script type="module" src="./js/anomaly-center.js?v=atlas20260222"></script>
   </body>
 </html>

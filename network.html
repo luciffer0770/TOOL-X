@@ -53,13 +53,27 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Dependency Network</h2>
-          <span class="panel-subtitle">Activities and their dependencies (→ points to dependent)</span>
+          <span class="panel-subtitle">Node–link diagram with drag, zoom &amp; pan • Click node to open Activity Master</span>
+          <div class="row-actions">
+            <label class="field field-inline" style="margin:0">
+              <input type="checkbox" id="network-critical-path-toggle" checked />
+              Highlight critical path
+            </label>
+            <button id="network-export-png" class="ghost">Export PNG</button>
+            <button id="network-export-svg" class="ghost">Export SVG</button>
+            <button id="network-fit-btn" class="ghost">Fit view</button>
+          </div>
         </div>
         <div class="panel-body">
-          <div id="network-diagram" class="network-diagram"></div>
+          <div id="network-diagram" class="network-diagram graph-container">
+            <div class="network-graph-wrapper">
+              <svg id="network-svg" class="network-svg"></svg>
+            </div>
+          </div>
         </div>
       </section>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
     <script type="module" src="./js/network.js?v=atlas20260222"></script>
   </body>
 </html>

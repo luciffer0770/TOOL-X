@@ -65,6 +65,30 @@
         </div>
       </section>
 
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Material Criticality Timeline</h2>
+          <span class="panel-subtitle">Required vs received dates for materials</span>
+        </div>
+        <div class="panel-body chart-shell">
+          <canvas id="material-timeline-chart"></canvas>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Material Forecast (Early Warning)</h2>
+          <span class="panel-subtitle">Materials needed within the next days</span>
+          <label class="field field-inline" style="margin:0">
+            Horizon (days)
+            <input id="forecast-horizon" type="number" min="1" max="90" value="14" style="width:60px" />
+          </label>
+        </div>
+        <div class="panel-body">
+          <ul id="material-forecast-list" class="list"></ul>
+        </div>
+      </section>
+
       <div class="grid cols-2">
         <section class="panel">
           <div class="panel-header">
@@ -116,7 +140,10 @@
         <div class="panel-header">
           <h2>Material Responsibility Matrix</h2>
           <span class="panel-subtitle" id="material-table-summary"></span>
-          <button id="material-export-btn" class="ghost">Export CSV</button>
+          <div class="row-actions">
+            <button id="material-export-pending-btn" class="ghost">Export Pending</button>
+            <button id="material-export-btn" class="ghost">Export CSV</button>
+          </div>
         </div>
         <div class="panel-body">
           <div class="table-wrap">
@@ -126,7 +153,7 @@
                   <th>Activity ID</th>
                   <th>Activity Name</th>
                   <th>Ownership</th>
-                  <th>Supplying Department</th>
+                  <th>Supplier / Vendor</th>
                   <th>Required Materials</th>
                   <th>Lead Time (h)</th>
                   <th>Material Status</th>

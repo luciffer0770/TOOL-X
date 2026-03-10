@@ -1,8 +1,10 @@
-import { computePortfolioMetrics, getDelayAndRiskRows, runScenarioSimulation } from "./analytics.js";
+import { computePortfolioMetrics, getDelayAndRiskRows, getPhaseProgress, runScenarioSimulation } from "./analytics.js";
 import { escapeHtml, formatHours, notify, setActiveNavigation, statusClass } from "./common.js";
-import { getActivities, updateActivity } from "./storage.js";
+import { getActivities, getSavedScenarios, saveScenario, updateActivity } from "./storage.js";
 import { initPage } from "./page-init.js";
 import { canRunOptimization } from "./auth.js";
+
+let lastSimulationResult = null;
 
 const dom = {
   riskKpis: document.querySelector("#risk-kpis"),
@@ -23,6 +25,11 @@ const dom = {
   simPresetLeadtime: document.querySelector("#sim-preset-leadtime"),
   simSummary: document.querySelector("#sim-summary"),
   simTableBody: document.querySelector("#sim-table-body"),
+  simNameInput: document.querySelector("#sim-name-input"),
+  applyScenarioBtn: document.querySelector("#apply-scenario-btn"),
+  saveScenarioBtn: document.querySelector("#save-scenario-btn"),
+  savedScenariosSelect: document.querySelector("#saved-scenarios-select"),
+  rootCauseTemplate: document.querySelector("#root-cause-template"),
 };
 
 const SCENARIO_PRESETS = {
@@ -112,8 +119,8 @@ function renderRiskTable(rows) {
   dom.riskTableBody.innerHTML = rows
     .map(
       (row) => `
-      <tr>
-        <td><strong>${escapeHtml(row.activityId)}</strong><br /><span class="small">${escapeHtml(row.activityName || "-")}</span></td>
+      <tr class="intelligence-row-clickable" data-activity-id="${escapeHtml(row.activityId)}" title="Click to open in Activity Master">
+        <td><strong><a href="activities.html?search=${encodeURIComponent(row.activityId)}">${escapeHtml(row.activityId)}</a></strong><br /><span class="small">${escapeHtml(row.activityName || "-")}</span></td>
         <td><span class="${statusClass(row.activityStatus)}">${escapeHtml(row.activityStatus || "-")}</span></td>
         <td>
           <div class="progress"><span style="width:${Number(row.completionPercentage) || 0}%"></span></div>
@@ -131,8 +138,56 @@ function renderRiskTable(rows) {
     .join("");
 }
 
+function renderTrendChart() {
+  const ctx = document.querySelector("#intelligence-trend-chart");
+  if (!ctx || !window.Chart) return;
+  const phaseRows = getPhaseProgress(activities);
+  if (!phaseRows.length) return;
+
+  if (window._intelligenceTrendChart) {
+    window._intelligenceTrendChart.destroy();
+  }
+  window._intelligenceTrendChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: phaseRows.map((r) => r.phase),
+      datasets: [
+        {
+          label: "Avg Completion %",
+          data: phaseRows.map((r) => r.avgCompletion),
+          backgroundColor: "rgba(47, 143, 255, 0.6)",
+        },
+        {
+          label: "Delayed Activities",
+          data: phaseRows.map((r) => r.delayedActivities),
+          backgroundColor: "rgba(217, 21, 46, 0.6)",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: true, ticks: { color: "#35567f" }, grid: { color: "rgba(155, 185, 225, 0.55)" } },
+        x: { ticks: { color: "#35567f" }, grid: { color: "rgba(155, 185, 225, 0.35)" } },
+      },
+      plugins: { legend: { labels: { color: "#2f4f7a" } } },
+    },
+  });
+}
+
 function isStatusDelayed(row) {
   return String(row?.activityStatus ?? "").trim().toLowerCase() === "delayed";
+}
+
+function renderSavedScenariosSelect() {
+  const select = dom.savedScenariosSelect;
+  if (!select) return;
+  const scenarios = getSavedScenarios();
+  const prev = select.value;
+  select.innerHTML = '<option value="">-- Load saved scenario --</option>' +
+    scenarios.map((s) => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)} (${s.savedAt?.slice(0, 10) || "-"})</option>`).join("");
+  if (prev && scenarios.some((s) => s.id === prev)) select.value = prev;
 }
 
 function renderSimulation() {
@@ -154,6 +209,7 @@ function renderSimulation() {
   };
   const result = runScenarioSimulation(activities, scenario);
 
+  lastSimulationResult = result;
   dom.simSummary.textContent = `Baseline finish: ${result.baselineFinishDate || "-"} | Simulated finish: ${result.simulatedFinishDate || "-"} | Net improvement: ${formatHours(result.improvementHours)}`;
 
   if (!result.impacts.length) {
@@ -185,6 +241,8 @@ function renderAll() {
   renderBlockedList(metrics);
   renderRiskTable(riskRows);
   renderSimulation();
+  renderTrendChart();
+  renderSavedScenariosSelect();
 }
 
 function wireEvents() {
@@ -197,8 +255,9 @@ function wireEvents() {
             notify("Select an activity before saving root cause.", "warning");
             return;
           }
+          const reason = (dom.rootCauseText?.value || "").trim() || dom.rootCauseTemplate?.value || "";
           const patch = {
-            delayReason: (dom.rootCauseText?.value || "").trim(),
+            delayReason: reason,
             activityStatus: dom.rootCauseStatus?.value || "Delayed",
             lastModifiedBy: currentUser?.displayName || dom.rootCauseAuthor?.value?.trim() || "Planner",
             lastModifiedDate: new Date().toISOString().slice(0, 10),
@@ -207,6 +266,7 @@ function wireEvents() {
           updateActivity(activityId, patch);
           notify(`Root cause updated for ${activityId}.`, "success");
           if (dom.rootCauseText) dom.rootCauseText.value = "";
+          if (dom.rootCauseTemplate) dom.rootCauseTemplate.value = "";
           renderAll();
         } catch (err) {
           console.error("[intelligence] saveRootCause handler error", err);
@@ -218,7 +278,72 @@ function wireEvents() {
     console.error("[intelligence] wireEvents saveRootCause binding error", err);
   }
 
+  dom.rootCauseTemplate?.addEventListener("change", () => {
+    if (dom.rootCauseTemplate?.value && dom.rootCauseText) {
+      dom.rootCauseText.value = dom.rootCauseTemplate.value;
+    }
+  });
+
   dom.runSimButton.addEventListener("click", renderSimulation);
+
+  dom.applyScenarioBtn?.addEventListener("click", () => {
+    if (!lastSimulationResult?.impacts?.length) {
+      notify("Run a scenario first before applying.", "warning");
+      return;
+    }
+    if (!canRunOptimization(currentUser)) {
+      notify("Only planning and management can apply scenarios.", "warning");
+      return;
+    }
+    const HOURS_MS = 60 * 60 * 1000;
+    lastSimulationResult.impacts.forEach((imp) => {
+      const finishDate = imp.finishDate;
+      const durationHours = imp.durationHours || 0;
+      const finish = new Date(finishDate);
+      const start = new Date(finish.getTime() - durationHours * HOURS_MS);
+      updateActivity(imp.activityId, {
+        plannedEndDate: finishDate,
+        plannedStartDate: start.toISOString().slice(0, 10),
+      });
+    });
+    notify(`Applied scenario to ${lastSimulationResult.impacts.length} activities.`, "success");
+    renderAll();
+  });
+
+  dom.saveScenarioBtn?.addEventListener("click", () => {
+    if (!lastSimulationResult) {
+      notify("Run a scenario first before saving.", "warning");
+      return;
+    }
+    const name = (dom.simNameInput?.value || "").trim() || "Unnamed scenario";
+    saveScenario({
+      name,
+      scenario: {
+        manpowerBoostPct: Number(dom.simManpower?.value) || 0,
+        leadTimeReductionPct: Number(dom.simLeadTime?.value) || 0,
+        overtimeHoursPerDay: Number(dom.simOvertime?.value) || 0,
+      },
+      result: lastSimulationResult,
+    });
+    notify(`Scenario "${name}" saved.`, "success");
+    renderSavedScenariosSelect();
+  });
+
+  dom.savedScenariosSelect?.addEventListener("change", () => {
+    const id = dom.savedScenariosSelect?.value;
+    if (!id) return;
+    const scenarios = getSavedScenarios();
+    const s = scenarios.find((sc) => sc.id === id);
+    if (!s?.result) return;
+    lastSimulationResult = s.result;
+    if (s.scenario) {
+      dom.simManpower.value = s.scenario.manpowerBoostPct ?? 12;
+      dom.simLeadTime.value = s.scenario.leadTimeReductionPct ?? 15;
+      dom.simOvertime.value = s.scenario.overtimeHoursPerDay ?? 1.5;
+    }
+    dom.simSummary.textContent = `Loaded: Baseline ${s.result.baselineFinishDate || "-"} | Sim: ${s.result.simulatedFinishDate || "-"}`;
+    renderSimulation();
+  });
 
   dom.simPresetOvertime?.addEventListener("click", () => {
     dom.simManpower.value = SCENARIO_PRESETS.overtime.manpower;

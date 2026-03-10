@@ -1,6 +1,7 @@
 import { getMaterialHealth } from "./analytics.js";
 import { escapeHtml, formatDate, formatHours, renderEmptyState, setActiveNavigation, statusClass, toCsv, triggerDownload } from "./common.js";
-import { getActivities, subscribeToStateChanges } from "./storage.js";
+import { getActivities, subscribeToStateChanges, updateActivity } from "./storage.js";
+import { MATERIAL_STATUSES } from "./schema.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { initShell } from "./shell.js";
@@ -8,6 +9,7 @@ import { stateReady } from "./storage.js";
 
 let ownershipChart;
 let statusChart;
+let timelineChart;
 let health;
 
 const dom = {
@@ -18,6 +20,9 @@ const dom = {
   tableBody: document.querySelector("#materials-table-body"),
   tableSummary: document.querySelector("#material-table-summary"),
   exportBtn: document.querySelector("#material-export-btn"),
+  exportPendingBtn: document.querySelector("#material-export-pending-btn"),
+  forecastList: document.querySelector("#material-forecast-list"),
+  forecastHorizon: document.querySelector("#forecast-horizon"),
 };
 
 function renderKpis() {
@@ -75,6 +80,124 @@ function clearCharts() {
     statusChart.destroy();
     statusChart = null;
   }
+  if (timelineChart) {
+    timelineChart.destroy();
+    timelineChart = null;
+  }
+}
+
+function renderTimelineChart() {
+  const ctx = document.querySelector("#material-timeline-chart");
+  if (!ctx) return;
+  if (timelineChart) timelineChart.destroy();
+
+  const items = health.enriched
+    .filter((a) => a.materialRequiredDate || a.materialReceivedDate)
+    .slice(0, 15);
+  if (!items.length) {
+    return;
+  }
+
+  const labels = items.map((a) => a.activityId || "");
+  const required = items.map((a) => {
+    const d = new Date(a.materialRequiredDate);
+    return Number.isNaN(d.getTime()) ? null : d.getTime();
+  });
+  const received = items.map((a) => {
+    const d = new Date(a.materialReceivedDate);
+    return Number.isNaN(d.getTime()) ? null : d.getTime();
+  });
+
+  timelineChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Required Date (timestamp)",
+          data: required,
+          backgroundColor: "rgba(47, 143, 255, 0.6)",
+        },
+        {
+          label: "Received Date (timestamp)",
+          data: received,
+          backgroundColor: "rgba(29, 184, 156, 0.6)",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: "y",
+      scales: {
+        x: {
+          ticks: {
+            color: "#35567f",
+            callback: (v) => {
+              const d = new Date(v);
+              return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString();
+            },
+          },
+          grid: { color: "rgba(155, 185, 225, 0.55)" },
+        },
+        y: {
+          ticks: { color: "#35567f" },
+          grid: { color: "rgba(155, 185, 225, 0.35)" },
+        },
+      },
+      plugins: {
+        legend: { labels: { color: "#2f4f7a" } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = ctx.raw;
+              if (v == null) return ctx.dataset.label + ": -";
+              const d = new Date(v);
+              return ctx.dataset.label + ": " + (Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString());
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function renderForecast() {
+  const list = dom.forecastList;
+  if (!list) return;
+  const horizon = Number(dom.forecastHorizon?.value) || 14;
+  const now = new Date();
+  const future = new Date(now);
+  future.setDate(future.getDate() + horizon);
+
+  const forecast = health.enriched
+    .filter((a) => {
+      const status = String(a.materialStatus || "").toLowerCase();
+      if (status === "received") return false;
+      const required = new Date(a.materialRequiredDate || "");
+      if (Number.isNaN(required.getTime())) return false;
+      return required >= now && required <= future;
+    })
+    .sort((a, b) => new Date(a.materialRequiredDate) - new Date(b.materialRequiredDate))
+    .slice(0, 15);
+
+  if (!forecast.length) {
+    list.innerHTML = "<li class=\"empty-state\">No materials needed in the next " + horizon + " days.</li>";
+    return;
+  }
+
+  list.innerHTML = forecast
+    .map(
+      (a) => `
+    <li>
+      <a href="activities.html?search=${encodeURIComponent(a.activityId)}" class="material-forecast-link">
+        <strong>${escapeHtml(a.activityId)}</strong> – ${escapeHtml(a.requiredMaterials || "-")}
+        <span class="small">Required: ${formatDate(a.materialRequiredDate)} | ${escapeHtml(a.materialCriticality || "-")}</span>
+      </a>
+    </li>
+  `,
+    )
+    .join("");
 }
 
 function renderCharts() {
@@ -217,22 +340,27 @@ function renderTable() {
   dom.tableSummary.textContent = `${rows.length} material lines`;
 
   if (!rows.length) {
-    dom.tableBody.innerHTML = `<tr><td colspan="11"><div class="empty-state">No rows for selected filters.</div></td></tr>`;
+    dom.tableBody.innerHTML = `<tr><td colspan="12"><div class="empty-state">No rows for selected filters.</div></td></tr>`;
     return;
   }
 
   dom.tableBody.innerHTML = rows
     .map((activity) => {
       const late = lateIndicator(activity);
+      const statusOpts = MATERIAL_STATUSES.map(
+        (s) => `<option value="${escapeHtml(s)}" ${s === (activity.materialStatus || "") ? "selected" : ""}>${escapeHtml(s)}</option>`,
+      ).join("");
       return `
-        <tr>
+        <tr data-activity-id="${escapeHtml(activity.activityId)}" class="material-row-clickable">
           <td><strong>${escapeHtml(activity.activityId)}</strong></td>
           <td>${escapeHtml(activity.activityName || "-")}</td>
           <td><span class="${statusClass(activity.materialOwnership)}">${escapeHtml(activity.materialOwnership || "-")}</span></td>
-          <td>${escapeHtml(activity.resourceDepartment || "-")}</td>
+          <td><input type="text" class="material-supplier-input" value="${escapeHtml(activity.materialSupplier || "")}" placeholder="Vendor" data-activity-id="${escapeHtml(activity.activityId)}" style="min-width:100px" /></td>
           <td>${escapeHtml(activity.requiredMaterials || "-")}</td>
           <td>${Number(activity.materialLeadTime) || 0}</td>
-          <td><span class="${statusClass(activity.materialStatus)}">${escapeHtml(activity.materialStatus || "-")}</span></td>
+          <td>
+            <select class="material-status-select" data-activity-id="${escapeHtml(activity.activityId)}">${statusOpts}</select>
+          </td>
           <td><span class="${statusClass(activity.materialCriticality)}">${escapeHtml(activity.materialCriticality || "-")}</span></td>
           <td>${formatDate(activity.materialRequiredDate)}</td>
           <td>${formatDate(activity.materialReceivedDate)}</td>
@@ -241,6 +369,26 @@ function renderTable() {
       `;
     })
     .join("");
+
+  dom.tableBody.querySelectorAll(".material-supplier-input").forEach((input) => {
+    input.addEventListener("blur", () => {
+      const id = input.dataset.activityId;
+      if (id) updateActivity(id, { materialSupplier: input.value.trim() });
+    });
+  });
+  dom.tableBody.querySelectorAll(".material-status-select").forEach((select) => {
+    select.addEventListener("change", () => {
+      const id = select.dataset.activityId;
+      if (id) updateActivity(id, { materialStatus: select.value });
+    });
+  });
+  dom.tableBody.querySelectorAll(".material-row-clickable").forEach((row) => {
+    row.addEventListener("click", (e) => {
+      if (e.target.closest("input") || e.target.closest("select")) return;
+      const id = row.dataset.activityId;
+      if (id) window.location.href = `activities.html?search=${encodeURIComponent(id)}`;
+    });
+  });
 }
 
 function exportMaterialsCsv() {
@@ -255,6 +403,7 @@ function exportMaterialsCsv() {
       "Activity ID": a.activityId,
       "Activity Name": a.activityName,
       Ownership: a.materialOwnership,
+      "Supplier/Vendor": a.materialSupplier || "",
       Department: a.resourceDepartment,
       "Required Materials": a.requiredMaterials,
       "Lead Time (h)": a.materialLeadTime,
@@ -266,13 +415,38 @@ function exportMaterialsCsv() {
   triggerDownload(`materials_${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows), "text/csv;charset=utf-8;");
 }
 
+function exportPendingMaterials() {
+  const pending = health.enriched.filter((a) => {
+    const status = String(a.materialStatus || "").toLowerCase();
+    return status !== "received";
+  });
+  const rows = pending.map((a) => ({
+    "Activity ID": a.activityId,
+    "Activity Name": a.activityName,
+    Ownership: a.materialOwnership,
+    "Supplier/Vendor": a.materialSupplier || "",
+    "Required Materials": a.requiredMaterials,
+    "Lead Time (h)": a.materialLeadTime,
+    "Material Status": a.materialStatus,
+    Criticality: a.materialCriticality,
+    "Required Date": formatDate(a.materialRequiredDate),
+  }));
+  triggerDownload(`materials_pending_${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows), "text/csv;charset=utf-8;");
+}
+
 function wireEvents() {
   [dom.ownershipFilter, dom.statusFilter, dom.departmentFilter].forEach((node) => {
     node?.addEventListener("change", renderTable);
   });
+  dom.forecastHorizon?.addEventListener("change", renderForecast);
+  dom.forecastHorizon?.addEventListener("input", renderForecast);
   dom.exportBtn?.addEventListener("click", () => {
     if (!health?.enriched?.length) return;
     exportMaterialsCsv();
+  });
+  dom.exportPendingBtn?.addEventListener("click", () => {
+    if (!health?.enriched?.length) return;
+    exportPendingMaterials();
   });
 }
 
@@ -315,6 +489,8 @@ function renderForActiveProject() {
   }
 
   renderKpis();
+  renderTimelineChart();
+  renderForecast();
   renderCharts();
   populateFilters();
   restoreFilter(dom.ownershipFilter, previousOwnership);

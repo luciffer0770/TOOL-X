@@ -76,7 +76,19 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Portfolio Performance</h2>
-          <span class="panel-subtitle">Live KPIs from client-side activity graph</span>
+          <span class="panel-subtitle">Live KPIs • Click to drill down • Compare across date ranges</span>
+          <div class="row-actions">
+            <label class="field field-inline" style="margin:0">
+              Compare with
+              <select id="dashboard-compare-range">
+                <option value="">No comparison</option>
+                <option value="prev">Previous period</option>
+                <option value="7">Prev 7 days</option>
+                <option value="30">Prev 30 days</option>
+              </select>
+            </label>
+            <button id="dashboard-customize-kpis" class="ghost">Customize KPIs</button>
+          </div>
         </div>
         <div class="panel-body">
           <div id="kpi-grid" class="kpi-grid"></div>

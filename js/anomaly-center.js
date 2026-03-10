@@ -7,7 +7,9 @@ import {
   getActivities,
   getProjectActions,
   getProjectBaselines,
+  restoreProjectToBaseline,
   subscribeToStateChanges,
+  updateActivity,
   updateProjectAction,
 } from "./storage.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
@@ -36,12 +38,14 @@ const dom = {
   actionPrioritySelect: document.querySelector("#action-priority-select"),
   actionStatusSelect: document.querySelector("#action-status-select"),
   actionNotesInput: document.querySelector("#action-notes-input"),
+  actionTemplateSelect: document.querySelector("#action-template-select"),
   actionCreateButton: document.querySelector("#action-create-btn"),
   actionFilterStatus: document.querySelector("#action-filter-status"),
   actionFilterPriority: document.querySelector("#action-filter-priority"),
   actionSummary: document.querySelector("#action-summary"),
   actionTableBody: document.querySelector("#action-table-body"),
   baselineExportVarianceBtn: document.querySelector("#baseline-export-variance-btn"),
+  baselineRestoreBtn: document.querySelector("#baseline-restore-btn"),
 };
 
 let currentUser = null;
@@ -49,6 +53,7 @@ let activities = [];
 let anomalyRows = [];
 let baselineRows = [];
 let actionRows = [];
+let baselineComparisonChart = null;
 
 function severityWeight(severity) {
   const normalized = String(severity || "").toLowerCase();
@@ -151,6 +156,12 @@ function renderAnomalySection() {
     return;
   }
 
+  const fixableRules = new Set([
+    "completed_without_full_completion",
+    "received_without_date",
+    "actual_end_before_start",
+  ]);
+
   dom.anomalyTableBody.innerHTML = filtered
     .sort((left, right) => {
       const severityDelta = severityWeight(right.severity) - severityWeight(left.severity);
@@ -158,16 +169,22 @@ function renderAnomalySection() {
       return String(left.activityId).localeCompare(String(right.activityId));
     })
     .map(
-      (row) => `
-      <tr data-anomaly-activity="${escapeHtml(row.activityId)}" data-anomaly-issue="${escapeHtml(row.issue)}" data-anomaly-recommendation="${escapeHtml(row.recommendation)}">
+      (row) => {
+        const canFix = fixableRules.has(row.ruleId);
+        return `
+      <tr data-anomaly-activity="${escapeHtml(row.activityId)}" data-anomaly-issue="${escapeHtml(row.issue)}" data-anomaly-recommendation="${escapeHtml(row.recommendation)}" data-anomaly-rule="${escapeHtml(row.ruleId)}">
         <td><strong>${escapeHtml(row.activityId)}</strong><br /><span class="small">${escapeHtml(row.activityName || "-")}</span></td>
         <td>${escapeHtml(row.issue)}</td>
         <td><span class="${statusClass(row.severity)}">${escapeHtml(row.severity)}</span></td>
         <td>${escapeHtml(row.details)}</td>
         <td>${escapeHtml(row.recommendation)}</td>
-        <td><button class="ghost" data-create-action-from-anomaly>Create Action</button></td>
+        <td>
+          ${canFix ? `<button class="ghost" data-auto-fix-anomaly>Auto-fix</button>` : ""}
+          <button class="ghost" data-create-action-from-anomaly>Create Action</button>
+        </td>
       </tr>
-    `,
+    `;
+      },
     )
     .join("");
 }
@@ -313,6 +330,38 @@ function renderBaselineComparison(baseline) {
   dom.baselineSummary.textContent = `Comparing against ${baseline.name} (${baseline.id}) captured on ${formatDate(baseline.createdAt)} by ${
     baseline.createdBy || "-"
   }.`;
+
+  renderBaselineComparisonChart(baseline);
+}
+
+function renderBaselineComparisonChart(baseline) {
+  const ctx = document.querySelector("#baseline-comparison-chart");
+  if (!ctx || !window.Chart) return;
+  if (baselineComparisonChart) {
+    baselineComparisonChart.destroy();
+    baselineComparisonChart = null;
+  }
+  const baselineMetrics = computePortfolioMetrics(baseline.activities);
+  const currentMetrics = computePortfolioMetrics(activities);
+  baselineComparisonChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: ["Activities", "Avg Completion %", "Delayed", "High Risk", "Estimated Cost"],
+      datasets: [
+        { label: "Baseline", data: [baselineMetrics.totalActivities, baselineMetrics.avgCompletion, baselineMetrics.delayed, baselineMetrics.highRisk, baselineMetrics.estimatedCost / 1000], backgroundColor: "rgba(47, 143, 255, 0.6)" },
+        { label: "Current", data: [currentMetrics.totalActivities, currentMetrics.avgCompletion, currentMetrics.delayed, currentMetrics.highRisk, currentMetrics.estimatedCost / 1000], backgroundColor: "rgba(29, 184, 156, 0.6)" },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: true, ticks: { color: "#35567f" }, grid: { color: "rgba(155, 185, 225, 0.55)" } },
+        x: { ticks: { color: "#35567f" }, grid: { color: "rgba(155, 185, 225, 0.35)" } },
+      },
+      plugins: { legend: { labels: { color: "#2f4f7a" } } },
+    },
+  });
 }
 
 function renderBaselineSection() {
@@ -338,6 +387,10 @@ function renderBaselineSection() {
     dom.baselineCompareSelect.value = selected.id;
   }
   renderBaselineComparison(selected || null);
+  if (!selected && baselineComparisonChart) {
+    baselineComparisonChart.destroy();
+    baselineComparisonChart = null;
+  }
 }
 
 function populateActionActivitySelect() {
@@ -412,6 +465,7 @@ function renderActionTable() {
 
 function renderActionSection() {
   populateActionActivitySelect();
+  applyActivityFromUrl();
   renderActionTable();
 }
 
@@ -444,6 +498,32 @@ function wireEvents() {
   });
 
   dom.baselineCompareSelect.addEventListener("change", renderBaselineSection);
+
+  dom.baselineRestoreBtn?.addEventListener("click", () => {
+    if (!canManageProjects(currentUser)) {
+      notify("Only planning and management can restore to baseline.", "warning");
+      return;
+    }
+    const baselineId = dom.baselineCompareSelect?.value;
+    if (!baselineId) {
+      notify("Select a baseline to restore.", "warning");
+      return;
+    }
+    if (!confirm("Restore project to this baseline? Current activities will be replaced.")) return;
+    const ok = restoreProjectToBaseline(baselineId);
+    if (ok) {
+      notify("Project restored to baseline.", "success");
+      renderAll();
+    } else {
+      notify("Restore failed.", "error");
+    }
+  });
+
+  dom.actionTemplateSelect?.addEventListener("change", () => {
+    if (dom.actionTemplateSelect?.value && dom.actionTitleInput) {
+      dom.actionTitleInput.value = dom.actionTemplateSelect.value;
+    }
+  });
 
   dom.baselineExportVarianceBtn?.addEventListener("click", () => {
     const selectedId = dom.baselineCompareSelect?.value;
@@ -513,14 +593,36 @@ function wireEvents() {
   dom.anomalyTableBody.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    if (target.matches("[data-auto-fix-anomaly]")) {
+      const row = target.closest("tr");
+      const activityId = row?.dataset.anomalyActivity || "";
+      const ruleId = row?.dataset.anomalyRule || "";
+      const activity = activities.find((a) => a.activityId === activityId);
+      if (!activity) return;
+      let patch = {};
+      if (ruleId === "completed_without_full_completion") {
+        patch = { completionPercentage: 100 };
+      } else if (ruleId === "received_without_date") {
+        patch = { materialReceivedDate: new Date().toISOString().slice(0, 10) };
+      } else if (ruleId === "actual_end_before_start") {
+        const start = activity.actualStartDate || activity.plannedStartDate;
+        patch = { actualEndDate: start || new Date().toISOString().slice(0, 10) };
+      }
+      if (Object.keys(patch).length) {
+        updateActivity(activityId, patch);
+        notify(`Auto-fixed ${activityId}: ${ruleId}`, "success");
+        renderAll();
+      }
+      return;
+    }
     if (target.matches("[data-create-action-from-anomaly]")) {
       const row = target.closest("tr");
       const activityId = row?.dataset.anomalyActivity || "";
       const issue = row?.dataset.anomalyIssue || "";
       const recommendation = row?.dataset.anomalyRecommendation || "";
       dom.actionActivitySelect.value = activityId;
-      dom.actionTitleInput.value = issue;
-      dom.actionNotesInput.value = recommendation;
+      dom.actionTitleInput.value = dom.actionTemplateSelect?.value || issue;
+      if (!dom.actionTemplateSelect?.value) dom.actionNotesInput.value = recommendation;
       dom.actionOwnerInput.focus();
       notify("Action form pre-filled. Enter owner and due date.", "success");
     }
@@ -547,6 +649,14 @@ function wireEvents() {
     notify(`Action ${actionId} moved to ${status}.`, "success");
     renderAll();
   });
+}
+
+function applyActivityFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const activityId = params.get("activity");
+  if (activityId && dom.actionActivitySelect) {
+    dom.actionActivitySelect.value = activityId;
+  }
 }
 
 async function initialize() {

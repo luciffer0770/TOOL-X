@@ -53,12 +53,16 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Risk Register</h2>
-          <span class="panel-subtitle">Activities with risk score ≥ 40, ranked by severity</span>
-          <select id="risk-filter">
-            <option value="">All risks</option>
-            <option value="High">High</option>
-            <option value="Critical">Critical</option>
-          </select>
+          <span class="panel-subtitle">Probability × Impact • Mitigation status • Link to Anomaly Center actions</span>
+          <div class="row-actions">
+            <select id="risk-filter">
+              <option value="">All risks</option>
+              <option value="High">High</option>
+              <option value="Critical">Critical</option>
+            </select>
+            <button id="risk-export-csv" class="ghost">Export CSV</button>
+            <button id="risk-export-pdf" class="ghost">Export PDF</button>
+          </div>
         </div>
         <div class="panel-body">
           <div class="table-wrap">
@@ -67,11 +71,17 @@
                 <tr>
                   <th>Activity</th>
                   <th>Phase</th>
+                  <th>Probability</th>
+                  <th>Impact</th>
                   <th>Status</th>
                   <th>Risk Level</th>
                   <th>Risk Score</th>
+                  <th>Mitigation Status</th>
+                  <th>Risk Owner</th>
+                  <th>Review Date</th>
                   <th>Delay Reason</th>
                   <th>Mitigation / Notes</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="risk-register-body"></tbody>

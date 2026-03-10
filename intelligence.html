@@ -97,7 +97,17 @@
               </label>
             </div>
             <label class="field" style="margin-top: 10px"
-              >Root Cause Statement
+              >Root Cause
+              <select id="root-cause-template" style="margin-bottom:6px">
+                <option value="">-- Use template or type below --</option>
+                <option value="Vendor heat-treatment queue saturation">Vendor heat-treatment queue saturation</option>
+                <option value="Design change impact on tooling">Design change impact on tooling</option>
+                <option value="Resource unavailability / skill gap">Resource unavailability / skill gap</option>
+                <option value="Material delivery delay">Material delivery delay</option>
+                <option value="Dependency predecessor slippage">Dependency predecessor slippage</option>
+                <option value="Quality hold / rework">Quality hold / rework</option>
+                <option value="Scope creep / change request">Scope creep / change request</option>
+              </select>
               <textarea id="root-cause-text" placeholder="Enter delay reason and impact path"></textarea>
             </label>
             <div class="row-actions" style="margin-top: 10px">
@@ -140,16 +150,31 @@
               <tbody id="delay-risk-table-body"></tbody>
             </table>
           </div>
+          <p class="small" style="margin-top:8px">Click an activity to open it in Activity Master with context.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Delay & Risk Trend</h2>
+          <span class="panel-subtitle">Risk distribution over phases</span>
+        </div>
+        <div class="panel-body chart-shell">
+          <canvas id="intelligence-trend-chart"></canvas>
         </div>
       </section>
 
       <section class="panel">
         <div class="panel-header">
           <h2>What-If Scenario Simulation</h2>
-          <span class="panel-subtitle">Dependency-driven schedule recomputation within frontend runtime</span>
+          <span class="panel-subtitle">Dependency-driven schedule recomputation • Name and save scenarios for comparison</span>
         </div>
         <div class="panel-body">
           <div class="form-grid">
+            <label class="field"
+              >Scenario Name
+              <input id="sim-name-input" type="text" placeholder="e.g. Overtime Push" />
+            </label>
             <label class="field"
               >Manpower Productivity Boost (%)
               <input id="sim-manpower" type="number" min="0" max="100" step="1" value="12" />
@@ -165,9 +190,14 @@
           </div>
           <div class="row-actions" style="margin-top: 12px">
             <button id="run-sim-btn">Run Scenario</button>
+            <button id="apply-scenario-btn" class="ghost">Apply to Plan</button>
+            <button id="save-scenario-btn" class="ghost">Save Scenario</button>
             <button id="sim-preset-overtime" class="ghost">Preset: Overtime</button>
             <button id="sim-preset-manpower" class="ghost">Preset: Extra Manpower</button>
             <button id="sim-preset-leadtime" class="ghost">Preset: Lead Time Cut</button>
+          </div>
+          <div class="form-grid" style="margin-top:8px">
+            <label class="field">Saved Scenarios <select id="saved-scenarios-select"><option value="">-- Load --</option></select></label>
           </div>
           <div id="sim-summary" class="hint" style="margin-top: 12px"></div>
           <div class="table-wrap" style="margin-top: 12px">
@@ -188,6 +218,7 @@
       </section>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script type="module" src="./js/intelligence.js?v=atlas20260222"></script>
   </body>
 </html>
