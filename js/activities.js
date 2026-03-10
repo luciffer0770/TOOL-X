@@ -36,6 +36,7 @@ import {
   subscribeToStateChanges,
   updateActivity,
   upsertActivities,
+  SAVE_STATUS_EVENT,
 } from "./storage.js";
 import { openTemplatesModal, saveCurrentAsTemplate } from "./templates.js";
 import { openCommentsModal } from "./comments.js";
@@ -99,6 +100,11 @@ const dom = {
   phaseFilter: document.querySelector("#phase-filter"),
   filterPresets: document.querySelector("#filter-presets"),
   saveFilterBtn: document.querySelector("#save-filter-btn"),
+  pageSizeSelect: document.querySelector("#page-size-select"),
+  paginationControls: document.querySelector("#pagination-controls"),
+  paginationInfo: document.querySelector("#pagination-info"),
+  pagePrevBtn: document.querySelector("#page-prev-btn"),
+  pageNextBtn: document.querySelector("#page-next-btn"),
   stats: document.querySelector("#activity-grid-stats"),
   defaultEditorInput: document.querySelector("#default-editor"),
   lastSavedIndicator: document.querySelector("#last-saved-indicator"),
@@ -115,6 +121,8 @@ let viewState = {
   selectedIds: new Set(),
   sortKey: "",
   sortDir: 1,
+  pageSize: 50,
+  page: 1,
 };
 
 const uiState = {
@@ -267,7 +275,9 @@ function filterActivities() {
     if (viewState.status && activity.activityStatus !== viewState.status) return false;
     if (phaseFilter && normalizePhase(activity.phase) !== phaseFilter) return false;
     if (!query) return true;
-    return COLUMN_SCHEMA.some((column) => String(activity[column.key] ?? "").toLowerCase().includes(query));
+    if (COLUMN_SCHEMA.some((column) => String(activity[column.key] ?? "").toLowerCase().includes(query))) return true;
+    const comments = activity.comments || [];
+    return comments.some((c) => String(c.text || "").toLowerCase().includes(query));
   });
   if (viewState.sortKey) {
     const key = viewState.sortKey;
@@ -288,8 +298,25 @@ function renderTable() {
   const columns = getVisibleColumns();
   const filteredRows = filterActivities();
   const activeProject = getActiveProject();
+  const pageSize = Math.max(1, Number(viewState.pageSize) || 50);
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const page = Math.max(1, Math.min(viewState.page, totalPages));
+  viewState.page = page;
+  const startIdx = (page - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, filteredRows.length);
+  const rowsToRender = pageSize >= 9999 ? filteredRows : filteredRows.slice(startIdx, endIdx);
+
   dom.stats.textContent = `${activeProject.name}: ${filteredRows.length} shown of ${viewState.activities.length} activities`;
   const orderMap = new Map(viewState.activities.map((activity, index) => [activity.activityId, index + 1]));
+
+  if (dom.paginationControls) {
+    dom.paginationControls.hidden = filteredRows.length <= pageSize || pageSize >= 9999;
+    if (dom.paginationInfo) {
+      dom.paginationInfo.textContent = `Page ${page} of ${totalPages} (${startIdx + 1}–${endIdx} of ${filteredRows.length})`;
+    }
+    if (dom.pagePrevBtn) dom.pagePrevBtn.disabled = page <= 1;
+    if (dom.pageNextBtn) dom.pageNextBtn.disabled = page >= totalPages;
+  }
 
   const canBulk = canModifyActivityStructure(currentUser);
   const sortableKeys = new Set(["activityId", "activityName", "phase", "activityStatus", "completionPercentage", "baseEffortHours", "plannedStartDate"]);
@@ -304,7 +331,7 @@ function renderTable() {
       <th>Row Actions</th>
       ${columns.map((column) => {
         const isSortable = sortableKeys.has(column.key);
-        const sticky = column.key === "activityId" ? "col-sticky " : "";
+        const sticky = column.key === "activityId" ? "col-sticky " : column.key === "activityName" ? "col-sticky col-sticky-2 " : "";
         const cls = isSortable ? sticky + sortClass(column.key) : sticky || "";
         return `<th class="${cls.trim() || ""}" ${isSortable ? `data-sort="${column.key}"` : ""}>${escapeHtml(column.label)}</th>`;
       }).join("")}
@@ -320,8 +347,8 @@ function renderTable() {
     return;
   }
 
-  const selectAllChecked = canBulk && filteredRows.length > 0 && filteredRows.every((r) => viewState.selectedIds.has(r.activityId));
-  dom.tableBody.innerHTML = filteredRows
+  const selectAllChecked = canBulk && rowsToRender.length > 0 && rowsToRender.every((r) => viewState.selectedIds.has(r.activityId));
+  dom.tableBody.innerHTML = rowsToRender
     .map(
       (row) => {
         const checked = viewState.selectedIds.has(row.activityId);
@@ -344,7 +371,7 @@ function renderTable() {
         ${columns
           .map(
             (column) =>
-              `<td class="${column.key === "subActivity" ? "col-sub-activity" : ""}${column.key === "activityId" ? " col-sticky" : ""}">${buildControl(column, row)}</td>`,
+              `<td class="${column.key === "subActivity" ? "col-sub-activity" : ""}${column.key === "activityId" ? " col-sticky" : ""}${column.key === "activityName" ? " col-sticky col-sticky-2" : ""}">${buildControl(column, row)}</td>`,
           )
           .join("")}
       </tr>
@@ -364,7 +391,7 @@ function renderTable() {
 
   if (dom.cardGrid) {
     const cardFields = ["phase", "activityStatus", "completionPercentage", "plannedStartDate", "baseEffortHours"];
-    dom.cardGrid.innerHTML = filteredRows
+    dom.cardGrid.innerHTML = rowsToRender
       .map(
         (row) => `
       <article class="activity-card" data-id="${escapeHtml(row.activityId)}">
@@ -1204,15 +1231,43 @@ function wireEvents() {
 
   dom.searchInput.addEventListener("input", debounce(() => {
     viewState.search = dom.searchInput?.value || "";
+    viewState.page = 1;
     renderTable();
   }, 250));
   dom.statusFilter.addEventListener("change", (event) => {
     viewState.status = event.target.value;
+    viewState.page = 1;
     renderTable();
   });
   dom.phaseFilter.addEventListener("change", (event) => {
     viewState.phase = event.target.value;
+    viewState.page = 1;
     renderTable();
+  });
+
+  dom.pageSizeSelect?.addEventListener("change", (event) => {
+    viewState.pageSize = Number(event.target.value) || 50;
+    viewState.page = 1;
+    renderTable();
+  });
+
+  dom.pagePrevBtn?.addEventListener("click", () => {
+    if (viewState.page > 1) {
+      viewState.page--;
+      renderTable();
+      dom.tableWrap?.scrollTo(0, 0);
+    }
+  });
+
+  dom.pageNextBtn?.addEventListener("click", () => {
+    const filteredRows = filterActivities();
+    const pageSize = Math.max(1, Number(viewState.pageSize) || 50);
+    const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+    if (viewState.page < totalPages) {
+      viewState.page++;
+      renderTable();
+      dom.tableWrap?.scrollTo(0, 0);
+    }
   });
 
   dom.tableHead.addEventListener("click", (event) => {
@@ -1552,8 +1607,25 @@ function initialize() {
         if (e.detail?.savedAt && dom.lastSavedIndicator) {
           const d = new Date(e.detail.savedAt);
           dom.lastSavedIndicator.textContent = `Saved ${d.toLocaleTimeString()}`;
+          dom.lastSavedIndicator.classList.remove("last-saved-saving", "last-saved-error");
         }
         updateUndoButton();
+      });
+      window.addEventListener(SAVE_STATUS_EVENT, (e) => {
+        if (!dom.lastSavedIndicator) return;
+        const { status, savedAt, error } = e.detail || {};
+        if (status === "saving") {
+          dom.lastSavedIndicator.textContent = "Saving…";
+          dom.lastSavedIndicator.classList.add("last-saved-saving");
+          dom.lastSavedIndicator.classList.remove("last-saved-error");
+        } else if (status === "saved" && savedAt) {
+          dom.lastSavedIndicator.textContent = `Saved ${new Date(savedAt).toLocaleTimeString()}`;
+          dom.lastSavedIndicator.classList.remove("last-saved-saving", "last-saved-error");
+        } else if (status === "error") {
+          dom.lastSavedIndicator.textContent = "Save failed";
+          dom.lastSavedIndicator.classList.add("last-saved-error");
+          dom.lastSavedIndicator.classList.remove("last-saved-saving");
+        }
       });
       refreshFromStorage();
       refreshFloatingScrollbar();

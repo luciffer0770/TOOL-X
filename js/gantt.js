@@ -17,6 +17,7 @@ const dom = {
   applyButton: document.querySelector("#apply-filters-btn"),
   resetRangeButton: document.querySelector("#reset-range-btn"),
   todayButton: document.querySelector("#today-btn"),
+  ganttContainer: document.querySelector("#gantt-container"),
   ganttGrid: document.querySelector("#gantt-grid"),
   ganttSummary: document.querySelector("#gantt-summary"),
   dependencyBody: document.querySelector("#dependency-table-body"),
@@ -28,36 +29,76 @@ let dependencyHealth = getDependencyHealth([]);
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 function formatDateShort(date) {
   if (!date || Number.isNaN(date.getTime())) return "";
   return date.toISOString().slice(0, 10);
 }
 
+function formatDateCompact(date) {
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return `${date.getDate()} ${MONTH_ABBR[date.getMonth()]}`;
+}
+
+
+function dateToMidnight(d) {
+  if (!d || Number.isNaN(d.getTime())) return null;
+  const out = new Date(d);
+  out.setHours(0, 0, 0, 0);
+  return out;
+}
+
+/** Parse YYYY-MM-DD as local date to avoid timezone shifts. */
+function parseDateLocal(value) {
+  if (!value) return null;
+  const str = String(value).trim().slice(0, 10);
+  if (str.length < 10) return null;
+  const parts = str.split("-");
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return null;
+  const date = new Date(y, m, d);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+const MAX_DATE_TICKS = 90;
+
 function getDateTicks(rangeStart, rangeEnd) {
-  const spanDays = (rangeEnd.getTime() - rangeStart.getTime()) / MS_PER_DAY;
-  let stepDays = 14;
-  if (spanDays <= 7) stepDays = 1;
-  else if (spanDays <= 21) stepDays = 3;
-  else if (spanDays <= 60) stepDays = 7;
-  else if (spanDays <= 120) stepDays = 14;
-  const spanMs = rangeEnd.getTime() - rangeStart.getTime();
+  const startMs = dateToMidnight(rangeStart)?.getTime() ?? rangeStart.getTime();
+  const endMs = dateToMidnight(rangeEnd)?.getTime() ?? rangeEnd.getTime();
+  const spanDays = (endMs - startMs) / MS_PER_DAY;
+  let stepDays = 1;
+  if (spanDays > 180) stepDays = 14;
+  else if (spanDays > 90) stepDays = 7;
+  const spanMs = endMs - startMs;
   const ticks = [];
-  let d = new Date(rangeStart);
-  d.setHours(0, 0, 0, 0);
-  const endTime = rangeEnd.getTime();
-  while (d.getTime() <= endTime) {
-    const pct = ((d.getTime() - rangeStart.getTime()) / spanMs) * 100;
-    ticks.push({ date: new Date(d), pct });
+  let d = new Date(startMs);
+  const endTime = endMs;
+  let count = 0;
+  while (d.getTime() <= endTime && count < MAX_DATE_TICKS) {
+    const pct = spanMs > 0 ? ((d.getTime() - startMs) / spanMs) * 100 : 0;
+    const isMonthStart = d.getDate() === 1;
+    ticks.push({ date: new Date(d), pct, isMonthStart });
     d.setDate(d.getDate() + stepDays);
+    count++;
   }
-  return ticks;
+  if (ticks.length > 0 && spanMs > 0) {
+    const last = ticks[ticks.length - 1];
+    const endDate = new Date(endMs);
+    if (last.pct < 99.5 && endDate.getTime() !== last.date.getTime()) {
+      ticks.push({ date: endDate, pct: 100, isMonthStart: endDate.getDate() === 1 });
+    }
+  }
+  return { ticks, spanMs };
 }
 
 function getZoomDays() {
   const zoom = dom.zoomMode?.value || "week";
-  if (zoom === "day") return 7;
-  if (zoom === "month") return 60;
-  return 21;
+  if (zoom === "day") return 14;
+  if (zoom === "month") return 90;
+  return 45;
 }
 
 function populateFilters() {
@@ -103,7 +144,9 @@ function renderGantt() {
   const { start, end } = activeRange();
   const phaseFilter = dom.phaseFilter.value;
   const statusFilter = dom.statusFilter.value;
-  const spanMs = end.getTime() - start.getTime();
+  const startMs = dateToMidnight(start)?.getTime() ?? start.getTime();
+  const endMs = dateToMidnight(end)?.getTime() ?? end.getTime();
+  const spanMs = endMs - startMs;
   const criticalPath = getCriticalPath(activities);
   const criticalSet = new Set(criticalPath.path);
 
@@ -114,51 +157,75 @@ function renderGantt() {
   );
 
   const dependencyIssueCount = dependencyHealth.activitiesWithMissingDependencies + dependencyHealth.cycleCount;
-  dom.ganttSummary.textContent = `${rows.length} activities shown | Window ${formatDate(start)} to ${formatDate(end)} | Critical chain ${criticalPath.path.length} nodes | Dependency issues ${dependencyIssueCount}`;
+  dom.ganttSummary.textContent = `${rows.length} activities | ${formatDate(start)} to ${formatDate(end)} | Critical: ${criticalPath.path.length} | Issues: ${dependencyIssueCount}`;
 
   if (!rows.length) {
     renderEmptyState(
       dom.ganttGrid,
       "No activities match the selected filters.",
-      "Try adjusting Phase/Status filters or the date range.",
+      "Try adjusting Phase/Status filters.",
     );
     renderDependencyTable([]);
     return;
   }
 
-  const today = new Date();
+  const today = dateToMidnight(new Date());
   const todayPct =
-    today >= start && today <= end ? ((today.getTime() - start.getTime()) / spanMs) * 100 : null;
+    today && spanMs > 0 && today.getTime() >= startMs && today.getTime() <= endMs
+      ? ((today.getTime() - startMs) / spanMs) * 100
+      : null;
+
+  const { ticks: dateTicks } = getDateTicks(start, end);
+  const dateTickHtml = dateTicks
+    .map(
+      (t) =>
+        `<span class="gantt-date-tick ${t.isMonthStart ? "gantt-date-tick-month" : ""}" style="left:${t.pct}%">${formatDateCompact(t.date)}</span>`,
+    )
+    .join("");
+  const gridLinesHtml = dateTicks.map((t) => `<div class="gantt-grid-line-vert" style="left:${t.pct}%"></div>`).join("");
   const todayMarkerHtml =
     todayPct != null ? `<div class="gantt-today-marker" style="left:${todayPct}%" aria-hidden="true"></div>` : "";
 
-  const dateTicks = getDateTicks(start, end);
-  const dateHeaderHtml = dateTicks
-    .map(
-      (t) =>
-        `<span class="gantt-date-tick" style="left:${t.pct}%">${formatDateShort(t.date)}</span>`,
-    )
-    .join("");
-  const headerSpacer = `<div class="gantt-header-spacer" aria-hidden="true"></div>`;
-  const headerDates = `<div class="gantt-header-dates">${dateHeaderHtml}</div>`;
+  const headerSpacer = `<div class="gantt-header-spacer" style="grid-row:1"><span class="gantt-header-label">Activity</span></div>`;
+  const headerDates = `<div class="gantt-header-dates" style="grid-row:1">
+    <div class="gantt-date-axis-grid">${gridLinesHtml}</div>
+    <div class="gantt-date-axis-labels">${dateTickHtml}</div>
+    ${todayMarkerHtml}
+  </div>`;
 
   const rowIndexById = new Map();
-  const html = [headerSpacer, headerDates];
+  const chartGridLinesHtml = dateTicks.map((t) => `<div class="gantt-grid-line-vert" style="left:${t.pct}%"></div>`).join("");
+  const html = [
+    headerSpacer,
+    headerDates,
+    `<div class="gantt-chart-grid-lines" style="grid-column:2;grid-row:2/-1" aria-hidden="true">${chartGridLinesHtml}</div>`,
+  ];
   let rowIdx = 0;
   rows.forEach((activity) => {
-    const startDate = parseDate(activity.actualStartDate) || parseDate(activity.plannedStartDate) || start;
-    const durationHours = Math.max(8, activity.plannedDurationHours || activity.baseEffortHours || 8);
+    const startDate =
+      dateToMidnight(parseDateLocal(activity.plannedStartDate)) || new Date(startMs);
+    const durationHours = Math.max(24, activity.plannedDurationHours || activity.baseEffortHours || 24);
     const endDate =
-      parseDate(activity.actualEndDate) ||
-      parseDate(activity.plannedEndDate) ||
+      dateToMidnight(parseDateLocal(activity.plannedEndDate)) ||
       new Date(startDate.getTime() + durationHours * 60 * 60 * 1000);
 
-    if (endDate < start || startDate > end) return;
+    const barStart = Math.max(startDate.getTime(), startMs);
+    const barEnd = Math.min(endDate.getTime(), endMs);
+    let leftPct = 0;
+    let widthPct = 4;
+    const clampedStart = new Date(barStart);
+    const clampedEnd = new Date(barEnd);
 
-    const clampedStart = new Date(Math.max(startDate.getTime(), start.getTime()));
-    const clampedEnd = new Date(Math.min(endDate.getTime(), end.getTime()));
-    const leftPct = ((clampedStart.getTime() - start.getTime()) / spanMs) * 100;
-    const widthPct = Math.max(1, ((clampedEnd.getTime() - clampedStart.getTime()) / spanMs) * 100);
+    if (barEnd <= startMs) {
+      leftPct = 0;
+      widthPct = 2;
+    } else if (barStart >= endMs) {
+      leftPct = 98;
+      widthPct = 2;
+    } else {
+      leftPct = spanMs > 0 ? ((barStart - startMs) / spanMs) * 100 : 0;
+      widthPct = spanMs > 0 ? Math.max(4, ((barEnd - barStart) / spanMs) * 100) : 4;
+    }
     const progressPct = Math.max(0, Math.min(100, Number(activity.completionPercentage) || 0));
     const delayed = activity.delayHours > 0 || String(activity.activityStatus).toLowerCase() === "delayed";
 
@@ -179,23 +246,13 @@ function renderGantt() {
           data-original-end="${clampedEnd.toISOString().slice(0, 10)}"
         >
           <div class="gantt-progress" style="width:${progressPct}%"></div>
-          <div class="gantt-caption">${escapeHtml(activity.activityId)} (${progressPct}%)</div>
+          <span class="gantt-caption" title="${escapeHtml(activity.activityId)} - ${escapeHtml(activity.activityName || "")} | ${progressPct}% complete">${escapeHtml(activity.activityId)}</span>
           <div class="gantt-bar-resize-handle" title="Drag to resize"></div>
         </div>
       </div>
     `);
     rowIdx++;
   });
-
-  if (rowIdx === 0) {
-    renderEmptyState(
-      dom.ganttGrid,
-      "No activities fall inside the selected date window.",
-      "Try adjusting the From/To dates or Zoom level.",
-    );
-    renderDependencyTable(rows);
-    return;
-  }
 
   dom.ganttGrid.innerHTML = html.join("");
   wireGanttBarDrag(rows, start, end, spanMs);
@@ -206,7 +263,8 @@ function renderGantt() {
 function wireGanttBarDrag(rows, rangeStart, rangeEnd, spanMs) {
   const bars = dom.ganttGrid.querySelectorAll(".gantt-bar");
   const trackWidth = dom.ganttGrid.querySelector(".gantt-track")?.offsetWidth || 1;
-  const msPerPx = spanMs / trackWidth;
+  const numDays = Math.max(1, spanMs / MS_PER_DAY);
+  const dayWidthPct = 100 / numDays;
 
   bars.forEach((bar) => {
     const trackEl = bar.closest(".gantt-track");
@@ -229,7 +287,9 @@ function wireGanttBarDrag(rows, rangeStart, rangeEnd, spanMs) {
       const onMove = (ev) => {
         const dx = ev.clientX - startX;
         const dxPct = (dx / trackWidth) * 100;
-        const newLeft = Math.max(0, Math.min(100 - startWidth, startLeft + dxPct));
+        let newLeft = Math.max(0, Math.min(100 - startWidth, startLeft + dxPct));
+        newLeft = Math.round(newLeft / dayWidthPct) * dayWidthPct;
+        newLeft = Math.max(0, Math.min(100 - startWidth, newLeft));
         bar.style.left = `${newLeft}%`;
       };
 
@@ -242,17 +302,26 @@ function wireGanttBarDrag(rows, rangeStart, rangeEnd, spanMs) {
         const deltaPct = (newLeft - startLeft) / 100;
         const deltaMs = deltaPct * spanMs;
 
-        const oldStart = parseDate(activity.plannedStartDate) || parseDate(activity.actualStartDate) || rangeStart;
-        const oldEnd = parseDate(activity.plannedEndDate) || parseDate(activity.actualEndDate) || new Date(oldStart.getTime() + 24 * 60 * 60 * 1000);
+        const fallbackStart = dateToMidnight(rangeStart) || rangeStart;
+        const oldStart =
+          parseDateLocal(activity.plannedStartDate) ||
+          parseDateLocal(activity.actualStartDate) ||
+          fallbackStart;
+        const oldEnd =
+          parseDateLocal(activity.plannedEndDate) ||
+          parseDateLocal(activity.actualEndDate) ||
+          new Date(oldStart.getTime() + 24 * 60 * 60 * 1000);
         const durationMs = oldEnd.getTime() - oldStart.getTime();
 
-        const newStart = new Date(oldStart.getTime() + deltaMs);
-        const newEnd = new Date(newStart.getTime() + durationMs);
+        let newStart = new Date(oldStart.getTime() + deltaMs);
+        newStart = dateToMidnight(newStart) || newStart;
+        let newEnd = new Date(newStart.getTime() + durationMs);
+        newEnd = dateToMidnight(newEnd) || newEnd;
 
         if (newStart.getTime() !== oldStart.getTime()) {
           updateActivity(activityId, {
-            plannedStartDate: newStart.toISOString().slice(0, 10),
-            plannedEndDate: newEnd.toISOString().slice(0, 10),
+            plannedStartDate: `${newStart.getFullYear()}-${String(newStart.getMonth() + 1).padStart(2, "0")}-${String(newStart.getDate()).padStart(2, "0")}`,
+            plannedEndDate: `${newEnd.getFullYear()}-${String(newEnd.getMonth() + 1).padStart(2, "0")}-${String(newEnd.getDate()).padStart(2, "0")}`,
           });
           loadProjectActivities({ resetView: false });
         }
@@ -277,7 +346,9 @@ function wireGanttBarDrag(rows, rangeStart, rangeEnd, spanMs) {
         const onMove = (ev) => {
           const dx = ev.clientX - startX;
           const dxPct = (dx / trackWidth) * 100;
-          const newWidth = Math.max(2, Math.min(100 - startLeft, startWidth + dxPct));
+          let newWidth = Math.max(2, Math.min(100 - startLeft, startWidth + dxPct));
+          newWidth = Math.round(newWidth / dayWidthPct) * dayWidthPct;
+          newWidth = Math.max(2, Math.min(100 - startLeft, newWidth));
           bar.style.width = `${newWidth}%`;
         };
 
@@ -289,13 +360,21 @@ function wireGanttBarDrag(rows, rangeStart, rangeEnd, spanMs) {
           const widthDeltaPct = (newWidth - startWidth) / 100;
           const deltaMs = widthDeltaPct * spanMs;
 
-          const origStart = bar.dataset.originalStart ? parseDate(bar.dataset.originalStart) : parseDate(activity.plannedStartDate) || rangeStart;
-          const origEnd = bar.dataset.originalEnd ? parseDate(bar.dataset.originalEnd) : parseDate(activity.plannedEndDate) || new Date(origStart.getTime() + 24 * 60 * 60 * 1000);
-          const newEnd = new Date(origEnd.getTime() + deltaMs);
+          const origStart =
+            (bar.dataset.originalStart ? parseDateLocal(bar.dataset.originalStart) : null) ||
+            parseDateLocal(activity.plannedStartDate) ||
+            dateToMidnight(rangeStart) ||
+            rangeStart;
+          const origEnd =
+            (bar.dataset.originalEnd ? parseDateLocal(bar.dataset.originalEnd) : null) ||
+            parseDateLocal(activity.plannedEndDate) ||
+            new Date(origStart.getTime() + 24 * 60 * 60 * 1000);
+          let newEnd = new Date(origEnd.getTime() + deltaMs);
+          newEnd = dateToMidnight(newEnd) || newEnd;
 
-          if (newEnd.getTime() > origStart.getTime()) {
+          if (newEnd.getTime() > (dateToMidnight(origStart) || origStart).getTime()) {
             updateActivity(activityId, {
-              plannedEndDate: newEnd.toISOString().slice(0, 10),
+              plannedEndDate: `${newEnd.getFullYear()}-${String(newEnd.getMonth() + 1).padStart(2, "0")}-${String(newEnd.getDate()).padStart(2, "0")}`,
             });
             loadProjectActivities({ resetView: false });
           }
@@ -411,8 +490,8 @@ function wireEvents() {
     renderGantt();
   });
   dom.todayButton?.addEventListener("click", () => {
-    const today = new Date();
-    const days = getZoomDays();
+    const today = dateToMidnight(new Date());
+    const days = 30;
     const start = new Date(today);
     start.setDate(start.getDate() - Math.floor(days / 2));
     const end = new Date(today);
@@ -420,6 +499,20 @@ function wireEvents() {
     dom.rangeStart.value = start.toISOString().slice(0, 10);
     dom.rangeEnd.value = end.toISOString().slice(0, 10);
     renderGantt();
+    requestAnimationFrame(() => {
+      const marker = dom.ganttGrid?.querySelector(".gantt-today-marker");
+      if (marker && dom.ganttContainer) {
+        const track = dom.ganttGrid?.querySelector(".gantt-track");
+        const pct = parseFloat(marker.style.left) || 50;
+        if (track) {
+          const chartWidth = track.offsetWidth;
+          const containerWidth = dom.ganttContainer.clientWidth;
+          const labelWidth = 280;
+          const targetScroll = Math.max(0, (pct / 100) * chartWidth + labelWidth - containerWidth / 2);
+          dom.ganttContainer.scrollLeft = Math.min(targetScroll, dom.ganttContainer.scrollWidth - containerWidth);
+        }
+      }
+    });
   });
 }
 

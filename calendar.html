@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Calendar View | ATLAS</title>
-    <link rel="stylesheet" href="./css/styles.css?v=atlas20260222" />
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260310" />
   </head>
   <body>
     <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
@@ -58,18 +58,38 @@
             <button id="cal-prev-btn" class="ghost">← Prev</button>
             <button id="cal-today-btn" class="ghost">Today</button>
             <button id="cal-next-btn" class="ghost">Next →</button>
+            <label class="ghost label-as-button">
+              Density
+              <select id="cal-density">
+                <option value="normal">Normal</option>
+                <option value="compact">Compact</option>
+                <option value="expanded">Expanded</option>
+              </select>
+            </label>
             <select id="cal-view">
               <option value="month">Month</option>
               <option value="week">Week</option>
             </select>
           </div>
         </div>
-        <div class="panel-body">
-          <div id="calendar-grid" class="calendar-grid"></div>
-          <div id="calendar-legend" class="calendar-legend"></div>
+        <div class="panel-body calendar-panel-body">
+          <div class="calendar-main">
+            <div id="calendar-grid" class="calendar-grid"></div>
+            <div id="calendar-legend" class="calendar-legend"></div>
+          </div>
+          <aside id="calendar-detail" class="calendar-detail" aria-label="Activity details">
+            <div class="calendar-detail-placeholder" id="calendar-detail-placeholder">
+              Click an activity to see details
+            </div>
+            <div class="calendar-detail-content" id="calendar-detail-content" hidden>
+              <h3 class="calendar-detail-title" id="calendar-detail-title"></h3>
+              <div class="calendar-detail-meta" id="calendar-detail-meta"></div>
+              <a id="calendar-detail-link" href="#" class="calendar-detail-link">Open in Activity Master →</a>
+            </div>
+          </aside>
         </div>
       </section>
     </div>
-    <script type="module" src="./js/calendar.js?v=atlas20260222"></script>
+    <script type="module" src="./js/calendar.js?v=atlas20260310"></script>
   </body>
 </html>

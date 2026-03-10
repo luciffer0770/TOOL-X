@@ -16,7 +16,7 @@ export function resetOnboarding() {
 }
 
 const STEPS = [
-  { id: "welcome", target: ".title-block", title: "Welcome to ATLAS", body: "This quick tour gives a practical walkthrough of the main areas and common tasks: navigation, projects, KPIs, activity management, imports/exports, Gantt, materials, intelligence and troubleshooting. Use Next to advance or Skip to exit.", position: "bottom" },
+  { id: "welcome", target: ".title-block", title: "Welcome to ATLAS", body: "This quick tour walks through the main areas: navigation, projects, KPIs, activity management, imports/exports, Gantt, and more. Click Next to continue or Skip to exit anytime.", position: "bottom" },
   { id: "nav", target: ".nav", title: "Top Navigation", body: "Primary navigation: switch between the Executive Dashboard, Activity Master, Gantt, Material Intelligence, Delay & Risk, and Anomaly Center. Use these to move between high-level views.", position: "bottom" },
   { id: "project", target: ".project-toolbar", title: "Project Controls", body: "Active Project controls let you create new projects, duplicate templates, rename, delete, export or import an entire project. The Active Project drives the datasets shown across pages.", position: "bottom" },
   { id: "kpi", target: "#kpi-grid", title: "KPIs Overview", body: "KPI cards show live portfolio metrics. Click a KPI card to jump into the Activity Master filtered to the relevant set (e.g. Delayed activities). Use these for quick situational awareness.", position: "top" },
@@ -56,9 +56,9 @@ function createTooltip(step, index, total, onNext, onSkip) {
     <h3 class="onboarding-tooltip-title">${step.title}</h3>
     <p class="onboarding-tooltip-body">${step.body}</p>
     <div class="onboarding-tooltip-actions">
-      <button type="button" class="onboarding-skip ghost">Skip tour</button>
-      <span class="onboarding-progress">${index + 1} / ${total}</span>
-      <button type="button" class="onboarding-next">${index < total - 1 ? "Next" : "Finish"}</button>
+      <button type="button" class="onboarding-skip ghost" aria-label="Skip tour">Skip</button>
+      <span class="onboarding-progress" aria-live="polite">${index + 1} / ${total}</span>
+      <button type="button" class="onboarding-next" aria-label="${index < total - 1 ? "Next step" : "Finish tour"}">${index < total - 1 ? "Next" : "Finish"}</button>
     </div>
   `;
   div.querySelector(".onboarding-next").addEventListener("click", onNext);

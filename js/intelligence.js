@@ -121,8 +121,8 @@ function renderRiskTable(rows) {
         </td>
         <td>${formatHours(row.delayHours)}</td>
         <td>${Number(row.predictedDelayHours || 0).toFixed(1)}</td>
-        <td>${row.riskScore}</td>
-        <td><span class="${statusClass(row.riskLevel)}">${escapeHtml(row.riskLevel)}</span></td>
+        <td title="0–100 score from delay, completion, priority, materials, dependencies">${row.riskScore}</td>
+        <td><span class="${statusClass(row.riskLevel)}" title="Derived from risk score: ≥75 Critical, ≥55 High, ≥30 Medium, &lt;30 Low">${escapeHtml(row.riskLevel)}</span></td>
         <td>${escapeHtml(row.materialStatus || "-")} / ${escapeHtml(row.materialCriticality || "-")}</td>
         <td>${escapeHtml(row.delayReason || "-")}</td>
       </tr>

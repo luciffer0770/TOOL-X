@@ -1,98 +1,297 @@
 # ATLAS – Digital Twin Engineering Preparation Platform
 
-**Advanced Twin-based Lifecycle and Activity System** – Enterprise-class, frontend-only planning and decision intelligence system for preparation and build-up lifecycle control.
+**Advanced Twin-based Lifecycle and Activity System** – Enterprise-class planning and decision intelligence for industrial preparation and build-up lifecycle control.
 
-## Highlights
+---
 
-- Multi-page architecture to avoid clutter:
-  - `login.html` - role-based sign-in
-  - `index.html` - executive dashboard
-  - `activities.html` - manual activity management + Excel import/export
-  - `gantt.html` - Gantt timeline and dependency chain view
-  - `materials.html` - material ownership and supply intelligence
-  - `intelligence.html` - delay, risk, root-cause, and what-if optimization
-  - `anomaly-center.html` - anomaly, baseline, and action workflow
-  - `calendar.html` - calendar view of activities by planned dates
-  - `network.html` - network diagram of activity dependencies
-  - `risk-register.html` - risk register for high-risk activities
-- Role-based experience and control:
-  - Planner: full planning and optimization access
-  - Management: full portfolio visibility and decision controls
-  - Execution: status/root-cause updates only in activity tracking
-- Multi-project lifecycle control:
-  - Create, duplicate template, rename, switch, and delete projects
-  - Each project stores its own activity list and analytics context
-  - Single UI with isolated project datasets for parallel monitoring
-- Full column schema support, including all planning, resource, material, execution, risk, optimization, cost, and audit fields.
-- Mandatory import validation for core columns:
-  - Activity ID
-  - Phase
-  - Activity Name
-  - Sub Activity
-  - Base Effort Hours
-  - Required Materials
-  - Required Tools
-  - Material Ownership
-  - Material Lead Time
-  - Dependencies
-- Python backend with persistent storage:
-  - Data stored in SQLite (`atlas_data.db`)
-  - Runs fully in Codespace (no local Python required)
-  - Falls back to `localStorage` when backend is unavailable
-- Planning productivity features:
-  - Activity templates (save/load reusable activity presets)
-  - Bulk edit (multi-select and update phase, status, priority, etc.)
-  - Activity comments (per-activity notes with author and timestamp)
-  - Saved filter presets (save and reuse search/filter combinations)
-- Advanced intelligence logic in frontend runtime:
-  - Delay detection
-  - Risk scoring and level derivation
-  - Dependency blocking analysis
-  - Critical path approximation
-  - What-if scenario simulation (manpower, lead-time, overtime)
+## Branch: `cursor/tool-execution-c80f`
+
+This branch includes significant UI/UX enhancements, Gantt chart fixes, Calendar feature improvements, Activity Master refinements, and storage/backend updates. See [Changes on This Branch](#changes-on-this-branch) for details.
+
+---
+
+## Tech Stack
+
+| Layer    | Technology                                      |
+|----------|--------------------------------------------------|
+| Frontend | HTML, CSS, Vanilla JavaScript (ES6 modules)      |
+| Backend  | Python Flask, SQLite                            |
+| Charts   | Chart.js                                        |
+| Import   | SheetJS (xlsx)                                  |
+| PWA      | Service Worker, IndexedDB fallback               |
+| Testing  | Playwright (Chromium)                           |
+
+---
+
+## Project Structure
+
+```
+├── app.py              # Flask backend, REST API, SQLite storage
+├── start.sh             # Codespace startup script
+├── requirements.txt     # Python: Flask, flask-cors
+├── package.json        # Node: Playwright for browser tests
+├── sw.js               # Service Worker for offline caching
+├── index.html          # Executive Dashboard
+├── login.html          # Role-based login
+├── activities.html     # Activity Master (CRUD, import/export)
+├── gantt.html          # Gantt Chart & Dependencies
+├── calendar.html       # Calendar view
+├── network.html        # Dependency network
+├── materials.html      # Material intelligence
+├── intelligence.html   # Delay, risk, what-if optimization
+├── risk-register.html  # Risk register
+├── anomaly-center.html # Anomalies, baselines, actions
+├── css/
+│   └── styles.css     # Global styles, theme variables
+├── js/
+│   ├── common.js      # Utils, modals, toasts, escapeHtml
+│   ├── storage.js     # State, API/localStorage, CRUD
+│   ├── auth.js        # Login, roles, permissions
+│   ├── schema.js      # Activity columns, sanitization
+│   ├── analytics.js   # Metrics, risk, critical path
+│   ├── activities.js  # Activity Master logic
+│   ├── gantt.js       # Gantt chart, drag/resize
+│   ├── calendar.js    # Calendar, drag, quick-add
+│   ├── dashboard.js   # KPIs, charts
+│   ├── materials.js   # Material health, charts
+│   ├── intelligence.js # Root cause, simulation
+│   ├── anomaly-center.js
+│   ├── risk-register.js
+│   ├── network.js
+│   ├── undo.js        # Undo/redo stack
+│   ├── audit.js       # Change history
+│   └── ...
+└── tests/             # Playwright browser tests
+```
+
+---
 
 ## Run
 
-### In Codespace (recommended)
-
-No local Python installation needed. Everything runs in Codespace:
+### With Python Backend (recommended)
 
 ```bash
 ./start.sh
 ```
 
-Or manually:
+Or:
 
 ```bash
 pip install -r requirements.txt
 python app.py
 ```
 
-Then open the **forwarded port URL** (e.g. `https://your-codespace-5000.app.github.dev`) from the Ports panel. That URL serves the **full ATLAS app**: login, dashboard, Activity Master, Gantt, Materials, Intelligence, and Anomaly Center. Data is stored in SQLite.
+Open the forwarded port URL (e.g. `https://your-codespace-5000.app.github.dev`). Data is stored in SQLite (`atlas_data.db`).
 
 ### Static-only (no backend)
-
-If you prefer not to use the backend, serve static files:
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Then open `http://localhost:8080/`. Data will be stored in `localStorage` (browser-only).
+Open `http://localhost:8080/`. Data uses `localStorage` and IndexedDB fallback.
 
-**Quick access:** Use the "Quick Demo (Planner)" button on the login page, or add `?dev=1` to any app URL to auto-login as planner.
+### Quick Demo
 
-## Demo Login Credentials
+Use **Quick Demo (Planner)** on the login page, or add `?dev=1` to any URL to auto-login as planner.
 
-- Planner: `planner` / `planner123`
-- Management: `management` / `management123`
-- Execution: `technician` / `technician123`
+---
 
-## Data Handling
+## Pages and Features
 
-- Activity records are editable directly in the data grid.
-- Insert new activity rows above/below existing rows to place activities in the middle.
-- Excel import merges by `Activity ID` (or replaces all records if selected).
-- Export is available as CSV, JSON, Excel, and PDF.
-- Column visibility can be toggled without losing editability of fields.
-- Global search (Ctrl+Shift+K), audit trail, onboarding tour, chart export, and theme toggle.
+### Login (`login.html`)
+- Role-based sign-in (Planner, Management, Technician)
+- Demo credentials and Quick Demo
+- Session with optional "Remember me"
+
+### Executive Dashboard (`index.html`)
+- **KPIs:** Total activities, delayed, high-risk, completion, cost variance
+- **Charts:** Phase completion, risk distribution
+- **Critical path** and dependency chain
+- **Blocked activities** list
+- **Priority risks** table
+- **Alert Center**
+- Role-specific views
+- Snapshot date and time range filters
+
+### Activity Master (`activities.html`)
+- Full activity CRUD in data grid
+- **Sticky columns:** Activity ID and Activity Name stay visible while scrolling
+- **Search:** Activity ID, name, phase, comments
+- **Pagination:** Configurable page size (10/25/50/100)
+- **Bulk actions:** Multi-select, bulk status edit, bulk delete
+- **Import:** Excel (merge by ID or replace), JSON
+- **Export:** CSV, Excel, JSON, PDF (via Print)
+- **Templates:** Save/load activity presets
+- **Comments:** Per-activity notes
+- **Saved filter presets**
+- **Column visibility** toggle
+- **Undo/Redo** (Ctrl+Z / Ctrl+Y)
+
+### Gantt Chart (`gantt.html`)
+- **Timeline view** with daily date ticks (Day Month format)
+- **Drag bars** to move activities between dates
+- **Resize handle** on right edge to adjust end date
+- **Snap-to-day:** Bars snap to day boundaries during drag/resize
+- **Critical path** highlight
+- **Delayed** activities highlighted in red
+- **Today marker** (vertical red line)
+- Phase/Status filters, sort modes (start, risk, delay, completion)
+- Zoom (day/week/month), Reset Timeline, Go to Today
+- **Dependency lines** (SVG) between bars
+- **Dependency Risk Register** table below
+
+### Calendar (`calendar.html`)
+- **Month view** of activities by planned dates
+- **Today column** highlight
+- **Activity count badge** per day
+- **Drag to reschedule:** Drag activity to a different day
+- **Quick-add:** Double-click empty day to add activity
+- **Keyboard navigation:** Arrow keys between activities, Escape to clear
+- **Density toggle:** Compact / Normal / Expanded
+- **Detail panel:** Right-side details when an activity is selected
+- **Status colors:** Completed (green), Delayed (red), In Progress (yellow), Not Started (gray)
+
+### Network Diagram (`network.html`)
+- List of activities and their dependencies
+- Links to Activity Master
+- Blocked activities highlighted
+
+### Materials (`materials.html`)
+- KPIs: Ownership counts, pending critical, late materials, avg lead time
+- Pie/bar charts
+- Filterable table
+- CSV export
+
+### Intelligence (`intelligence.html`)
+- Risk KPIs (critical, high, medium, low)
+- Root cause capture for delayed activities
+- Blocked activities list
+- Delay/Risk table with actions
+- **What-if simulation:** Manpower boost, lead-time reduction, overtime
+- Scenario presets and impact table
+
+### Risk Register (`risk-register.html`)
+- High-risk activities (score ≥ 40 or High/Critical)
+- Filter by risk level
+- Inline mitigation notes
+
+### Anomaly Center (`anomaly-center.html`)
+- **Anomalies:** Data-quality and logic checks (cycles, missing deps, etc.)
+- **Baselines:** Create, compare, variance export
+- **Actions:** Create, assign, track corrective actions
+
+---
+
+## Roles and Permissions
+
+| Role        | Capabilities                                                                 |
+|-------------|-------------------------------------------------------------------------------|
+| **Planner** | Full access: projects, activities, import/export, optimization, baselines     |
+| **Management** | Same as Planner                                                           |
+| **Technician** | Activities, execution fields only (status, completion, dates, remarks)   |
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut      | Action                         |
+|---------------|--------------------------------|
+| Ctrl+K        | Focus search (Activity Master) |
+| Ctrl+Shift+K  | Global cross-page search       |
+| Ctrl+N        | Add activity                   |
+| Ctrl+E        | Export CSV                     |
+| Ctrl+Z        | Undo                           |
+| Ctrl+Y        | Redo                           |
+| Ctrl+/        | Show shortcuts help            |
+| Escape        | Close modal / cancel           |
+
+---
+
+## API Endpoints
+
+| Method | Endpoint        | Description                    |
+|--------|-----------------|--------------------------------|
+| GET    | /api/health     | Health check                   |
+| GET    | /api/state      | Full application state         |
+| PUT    | /api/state      | Save state                     |
+| POST   | /api/auth/login | Login                          |
+| GET    | /api/auth/me    | Current user (Bearer token)    |
+| POST   | /api/auth/logout| Logout                         |
+| GET    | /api/backup     | Download SQLite backup         |
+| POST   | /api/restore    | Restore from .db backup        |
+
+---
+
+## Mandatory Import Columns
+
+Excel/CSV import requires:
+
+- Activity ID, Phase, Activity Name, Sub Activity  
+- Base Effort Hours, Required Materials, Required Tools  
+- Material Ownership, Material Lead Time, Dependencies  
+
+---
+
+## Demo Credentials
+
+| Role        | Username    | Password     |
+|-------------|-------------|--------------|
+| Planner     | planner     | planner123   |
+| Management  | management  | management123|
+| Technician  | technician  | technician123|
+
+---
+
+## Testing
+
+```bash
+npm install
+npm run test:browser
+```
+
+Uses Playwright to run login, add-activity, storage, and diagnostic tests.
+
+---
+
+## Changes on This Branch
+
+### Gantt Chart
+- **Bar position:** Uses planned dates only so bars stay where moved
+- **Drag/resize:** Snap to day boundaries
+- **Date parsing:** Local date handling to avoid timezone shifts
+- **Date serialization:** Uses local date parts for correct save
+
+### Calendar
+- Today column highlight
+- Activity count badge per day
+- Drag to reschedule activities
+- Quick-add on double-click empty day
+- Keyboard navigation (arrows, Escape)
+- Density toggle (compact/expanded)
+- Right-side activity detail panel
+- Status colors (completed, delayed, in progress)
+
+### Activity Master
+- Sticky Activity Name column
+- Search includes comments
+- Pagination with page size selector
+- Last-saved indicator with save status
+
+### Storage
+- Retry logic for backend saves (3 attempts)
+- Save status events (saving / saved / error)
+- Reduced toast noise on normal saves
+
+### Backend
+- `datetime.utcnow()` replaced with `datetime.now(timezone.utc)` for Python 3.12 compatibility
+
+### Schema
+- `activityName` column order adjusted after `activityId`
+
+---
+
+## License & Repository
+
+Repository: **TOOL-X**  
+Branch: **cursor/tool-execution-c80f**

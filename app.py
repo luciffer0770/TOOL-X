@@ -7,7 +7,7 @@ import json
 import os
 import secrets
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_file, send_from_directory
@@ -67,7 +67,7 @@ def init_db():
         for username, password, display_name, role in DEFAULT_USERS:
             conn.execute(
                 "INSERT INTO atlas_users (username, password_hash, display_name, role, created_at) VALUES (?, ?, ?, ?, ?)",
-                (username.lower(), generate_password_hash(password), display_name, role, datetime.utcnow().isoformat()),
+                (username.lower(), generate_password_hash(password), display_name, role, datetime.now(timezone.utc).isoformat()),
             )
     conn.commit()
     conn.close()
@@ -91,7 +91,7 @@ def save_state(state):
         conn = get_conn()
         conn.execute(
             "INSERT OR REPLACE INTO atlas_state (key, value, updated_at) VALUES (?, ?, ?)",
-            ("industrial_planning_intelligence_state_v1", json.dumps(state), datetime.utcnow().isoformat()),
+            ("industrial_planning_intelligence_state_v1", json.dumps(state), datetime.now(timezone.utc).isoformat()),
         )
         conn.commit()
         conn.close()
@@ -168,12 +168,12 @@ def auth_login():
             return jsonify({"ok": False, "error": "Invalid credentials"}), 401
         token = secrets.token_urlsafe(32)
         expires_hours = 24 * 30 if remember else 8
-        expires_at = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         from datetime import timedelta
-        expires_at = (expires_at + timedelta(hours=expires_hours)).isoformat()
+        expires_at = (now + timedelta(hours=expires_hours)).isoformat()
         conn.execute(
             "INSERT INTO atlas_sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-            (token, user_id, expires_at, datetime.utcnow().isoformat()),
+            (token, user_id, expires_at, now.isoformat()),
         )
         conn.commit()
         conn.close()

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gantt & Dependencies | ATLAS</title>
-    <link rel="stylesheet" href="./css/styles.css?v=atlas20260222" />
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260309" />
   </head>
   <body>
     <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
@@ -121,8 +121,10 @@
           </details>
         </div>
         <div class="panel-body">
-          <div class="gantt-container">
-            <div id="gantt-grid" class="gantt-grid"></div>
+          <div class="gantt-chart-wrapper" role="region" aria-label="Gantt chart timeline">
+            <div class="gantt-container" id="gantt-container">
+              <div id="gantt-grid" class="gantt-grid"></div>
+            </div>
           </div>
         </div>
       </section>
@@ -153,6 +155,6 @@
       </section>
     </div>
 
-    <script type="module" src="./js/gantt.js?v=atlas20260222"></script>
+    <script type="module" src="./js/gantt.js?v=atlas20260310"></script>
   </body>
 </html>

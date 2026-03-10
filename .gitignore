@@ -1,4 +1,5 @@
 node_modules/
+__pycache__/
 browser-test-results/*.png
 browser-test-results/page-debug.html
 *.log

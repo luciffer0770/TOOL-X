@@ -22,13 +22,17 @@ function searchActivities(query) {
   const q = String(query || "").trim().toLowerCase();
   if (!q) return [];
   const activities = getActivities();
-  return activities.filter((activity) =>
-    COLUMN_SCHEMA.some((col) => {
+  return activities.filter((activity) => {
+    const inSchema = COLUMN_SCHEMA.some((col) => {
       if (!SEARCHABLE_KEYS.has(col.key)) return false;
       const val = String(activity[col.key] ?? "").toLowerCase();
       return val.includes(q);
-    }),
-  );
+    });
+    if (inSchema) return true;
+    const comments = activity.comments || [];
+    const inComments = comments.some((c) => String(c.text || "").toLowerCase().includes(q));
+    return inComments;
+  });
 }
 
 function buildSearchResultsHtml(results, query) {

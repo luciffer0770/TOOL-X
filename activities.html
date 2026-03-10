@@ -246,28 +246,43 @@
         <div class="panel-body">
           <div class="form-grid" style="margin-bottom: 12px">
             <label class="field"
-              >Search
-              <input id="search-input" type="search" placeholder="Search by ID, phase, name, materials..." title="Ctrl+K to focus" />
+              >              Search
+              <input id="search-input" type="search" placeholder="Search by ID, phase, name, materials, comments..." title="Ctrl+K to focus" aria-label="Search activities by ID, phase, name, materials, or comments" />
             </label>
             <label class="field"
               >Status Filter
-              <select id="status-filter">
+              <select id="status-filter" aria-label="Filter by activity status">
                 <option value="">All</option>
               </select>
             </label>
             <label class="field"
               >Phase Filter
-              <select id="phase-filter">
+              <select id="phase-filter" aria-label="Filter by phase">
                 <option value="">All</option>
               </select>
             </label>
             <label class="field">
               Filter Presets
-              <select id="filter-presets">
+              <select id="filter-presets" aria-label="Load saved filter preset">
                 <option value="">-- Load preset --</option>
               </select>
             </label>
+            <label class="field">
+              Page size
+              <select id="page-size-select" aria-label="Activities per page">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="250">250</option>
+                <option value="9999">All</option>
+              </select>
+            </label>
             <button id="save-filter-btn" class="ghost" type="button">Save Current Filters</button>
+          </div>
+          <div id="pagination-controls" class="pagination-controls" hidden>
+            <button id="page-prev-btn" class="ghost" type="button" aria-label="Previous page">← Prev</button>
+            <span id="pagination-info" class="small"></span>
+            <button id="page-next-btn" class="ghost" type="button" aria-label="Next page">Next →</button>
           </div>
           <div class="row-actions bulk-actions" id="bulk-actions" style="margin-bottom: 12px" hidden>
             <span id="bulk-selection-count" class="small"></span>

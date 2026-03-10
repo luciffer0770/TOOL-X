@@ -2,8 +2,8 @@ const nowIsoDate = () => new Date().toISOString().slice(0, 10);
 
 export const COLUMN_SCHEMA = [
   { key: "activityId", label: "Activity ID", type: "text", requiredImport: true },
-  { key: "phase", label: "Phase", type: "text", requiredImport: true },
   { key: "activityName", label: "Activity Name", type: "text", requiredImport: true },
+  { key: "phase", label: "Phase", type: "text", requiredImport: true },
   { key: "subActivity", label: "Sub Activity", type: "text", requiredImport: true },
   { key: "baseEffortHours", label: "Base Effort Hours", type: "number", requiredImport: true },
   { key: "requiredMaterials", label: "Required Materials", type: "text", requiredImport: true },
