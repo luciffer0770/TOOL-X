@@ -18,7 +18,7 @@ from flask import Flask, jsonify, redirect, render_template, request, send_file,
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from planner import get_state, save_state, get_active_project, get_activities, add_activity, delete_activity
+from planner import get_state, save_state, get_active_project, get_activities, add_activity, update_activity, delete_activity
 
 BASE_DIR = Path(__file__).resolve().parent
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
@@ -215,6 +215,29 @@ def activity_add():
         add_activity(data)
     except Exception:
         pass
+    return redirect(url_for("activities"))
+
+
+@app.route("/activities/<activity_id>/edit", methods=["GET"])
+@require_auth
+def activity_edit_page(activity_id):
+    activities_list = get_activities()
+    activity = next((a for a in activities_list if a.get("activityId") == activity_id), None)
+    if not activity:
+        return redirect(url_for("activities"))
+    user = get_current_user()
+    return render_template("activity_edit.html", user=user, activity=activity)
+
+
+@app.route("/activities/<activity_id>/edit", methods=["POST"])
+@require_auth
+def activity_edit_post(activity_id):
+    data = {}
+    for key in ("phase", "activityName", "subActivity", "plannedStartDate", "plannedEndDate",
+                "baseEffortHours", "requiredMaterials", "requiredTools", "priority", "activityStatus",
+                "completionPercentage", "riskLevel", "materialStatus", "remarks"):
+        data[key] = request.form.get(key, "")
+    update_activity(activity_id, data)
     return redirect(url_for("activities"))
 
 

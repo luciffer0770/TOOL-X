@@ -26,7 +26,7 @@ This branch implements a **100% Python backend** with server-rendered pages (Jin
 ## Last Agent Update
 
 - **Date:** 2026-03-16
-- **Scope:** Full README rewrite, planner config fix, complete tool documentation
+- **Scope:** Activity Edit Form — Add edit page, Edit button in list, activity_edit.html template
 
 ---
 
@@ -63,7 +63,8 @@ This branch implements a **100% Python backend** with server-rendered pages (Jin
 │   ├── base.html             # Base layout, nav
 │   ├── login.html            # Sign-in (form POST to Python)
 │   ├── dashboard.html        # Executive dashboard
-│   └── activities.html      # Activity Master (add/delete)
+│   ├── activities.html       # Activity Master (add/edit/delete)
+│   └── activity_edit.html    # Edit activity form
 │
 ├── css/
 │   └── styles.css            # Global styles
@@ -120,6 +121,8 @@ Open `http://localhost:5000` (or your port). Data is stored in `atlas_data.db`.
 | GET | `/logout` | Clear session, redirect to login |
 | GET | `/activities` | Activity list (requires auth) |
 | POST | `/activities/add` | Add activity (form POST) |
+| GET | `/activities/<id>/edit` | Edit activity form |
+| POST | `/activities/<id>/edit` | Save activity edits |
 | POST | `/activities/<id>/delete` | Delete activity |
 
 ### REST API

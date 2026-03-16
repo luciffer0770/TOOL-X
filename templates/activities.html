@@ -69,6 +69,7 @@
           <td style="padding:8px">{{ a.priority or '-' }}</td>
           <td style="text-align:right;padding:8px">{{ a.baseEffortHours|default(0) }}</td>
           <td style="padding:8px">
+            <a href="{{ url_for('activity_edit_get', activity_id=a.activityId) }}" class="ghost" style="margin-right:8px">Edit</a>
             <form method="post" action="{{ url_for('activity_delete', activity_id=a.activityId) }}" style="display:inline">
               <button type="submit" class="ghost" style="color:#dc2626">Delete</button>
             </form>

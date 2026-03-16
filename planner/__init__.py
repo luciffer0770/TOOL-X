@@ -7,6 +7,7 @@ from .storage import (
     get_activities,
     save_activities,
     add_activity,
+    update_activity,
     delete_activity,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "get_activities",
     "save_activities",
     "add_activity",
+    "update_activity",
     "delete_activity",
 ]
