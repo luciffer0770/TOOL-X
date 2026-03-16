@@ -270,7 +270,7 @@ def api_auth_login():
         conn.close()
         if not row:
             return jsonify({"ok": False, "error": "Invalid credentials"}), 401
-        _, pw_hash, display_name, role = row
+        user_id, pw_hash, display_name, role = row
         if not check_password_hash(pw_hash, password):
             return jsonify({"ok": False, "error": "Invalid credentials"}), 401
         token = secrets.token_urlsafe(32)
@@ -281,7 +281,7 @@ def api_auth_login():
         conn = get_conn()
         conn.execute(
             "INSERT INTO atlas_sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-            (token, row[0], expires_at, now.isoformat()),
+            (token, user_id, expires_at, now.isoformat()),
         )
         conn.commit()
         conn.close()
@@ -295,12 +295,89 @@ def api_auth_login():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+def verify_token(token):
+    """Validate Bearer token and return user dict or None."""
+    if not token or not isinstance(token, str):
+        return None
+    if token.startswith("Bearer "):
+        token = token[7:]
+    try:
+        conn = get_conn()
+        row = conn.execute(
+            "SELECT u.id, u.username, u.display_name, u.role FROM atlas_users u "
+            "JOIN atlas_sessions s ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')",
+            (token,),
+        ).fetchone()
+        conn.close()
+        return {"id": row[0], "username": row[1], "displayName": row[2], "role": row[3]} if row else None
+    except Exception:
+        return None
+
+
+@app.route("/api/auth/me", methods=["GET", "POST"])
+def api_auth_me():
+    token = request.headers.get("Authorization") or request.args.get("token") or (request.get_json(silent=True) or {}).get("token")
+    user = verify_token(token)
+    if not user:
+        return jsonify({"ok": False}), 401
+    return jsonify({"ok": True, "user": user})
+
+
+@app.route("/api/auth/logout", methods=["POST"])
+def api_auth_logout():
+    token = request.headers.get("Authorization") or (request.get_json(silent=True) or {}).get("token")
+    if token and isinstance(token, str):
+        if token.startswith("Bearer "):
+            token = token[7:]
+        try:
+            conn = get_conn()
+            conn.execute("DELETE FROM atlas_sessions WHERE token = ?", (token,))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+    return jsonify({"ok": True})
+
+
 @app.route("/api/backup")
 def backup():
     try:
         return send_file(DB_PATH, as_attachment=True, download_name="atlas_backup.db")
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/restore", methods=["POST"])
+def api_restore():
+    if "file" not in request.files:
+        return jsonify({"ok": False, "error": "No file uploaded"}), 400
+    f = request.files["file"]
+    if not f.filename or not f.filename.endswith(".db"):
+        return jsonify({"ok": False, "error": "Invalid file. Use .db backup"}), 400
+    import shutil
+    backup_path = BASE_DIR / "atlas_data_restore_temp.db"
+    try:
+        f.save(str(backup_path))
+        conn = sqlite3.connect(str(backup_path))
+        row = conn.execute("SELECT value FROM atlas_state WHERE key = ?", ("industrial_planning_intelligence_state_v1",)).fetchone()
+        conn.close()
+        if not row:
+            backup_path.unlink(missing_ok=True)
+            return jsonify({"ok": False, "error": "Invalid backup file"}), 400
+        shutil.copy(str(backup_path), str(DB_PATH))
+        backup_path.unlink(missing_ok=True)
+        return jsonify({"ok": True})
+    except Exception as e:
+        backup_path.unlink(missing_ok=True)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# --- Redirect legacy index.html to dashboard ---
+@app.route("/index.html")
+def index_html_redirect():
+    if get_current_user():
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("login_page"))
 
 
 # --- Static files (HTML, JS for other pages) ---

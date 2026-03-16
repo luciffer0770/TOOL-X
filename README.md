@@ -4,64 +4,72 @@
 
 ---
 
-## Branch: `cursor/tool-execution-c80f`
+## Branch: `cursor/tool-python-consistency-db55`
 
-This branch includes significant UI/UX enhancements, Gantt chart fixes, Calendar feature improvements, Activity Master refinements, and storage/backend updates. See [Changes on This Branch](#changes-on-this-branch) for details.
+**Base:** `planner-python`
+
+This branch implements a **100% Python backend** with server-rendered pages (Jinja2), planner module integration, and REST API. All core logic runs in Python.
+
+---
+
+## Agent Update Instructions
+
+**IMPORTANT:** When making any changes to this codebase through an agent:
+
+1. Update this README to reflect the changes
+2. Update the "Last Agent Update" timestamp below
+3. Add a brief entry to the "Changelog" section
+4. Ensure all file paths, routes, and APIs documented here match the code
+
+---
+
+## Last Agent Update
+
+- **Date:** 2026-03-16
+- **Scope:** Full README rewrite, planner config fix, complete tool documentation
 
 ---
 
 ## Tech Stack
 
-| Layer    | Technology                                      |
-|----------|--------------------------------------------------|
-| Frontend | HTML, CSS, Vanilla JavaScript (ES6 modules)      |
-| Backend  | Python Flask, SQLite                            |
-| Charts   | Chart.js                                        |
-| Import   | SheetJS (xlsx)                                  |
-| PWA      | Service Worker, IndexedDB fallback               |
-| Testing  | Playwright (Chromium)                           |
+| Layer | Technology |
+|-------|-------------|
+| Backend | Python 3.10+, Flask 3.x |
+| Templates | Jinja2 (server-rendered) |
+| Database | SQLite (`atlas_data.db`) |
+| Auth | Flask sessions (server) + Bearer tokens (API) |
+| Static Pages | HTML, CSS, Vanilla JS (Gantt, Calendar, etc.) |
+| Charts | Chart.js |
+| Import | SheetJS (xlsx) |
 
 ---
 
 ## Project Structure
 
 ```
-├── app.py              # Flask backend, REST API, SQLite storage
-├── start.sh             # Codespace startup script
-├── requirements.txt     # Python: Flask, flask-cors
-├── package.json        # Node: Playwright for browser tests
-├── sw.js               # Service Worker for offline caching
-├── index.html          # Executive Dashboard
-├── login.html          # Role-based login
-├── activities.html     # Activity Master (CRUD, import/export)
-├── gantt.html          # Gantt Chart & Dependencies
-├── calendar.html       # Calendar view
-├── network.html        # Dependency network
-├── materials.html      # Material intelligence
-├── intelligence.html   # Delay, risk, what-if optimization
-├── risk-register.html  # Risk register
-├── anomaly-center.html # Anomalies, baselines, actions
+/workspace/
+├── app.py                    # Main Flask app – routes, auth, API
+├── requirements.txt          # Flask, flask-cors
+├── start.sh                  # Startup script
+├── atlas_data.db             # SQLite database (created on first run)
+│
+├── planner/                  # Python-only planner module
+│   ├── __init__.py           # Package exports
+│   ├── schema.py             # Activity schema, sanitization, COLUMN_SCHEMA
+│   ├── config.py             # DB path config (uses ATLAS_DB_PATH)
+│   └── storage.py            # SQLite state, projects, activities, baselines, actions
+│
+├── templates/                # Jinja2 server-rendered pages
+│   ├── base.html             # Base layout, nav
+│   ├── login.html            # Sign-in (form POST to Python)
+│   ├── dashboard.html        # Executive dashboard
+│   └── activities.html      # Activity Master (add/delete)
+│
 ├── css/
-│   └── styles.css     # Global styles, theme variables
-├── js/
-│   ├── common.js      # Utils, modals, toasts, escapeHtml
-│   ├── storage.js     # State, API/localStorage, CRUD
-│   ├── auth.js        # Login, roles, permissions
-│   ├── schema.js      # Activity columns, sanitization
-│   ├── analytics.js   # Metrics, risk, critical path
-│   ├── activities.js  # Activity Master logic
-│   ├── gantt.js       # Gantt chart, drag/resize
-│   ├── calendar.js    # Calendar, drag, quick-add
-│   ├── dashboard.js   # KPIs, charts
-│   ├── materials.js   # Material health, charts
-│   ├── intelligence.js # Root cause, simulation
-│   ├── anomaly-center.js
-│   ├── risk-register.js
-│   ├── network.js
-│   ├── undo.js        # Undo/redo stack
-│   ├── audit.js       # Change history
-│   └── ...
-└── tests/             # Playwright browser tests
+│   └── styles.css            # Global styles
+├── js/                       # Client-side scripts (for static HTML pages)
+├── *.html                    # Static HTML (gantt, calendar, etc.)
+└── tests/                    # Playwright browser tests
 ```
 
 ---
@@ -71,175 +79,128 @@ This branch includes significant UI/UX enhancements, Gantt chart fixes, Calendar
 ### With Python Backend (recommended)
 
 ```bash
+pip install -r requirements.txt
+python3 app.py
+```
+
+Or use a custom port:
+
+```bash
+PORT=5002 python3 app.py
+```
+
+Or use the startup script:
+
+```bash
 ./start.sh
 ```
 
-Or:
+Open `http://localhost:5000` (or your port). Data is stored in `atlas_data.db`.
 
-```bash
-pip install -r requirements.txt
-python app.py
-```
+### Environment Variables
 
-Open the forwarded port URL (e.g. `https://your-codespace-5000.app.github.dev`). Data is stored in SQLite (`atlas_data.db`).
-
-### Static-only (no backend)
-
-```bash
-python3 -m http.server 8080
-```
-
-Open `http://localhost:8080/`. Data uses `localStorage` and IndexedDB fallback.
-
-### Quick Demo
-
-Use **Quick Demo (Planner)** on the login page, or add `?dev=1` to any URL to auto-login as planner.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 5000 | Server port |
+| `ATLAS_DB_PATH` | `./atlas_data.db` | SQLite database path |
+| `ATLAS_SECRET_KEY` | Random hex | Flask session secret |
 
 ---
 
-## Pages and Features
+## Routes
 
-### Login (`login.html`)
-- Role-based sign-in (Planner, Management, Technician)
-- Demo credentials and Quick Demo
-- Session with optional "Remember me"
+### Python-Rendered (Server-Side)
 
-### Executive Dashboard (`index.html`)
-- **KPIs:** Total activities, delayed, high-risk, completion, cost variance
-- **Charts:** Phase completion, risk distribution
-- **Critical path** and dependency chain
-- **Blocked activities** list
-- **Priority risks** table
-- **Alert Center**
-- Role-specific views
-- Snapshot date and time range filters
+| Method | Route | Description |
+|-------|-------|-------------|
+| GET | `/` | Dashboard (requires auth) |
+| GET | `/dashboard` | Same as `/` |
+| GET | `/login` | Login page; `?demo=planner` quick-logs in |
+| POST | `/login` | Process login form |
+| GET | `/logout` | Clear session, redirect to login |
+| GET | `/activities` | Activity list (requires auth) |
+| POST | `/activities/add` | Add activity (form POST) |
+| POST | `/activities/<id>/delete` | Delete activity |
 
-### Activity Master (`activities.html`)
-- Full activity CRUD in data grid
-- **Sticky columns:** Activity ID and Activity Name stay visible while scrolling
-- **Search:** Activity ID, name, phase, comments
-- **Pagination:** Configurable page size (10/25/50/100)
-- **Bulk actions:** Multi-select, bulk status edit, bulk delete
-- **Import:** Excel (merge by ID or replace), JSON
-- **Export:** CSV, Excel, JSON, PDF (via Print)
-- **Templates:** Save/load activity presets
-- **Comments:** Per-activity notes
-- **Saved filter presets**
-- **Column visibility** toggle
-- **Undo/Redo** (Ctrl+Z / Ctrl+Y)
+### REST API
 
-### Gantt Chart (`gantt.html`)
-- **Timeline view** with daily date ticks (Day Month format)
-- **Drag bars** to move activities between dates
-- **Resize handle** on right edge to adjust end date
-- **Snap-to-day:** Bars snap to day boundaries during drag/resize
-- **Critical path** highlight
-- **Delayed** activities highlighted in red
-- **Today marker** (vertical red line)
-- Phase/Status filters, sort modes (start, risk, delay, completion)
-- Zoom (day/week/month), Reset Timeline, Go to Today
-- **Dependency lines** (SVG) between bars
-- **Dependency Risk Register** table below
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api` | API info |
+| GET | `/api/health` | Health check |
+| GET | `/api/state` | Full application state (JSON) |
+| PUT/POST | `/api/state` | Save state (JSON body) |
+| POST | `/api/auth/login` | Login (JSON: username, password, rememberMe) |
+| GET/POST | `/api/auth/me` | Current user (Bearer token) |
+| POST | `/api/auth/logout` | Logout (Bearer token) |
+| GET | `/api/backup` | Download SQLite backup |
+| POST | `/api/restore` | Restore from .db backup |
 
-### Calendar (`calendar.html`)
-- **Month view** of activities by planned dates
-- **Today column** highlight
-- **Activity count badge** per day
-- **Drag to reschedule:** Drag activity to a different day
-- **Quick-add:** Double-click empty day to add activity
-- **Keyboard navigation:** Arrow keys between activities, Escape to clear
-- **Density toggle:** Compact / Normal / Expanded
-- **Detail panel:** Right-side details when an activity is selected
-- **Status colors:** Completed (green), Delayed (red), In Progress (yellow), Not Started (gray)
+### Static Files
 
-### Network Diagram (`network.html`)
-- List of activities and their dependencies
-- Links to Activity Master
-- Blocked activities highlighted
-
-### Materials (`materials.html`)
-- KPIs: Ownership counts, pending critical, late materials, avg lead time
-- Pie/bar charts
-- Filterable table
-- CSV export
-
-### Intelligence (`intelligence.html`)
-- Risk KPIs (critical, high, medium, low)
-- Root cause capture for delayed activities
-- Blocked activities list
-- Delay/Risk table with actions
-- **What-if simulation:** Manpower boost, lead-time reduction, overtime
-- Scenario presets and impact table
-
-### Risk Register (`risk-register.html`)
-- High-risk activities (score ≥ 40 or High/Critical)
-- Filter by risk level
-- Inline mitigation notes
-
-### Anomaly Center (`anomaly-center.html`)
-- **Anomalies:** Data-quality and logic checks (cycles, missing deps, etc.)
-- **Baselines:** Create, compare, variance export
-- **Actions:** Create, assign, track corrective actions
+| Route | Description |
+|-------|-------------|
+| `/css/styles.css` | Global CSS |
+| `/gantt` | Gantt chart (static HTML) |
+| `/calendar` | Calendar (static HTML) |
+| `/network` | Network diagram |
+| `/materials` | Material intelligence |
+| `/intelligence` | Delay, risk, optimization |
+| `/risk-register` | Risk register |
+| `/anomaly-center` | Anomalies, baselines, actions |
 
 ---
 
-## Roles and Permissions
+## Planner Module (Python)
 
-| Role        | Capabilities                                                                 |
-|-------------|-------------------------------------------------------------------------------|
-| **Planner** | Full access: projects, activities, import/export, optimization, baselines     |
-| **Management** | Same as Planner                                                           |
-| **Technician** | Activities, execution fields only (status, completion, dates, remarks)   |
+### Exports (`from planner import ...`)
 
----
+- `get_state()` – Full state dict (projects, activeProjectId, settings)
+- `save_state(state)` – Persist state
+- `get_active_project()` – Active project dict
+- `get_activities()` – Activities for active project
+- `save_activities(activities)` – Save activities
+- `add_activity(activity)` – Add activity to active project
+- `delete_activity(activity_id)` – Delete by activityId
+- `COLUMN_SCHEMA`, `sanitize_activity`, `create_empty_activity`, `generate_activity_id`
 
-## Keyboard Shortcuts
+### Storage
 
-| Shortcut      | Action                         |
-|---------------|--------------------------------|
-| Ctrl+K        | Focus search (Activity Master) |
-| Ctrl+Shift+K  | Global cross-page search       |
-| Ctrl+N        | Add activity                   |
-| Ctrl+E        | Export CSV                     |
-| Ctrl+Z        | Undo                           |
-| Ctrl+Y        | Redo                           |
-| Ctrl+/        | Show shortcuts help            |
-| Escape        | Close modal / cancel           |
-
----
-
-## API Endpoints
-
-| Method | Endpoint        | Description                    |
-|--------|-----------------|--------------------------------|
-| GET    | /api/health     | Health check                   |
-| GET    | /api/state      | Full application state         |
-| PUT    | /api/state      | Save state                     |
-| POST   | /api/auth/login | Login                          |
-| GET    | /api/auth/me    | Current user (Bearer token)    |
-| POST   | /api/auth/logout| Logout                         |
-| GET    | /api/backup     | Download SQLite backup         |
-| POST   | /api/restore    | Restore from .db backup        |
-
----
-
-## Mandatory Import Columns
-
-Excel/CSV import requires:
-
-- Activity ID, Phase, Activity Name, Sub Activity  
-- Base Effort Hours, Required Materials, Required Tools  
-- Material Ownership, Material Lead Time, Dependencies  
+- Uses `atlas_data.db` (same as app)
+- Table: `atlas_state` (key, value, updated_at)
+- State key: `industrial_planning_intelligence_state_v1`
 
 ---
 
 ## Demo Credentials
 
-| Role        | Username    | Password     |
-|-------------|-------------|--------------|
-| Planner     | planner     | planner123   |
-| Management  | management  | management123|
-| Technician  | technician  | technician123|
+| Role | Username | Password |
+|------|----------|----------|
+| Planner | planner | planner123 |
+| Management | management | management123 |
+| Technician | technician | technician123 |
+
+**Quick Demo:** Open `/login?demo=planner` to auto-login as Planner.
+
+---
+
+## Mandatory Import Columns
+
+Excel/CSV import (when using import features) requires:
+
+- Activity ID, Phase, Activity Name, Sub Activity
+- Base Effort Hours, Required Materials, Required Tools
+- Material Ownership, Material Lead Time, Dependencies
+
+---
+
+## Roles and Permissions
+
+| Role | Capabilities |
+|------|--------------|
+| Planner | Full access: projects, activities, import/export, optimization |
+| Management | Same as Planner |
+| Technician | Activities, execution fields (status, completion, dates, remarks) |
 
 ---
 
@@ -250,48 +211,30 @@ npm install
 npm run test:browser
 ```
 
-Uses Playwright to run login, add-activity, storage, and diagnostic tests.
+Uses Playwright for browser tests.
 
 ---
 
-## Changes on This Branch
+## Changelog
 
-### Gantt Chart
-- **Bar position:** Uses planned dates only so bars stay where moved
-- **Drag/resize:** Snap to day boundaries
-- **Date parsing:** Local date handling to avoid timezone shifts
-- **Date serialization:** Uses local date parts for correct save
+### 2026-03-16
+- README fully rewritten for `cursor/tool-python-consistency-db55`
+- Added planner module integration
+- Server-rendered login, dashboard, activities
+- Jinja2 templates (base, login, dashboard, activities)
+- Planner `config.py` updated to use workspace `atlas_data.db`
+- REST API: `/api/auth/me`, `/api/auth/logout`, `/api/restore`
+- Agent update instructions added
 
-### Calendar
-- Today column highlight
-- Activity count badge per day
-- Drag to reschedule activities
-- Quick-add on double-click empty day
-- Keyboard navigation (arrows, Escape)
-- Density toggle (compact/expanded)
-- Right-side activity detail panel
-- Status colors (completed, delayed, in progress)
-
-### Activity Master
-- Sticky Activity Name column
-- Search includes comments
-- Pagination with page size selector
-- Last-saved indicator with save status
-
-### Storage
-- Retry logic for backend saves (3 attempts)
-- Save status events (saving / saved / error)
-- Reduced toast noise on normal saves
-
-### Backend
-- `datetime.utcnow()` replaced with `datetime.now(timezone.utc)` for Python 3.12 compatibility
-
-### Schema
-- `activityName` column order adjusted after `activityId`
+### Previous (planner-python base)
+- Python backend with Flask
+- Planner module (schema, storage)
+- SQLite persistence
 
 ---
 
-## License & Repository
+## Repository
 
-Repository: **TOOL-X**  
-Branch: **cursor/tool-execution-c80f**
+- **Repo:** TOOL-X
+- **Branch:** `cursor/tool-python-consistency-db55`
+- **Base branch:** `planner-python`
