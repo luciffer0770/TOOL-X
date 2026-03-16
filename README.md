@@ -124,6 +124,9 @@ Open `http://localhost:5000` (or your port). Data is stored in `atlas_data.db`.
 | GET | `/activities/<id>/edit` | Edit activity form |
 | POST | `/activities/<id>/edit` | Save activity edits |
 | POST | `/activities/<id>/delete` | Delete activity |
+| GET | `/activities/<id>/edit` | Edit activity form |
+| POST | `/activities/<id>/edit` | Save activity edits |
+| POST | `/project/switch` | Switch active project (form: project_id) |
 
 ### REST API
 
@@ -221,6 +224,7 @@ Uses Playwright for browser tests.
 ## Changelog
 
 ### 2026-03-16
+- **Project Switcher:** Dropdown in base template, POST /project/switch, context processor injects projects
 - **Flash messages:** Success/error feedback for login, add, edit, delete (Flask flash)
 - **Activity Edit:** Edit page, form, Edit button in activities list
 - README fully rewritten for `cursor/tool-python-consistency-db55`

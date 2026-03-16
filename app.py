@@ -18,7 +18,7 @@ from flask import Flask, flash, jsonify, redirect, render_template, request, sen
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from planner import get_state, save_state, get_active_project, get_activities, add_activity, update_activity, delete_activity
+from planner import get_state, save_state, get_active_project, get_activities, add_activity, update_activity, delete_activity, set_active_project
 
 BASE_DIR = Path(__file__).resolve().parent
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
@@ -101,6 +101,20 @@ except Exception as e:
     print(f"[ATLAS] DB init warning: {e}")
 
 
+@app.context_processor
+def inject_projects():
+    """Inject projects and active_project_id for templates (when logged in)."""
+    if not get_current_user():
+        return {}
+    try:
+        state = get_state()
+        projects = state.get("projects", [])
+        active_id = state.get("activeProjectId", "")
+        return {"projects": projects, "active_project_id": active_id}
+    except Exception:
+        return {"projects": [], "active_project_id": ""}
+
+
 # --- CSS (for templates) ---
 @app.route("/css/styles.css")
 def static_css():
@@ -170,6 +184,15 @@ def login_post():
 def logout():
     session.pop("user", None)
     return redirect(url_for("login_page"))
+
+
+@app.route("/project/switch", methods=["POST"])
+@require_auth
+def project_switch():
+    project_id = (request.form.get("project_id") or "").strip()
+    if project_id and set_active_project(project_id):
+        flash(f"Switched to project {project_id}.", "success")
+    return redirect(request.referrer or url_for("dashboard"))
 
 
 # --- Dashboard (Python-rendered) ---

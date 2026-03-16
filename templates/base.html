@@ -34,6 +34,23 @@
       {% endblock %}
     </header>
 
+    {% block project_toolbar %}
+    {% if projects is defined and projects %}
+    <section class="panel" style="margin:0 0 16px 0">
+      <div class="panel-body project-toolbar" style="display:flex;align-items:center;gap:16px">
+        <form method="post" action="{{ url_for('project_switch') }}" style="display:flex;align-items:center;gap:8px">
+          <label class="field" style="margin:0">Active Project
+            <select name="project_id" onchange="this.form.submit()" style="min-width:180px">
+              {% for p in projects %}
+              <option value="{{ p.id }}" {% if p.id == active_project_id %}selected{% endif %}>{{ p.name }} ({{ p.id }})</option>
+              {% endfor %}
+            </select>
+          </label>
+        </form>
+      </div>
+    </section>
+    {% endif %}
+    {% endblock %}
     <nav class="nav">
       <a href="{{ url_for('dashboard') }}">Executive Dashboard</a>
       <a href="{{ url_for('activities') }}">Activity Master</a>
