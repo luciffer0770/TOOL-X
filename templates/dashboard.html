@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Executive Dashboard{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-body project-toolbar">
+    <label class="field project-select-field">Active Project</label>
+    <div class="row-actions">
+      <strong>{{ project.name }}</strong> ({{ project.id }})
+    </div>
+    <div class="small">{{ activities|length }} activities</div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Portfolio Performance</h2>
+    <span class="panel-subtitle">Live KPIs — Rendered by Python</span>
+  </div>
+  <div class="panel-body">
+    <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px">
+      <div class="card" style="padding:16px;border:1px solid #e5e7eb;border-radius:8px">
+        <div class="small" style="color:#6b7280">Total Activities</div>
+        <div style="font-size:1.5em;font-weight:600">{{ activities|length }}</div>
+      </div>
+      <div class="card" style="padding:16px;border:1px solid #e5e7eb;border-radius:8px">
+        <div class="small" style="color:#6b7280">In Progress</div>
+        <div style="font-size:1.5em;font-weight:600">{{ in_progress }}</div>
+      </div>
+      <div class="card" style="padding:16px;border:1px solid #e5e7eb;border-radius:8px">
+        <div class="small" style="color:#6b7280">Completed</div>
+        <div style="font-size:1.5em;font-weight:600">{{ completed }}</div>
+      </div>
+      <div class="card" style="padding:16px;border:1px solid #e5e7eb;border-radius:8px">
+        <div class="small" style="color:#6b7280">Total Effort (hrs)</div>
+        <div style="font-size:1.5em;font-weight:600">{{ total_effort }}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Recent Activities</h2>
+    <span class="panel-subtitle">Data from Python planner module</span>
+  </div>
+  <div class="panel-body">
+    <table class="table" style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:8px">Activity ID</th>
+          <th style="text-align:left;padding:8px">Activity Name</th>
+          <th style="text-align:left;padding:8px">Phase</th>
+          <th style="text-align:left;padding:8px">Status</th>
+          <th style="text-align:right;padding:8px">Effort (hrs)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in activities[:10] %}
+        <tr>
+          <td style="padding:8px">{{ a.activityId or '-' }}</td>
+          <td style="padding:8px">{{ a.activityName or '-' }}</td>
+          <td style="padding:8px">{{ a.phase or '-' }}</td>
+          <td style="padding:8px">{{ a.activityStatus or '-' }}</td>
+          <td style="text-align:right;padding:8px">{{ a.baseEffortHours|default(0) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="padding:16px;color:#6b7280">No activities yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

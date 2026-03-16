@@ -1,31 +1,31 @@
 """
-ATLAS - Python Backend
-Serves the full frontend (HTML, CSS, JS) and provides a REST API for persistent data storage (SQLite).
-Run in Codespace: pip install -r requirements.txt && python3 app.py
+ATLAS - 100% Python Backend
+Server-rendered pages (Jinja2) + REST API. All logic in Python.
+Run: pip install -r requirements.txt && python3 app.py
 """
 import json
 import os
 import secrets
 import sqlite3
-from datetime import datetime, timezone
+import sys
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_file, send_from_directory
+# Ensure workspace root is on path for planner package
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from flask import Flask, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from planner import get_state, save_state, get_active_project, get_activities, add_activity, delete_activity
+
 BASE_DIR = Path(__file__).resolve().parent
-app = Flask(__name__)
+app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
 app.secret_key = os.environ.get("ATLAS_SECRET_KEY", secrets.token_hex(32))
 CORS(app, supports_credentials=True)
 
 DB_PATH = Path(os.environ.get("ATLAS_DB_PATH", str(BASE_DIR / "atlas_data.db")))
-
-_DEFAULT_STATE = {
-    "projects": [{"id": "PRJ-0001", "name": "Project 1", "activities": [], "baselines": [], "actions": []}],
-    "activeProjectId": "PRJ-0001",
-    "settings": {"tableColumnVisibility": {}, "defaultEditor": "Planner"},
-}
 
 DEFAULT_USERS = [
     ("planner", "planner123", "Planner", "planner"),
@@ -61,7 +61,6 @@ def init_db():
         );
     """)
     conn.commit()
-    # Seed demo users if empty
     cursor = conn.execute("SELECT COUNT(*) FROM atlas_users")
     if cursor.fetchone()[0] == 0:
         for username, password, display_name, role in DEFAULT_USERS:
@@ -73,47 +72,27 @@ def init_db():
     conn.close()
 
 
-def load_state():
-    try:
-        conn = get_conn()
-        row = conn.execute(
-            "SELECT value FROM atlas_state WHERE key = ?",
-            ("industrial_planning_intelligence_state_v1",),
-        ).fetchone()
-        conn.close()
-        return json.loads(row[0]) if row else _DEFAULT_STATE
-    except Exception:
-        return _DEFAULT_STATE
-
-
-def save_state(state):
-    try:
-        conn = get_conn()
-        conn.execute(
-            "INSERT OR REPLACE INTO atlas_state (key, value, updated_at) VALUES (?, ?, ?)",
-            ("industrial_planning_intelligence_state_v1", json.dumps(state), datetime.now(timezone.utc).isoformat()),
-        )
-        conn.commit()
-        conn.close()
-        return True
-    except Exception as e:
-        print(f"[ATLAS] Save failed: {e}")
-        return False
-
-
-def verify_token(token):
-    if not token:
+def get_current_user():
+    """Return session user dict or None."""
+    u = session.get("user")
+    if not u:
         return None
-    try:
-        conn = get_conn()
-        row = conn.execute(
-            "SELECT u.id, u.username, u.display_name, u.role FROM atlas_users u JOIN atlas_sessions s ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')",
-            (token,),
-        ).fetchone()
-        conn.close()
-        return {"id": row[0], "username": row[1], "displayName": row[2], "role": row[3]} if row else None
-    except Exception:
-        return None
+    return {
+        "username": u.get("username", ""),
+        "displayName": u.get("displayName", u.get("username", "")),
+        "role": u.get("role", "planner"),
+    }
+
+
+def require_auth(f):
+    """Decorator: redirect to login if not authenticated."""
+    from functools import wraps
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        if not get_current_user():
+            return redirect(url_for("login_page"))
+        return f(*args, **kwargs)
+    return wrapped
 
 
 try:
@@ -122,10 +101,137 @@ except Exception as e:
     print(f"[ATLAS] DB init warning: {e}")
 
 
-# --- API ---
+# --- CSS (for templates) ---
+@app.route("/css/styles.css")
+def static_css():
+    return send_from_directory(BASE_DIR, "css/styles.css")
+
+
+# --- Auth: Login (Python-rendered, form POST) ---
+@app.route("/login", methods=["GET"])
+def login_page():
+    if get_current_user():
+        return redirect(url_for("dashboard"))
+    # Quick Demo: ?demo=planner auto-logs in
+    demo = request.args.get("demo", "").strip().lower()
+    if demo in ("planner", "management", "technician"):
+        pw = {"planner": "planner123", "management": "management123", "technician": "technician123"}.get(demo)
+        try:
+            conn = get_conn()
+            row = conn.execute(
+                "SELECT display_name, role FROM atlas_users WHERE username = ?",
+                (demo,),
+            ).fetchone()
+            conn.close()
+            if row:
+                session["user"] = {"username": demo, "displayName": row[0], "role": row[1]}
+                return redirect(url_for("dashboard"))
+        except Exception:
+            pass
+    return render_template("login.html", error=None)
+
+
+@app.route("/login", methods=["POST"])
+def login_post():
+    username = (request.form.get("username") or "").strip().lower()
+    password = request.form.get("password") or ""
+    remember = bool(request.form.get("remember"))
+    if not username:
+        return render_template("login.html", error="Username required")
+    try:
+        conn = get_conn()
+        row = conn.execute(
+            "SELECT id, password_hash, display_name, role FROM atlas_users WHERE username = ?",
+            (username,),
+        ).fetchone()
+        conn.close()
+        if not row:
+            return render_template("login.html", error="Invalid credentials")
+        _, pw_hash, display_name, role = row
+        if not check_password_hash(pw_hash, password):
+            return render_template("login.html", error="Invalid credentials")
+        session["user"] = {
+            "username": username,
+            "displayName": display_name,
+            "role": role,
+        }
+        session.permanent = remember
+        return redirect(url_for("dashboard"))
+    except Exception as e:
+        return render_template("login.html", error=str(e))
+
+
+@app.route("/logout")
+def logout():
+    session.pop("user", None)
+    return redirect(url_for("login_page"))
+
+
+# --- Dashboard (Python-rendered) ---
+@app.route("/")
+@app.route("/dashboard")
+@require_auth
+def dashboard():
+    state = get_state()
+    project = get_active_project()
+    activities = project.get("activities", [])
+    user = get_current_user()
+    total_effort = sum((a.get("baseEffortHours") or 0) for a in activities)
+    in_progress = sum(1 for a in activities if (a.get("activityStatus") or "") == "In Progress")
+    completed = sum(1 for a in activities if (a.get("activityStatus") or "") == "Completed")
+    return render_template(
+        "dashboard.html",
+        user=user,
+        project=project,
+        activities=activities,
+        total_effort=total_effort,
+        in_progress=in_progress,
+        completed=completed,
+    )
+
+
+# --- Activities (Python-rendered, form POST for add/delete) ---
+@app.route("/activities", methods=["GET"])
+@require_auth
+def activities():
+    project = get_active_project()
+    activities_list = project.get("activities", [])
+    user = get_current_user()
+    return render_template(
+        "activities.html",
+        user=user,
+        activities=activities_list,
+    )
+
+
+@app.route("/activities/add", methods=["POST"])
+@require_auth
+def activity_add():
+    data = {}
+    for key in ("phase", "activityName", "subActivity", "plannedStartDate", "plannedEndDate",
+                "baseEffortHours", "requiredMaterials", "requiredTools", "priority", "activityStatus"):
+        data[key] = request.form.get(key, "")
+    try:
+        add_activity(data)
+    except Exception:
+        pass
+    return redirect(url_for("activities"))
+
+
+@app.route("/activities/<activity_id>/delete", methods=["POST"])
+@require_auth
+def activity_delete(activity_id):
+    try:
+        delete_activity(activity_id)
+    except ValueError:
+        pass
+    return redirect(url_for("activities"))
+
+
+# --- API (for backward compatibility with existing JS if needed) ---
 @app.route("/api")
 def api_info():
-    return jsonify({"message": "ATLAS API", "endpoints": ["/api/health", "/api/state", "/api/auth/login", "/api/auth/me", "/api/backup", "/api/restore"]})
+    return jsonify({"message": "ATLAS API", "backend": "python", "endpoints": ["/api/health", "/api/state"]})
 
 
 @app.route("/api/health")
@@ -134,46 +240,48 @@ def health():
 
 
 @app.route("/api/state", methods=["GET"])
-def get_state():
-    return jsonify(load_state())
+def api_get_state():
+    return jsonify(get_state())
 
 
 @app.route("/api/state", methods=["PUT", "POST"])
-def put_state():
+def api_put_state():
     try:
         data = request.get_json(force=True, silent=True) or {}
-        return jsonify({"ok": True}) if save_state(data) else (jsonify({"ok": False}), 500)
+        save_state(data)
+        return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
 
-# --- Auth API ---
 @app.route("/api/auth/login", methods=["POST"])
-def auth_login():
+def api_auth_login():
     try:
         data = request.get_json(force=True, silent=True) or {}
         username = (data.get("username") or "").strip().lower()
         password = data.get("password") or ""
-        remember = bool(data.get("rememberMe"))
         if not username:
             return jsonify({"ok": False, "error": "Username required"}), 400
         conn = get_conn()
-        row = conn.execute("SELECT id, password_hash, display_name, role FROM atlas_users WHERE username = ?", (username,)).fetchone()
+        row = conn.execute(
+            "SELECT id, password_hash, display_name, role FROM atlas_users WHERE username = ?",
+            (username,),
+        ).fetchone()
+        conn.close()
         if not row:
-            conn.close()
             return jsonify({"ok": False, "error": "Invalid credentials"}), 401
-        user_id, pw_hash, display_name, role = row
+        _, pw_hash, display_name, role = row
         if not check_password_hash(pw_hash, password):
-            conn.close()
             return jsonify({"ok": False, "error": "Invalid credentials"}), 401
         token = secrets.token_urlsafe(32)
+        remember = bool(data.get("rememberMe"))
         expires_hours = 24 * 30 if remember else 8
         now = datetime.now(timezone.utc)
-        from datetime import timedelta
         expires_at = (now + timedelta(hours=expires_hours)).isoformat()
+        conn = get_conn()
         conn.execute(
             "INSERT INTO atlas_sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-            (token, user_id, expires_at, now.isoformat()),
+            (token, row[0], expires_at, now.isoformat()),
         )
         conn.commit()
         conn.close()
@@ -187,34 +295,6 @@ def auth_login():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@app.route("/api/auth/me", methods=["GET", "POST"])
-def auth_me():
-    token = request.headers.get("Authorization") or request.args.get("token") or (request.get_json(silent=True) or {}).get("token")
-    if token and token.startswith("Bearer "):
-        token = token[7:]
-    user = verify_token(token)
-    if not user:
-        return jsonify({"ok": False}), 401
-    return jsonify({"ok": True, "user": user})
-
-
-@app.route("/api/auth/logout", methods=["POST"])
-def auth_logout():
-    token = request.headers.get("Authorization") or (request.get_json(silent=True) or {}).get("token")
-    if token and token.startswith("Bearer "):
-        token = token[7:]
-    if token:
-        try:
-            conn = get_conn()
-            conn.execute("DELETE FROM atlas_sessions WHERE token = ?", (token,))
-            conn.commit()
-            conn.close()
-        except Exception:
-            pass
-    return jsonify({"ok": True})
-
-
-# --- Backup / Restore ---
 @app.route("/api/backup")
 def backup():
     try:
@@ -223,43 +303,7 @@ def backup():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@app.route("/api/restore", methods=["POST"])
-def restore():
-    if "file" not in request.files:
-        return jsonify({"ok": False, "error": "No file uploaded"}), 400
-    f = request.files["file"]
-    if not f.filename or not f.filename.endswith(".db"):
-        return jsonify({"ok": False, "error": "Invalid file. Use .db backup"}), 400
-    try:
-        backup_path = BASE_DIR / "atlas_data_restore_temp.db"
-        f.save(str(backup_path))
-        # Validate: try to read state
-        conn = sqlite3.connect(str(backup_path))
-        row = conn.execute("SELECT value FROM atlas_state WHERE key = ?", ("industrial_planning_intelligence_state_v1",)).fetchone()
-        conn.close()
-        if not row:
-            backup_path.unlink(missing_ok=True)
-            return jsonify({"ok": False, "error": "Invalid backup file"}), 400
-        import shutil
-        shutil.copy(str(backup_path), str(DB_PATH))
-        backup_path.unlink(missing_ok=True)
-        return jsonify({"ok": True})
-    except Exception as e:
-        (BASE_DIR / "atlas_data_restore_temp.db").unlink(missing_ok=True)
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-# --- Static files ---
-@app.route("/")
-def index():
-    return send_from_directory(BASE_DIR, "index.html")
-
-
-@app.route("/login")
-def login_redirect():
-    return send_from_directory(BASE_DIR, "login.html")
-
-
+# --- Static files (HTML, JS for other pages) ---
 @app.route("/<path:path>")
 def serve_static(path):
     if ".." in path or path.startswith("."):
@@ -267,13 +311,14 @@ def serve_static(path):
     full = BASE_DIR / path
     if full.is_file():
         return send_from_directory(BASE_DIR, path)
-    if path in ("activities", "gantt", "materials", "intelligence", "anomaly-center", "login", "calendar", "risk-register", "network"):
+    if path in ("gantt", "materials", "intelligence", "anomaly-center", "calendar", "risk-register", "network"):
         return send_from_directory(BASE_DIR, f"{path}.html")
     return "", 404
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"[ATLAS] Backend at http://0.0.0.0:{port}")
+    print(f"[ATLAS] Python Backend at http://0.0.0.0:{port}")
     print(f"[ATLAS] Data: {DB_PATH}")
+    print(f"[ATLAS] Login: /login | Dashboard: / | Activities: /activities")
     app.run(host="0.0.0.0", port=port, debug=True)

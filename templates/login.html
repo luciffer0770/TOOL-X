@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In | ATLAS</title>
+  <link rel="stylesheet" href="{{ url_for('static_css') }}" />
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-frame">
+      <header class="login-frame-header">
+        <h1>ATLAS – Digital Twin Engineering Preparation Platform</h1>
+        <p style="color:#6b7280;font-size:0.9em;margin-top:8px">100% Python Backend – Server-Rendered</p>
+      </header>
+      <section class="signin-panel">
+        <div class="signin-panel-header">
+          <h2>Sign In</h2>
+        </div>
+        {% if error %}
+        <p class="hint login-hint" style="color:#dc2626;padding:0 24px 8px">{{ error }}</p>
+        {% endif %}
+        <div class="signin-panel-body">
+          <form method="post" action="{{ url_for('login_post') }}" class="login-form" autocomplete="off">
+            <label class="field login-field">
+              Username
+              <div class="login-input-wrap">
+                <input name="username" type="text" placeholder="Username" required autocomplete="off" />
+              </div>
+            </label>
+            <label class="field login-field">
+              Password
+              <div class="login-input-wrap">
+                <input name="password" type="password" placeholder="Enter password" required autocomplete="off" />
+              </div>
+            </label>
+            <label class="field login-field login-remember">
+              <input type="checkbox" name="remember" value="1" />
+              <span>Remember me (30 days)</span>
+            </label>
+            <button type="submit" class="login-submit-btn">Sign In</button>
+            <a href="{{ url_for('login_page') }}?demo=planner" class="login-submit-btn ghost" style="margin-top:8px">Quick Demo (Planner)</a>
+          </form>
+          <div class="login-demo-box">
+            <div class="login-demo-title">Demo Users (Python-validated)</div>
+            <p class="login-demo-hint">Use these credentials – validated by Python backend.</p>
+            <ul class="demo-user-list">
+              <li class="demo-user-item role-planner">
+                <span class="demo-user-icon">PL</span>
+                <span class="demo-user-main"><strong>Planner</strong> — planner / planner123</span>
+              </li>
+              <li class="demo-user-item role-management">
+                <span class="demo-user-icon">MG</span>
+                <span class="demo-user-main"><strong>Management</strong> — management / management123</span>
+              </li>
+              <li class="demo-user-item role-technician">
+                <span class="demo-user-icon">TC</span>
+                <span class="demo-user-main"><strong>Technician</strong> — technician / technician123</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

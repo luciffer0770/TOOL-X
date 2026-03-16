@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}ATLAS{% endblock %} – Digital Twin Engineering Preparation Platform</title>
+  <link rel="stylesheet" href="{{ url_for('static_css') }}" />
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <div class="atlas-version-banner">ATLAS – Python Backend (100% Server-Rendered)</div>
+  <div class="app-shell">
+    <header class="top-bar">
+      <div class="title-block">
+        <h1>ATLAS – Digital Twin Engineering Preparation Platform</h1>
+        <p>Advanced Twin-based Lifecycle and Activity System – 100% Python</p>
+      </div>
+      {% block header_meta %}
+      <div class="header-meta">
+        <div class="session-chip">
+          <span class="badge badge-neutral">{{ user.role }}</span>
+          <span class="small">{{ user.displayName }}</span>
+          <a href="{{ url_for('logout') }}" class="ghost" style="margin-left:8px">Logout</a>
+        </div>
+      </div>
+      {% endblock %}
+    </header>
+
+    <nav class="nav">
+      <a href="{{ url_for('dashboard') }}">Executive Dashboard</a>
+      <a href="{{ url_for('activities') }}">Activity Master</a>
+      <a href="/gantt">Gantt & Dependencies</a>
+      <a href="/calendar">Calendar</a>
+      <a href="/network">Network Diagram</a>
+      <a href="/materials">Material Intelligence</a>
+      <a href="/intelligence">Delay, Risk & Optimization</a>
+      <a href="/risk-register">Risk Register</a>
+      <a href="/anomaly-center">Anomaly, Baseline & Actions</a>
+    </nav>
+
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

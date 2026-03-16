@@ -8,10 +8,11 @@ import os
 import re
 from pathlib import Path
 
-from schema import create_empty_activity, sanitize_activity
+from .schema import create_empty_activity, sanitize_activity
 
 CONFIG_DIR = Path(__file__).resolve().parent
-DB_PATH = Path(os.environ.get("ATLAS_DB_PATH", str(CONFIG_DIR / "planner_data.db")))
+WORKSPACE_ROOT = CONFIG_DIR.parent
+DB_PATH = Path(os.environ.get("ATLAS_DB_PATH", str(WORKSPACE_ROOT / "atlas_data.db")))
 STATE_KEY = "industrial_planning_intelligence_state_v1"
 PROJECT_ID_PATTERN = re.compile(r"^PRJ-(\d{4,})$")
 BASELINE_ID_PATTERN = re.compile(r"^BL-(\d{4,})$")
@@ -77,7 +78,7 @@ def _sanitize_baseline(raw, fallback_name):
 
 
 def _create_default_visibility():
-    from schema import COLUMN_SCHEMA
+    from .schema import COLUMN_SCHEMA
     return {col["key"]: True for col in COLUMN_SCHEMA}
 
 
@@ -253,7 +254,7 @@ def update_activity(activity_id, patch):
 
 
 def add_activity(activity):
-    from schema import generate_activity_id
+    from .schema import generate_activity_id
     state = get_state()
     for p in state["projects"]:
         if p["id"] != state["activeProjectId"]:
