@@ -26,7 +26,7 @@ This branch implements a **100% Python backend** with server-rendered pages (Jin
 ## Last Agent Update
 
 - **Date:** 2026-03-16
-- **Scope:** Flash Messages — success/error feedback on login, add, edit, delete
+- **Scope:** Project Switcher, Project CRUD (New, Duplicate, Rename, Delete), Flash messages
 
 ---
 
@@ -124,9 +124,11 @@ Open `http://localhost:5000` (or your port). Data is stored in `atlas_data.db`.
 | GET | `/activities/<id>/edit` | Edit activity form |
 | POST | `/activities/<id>/edit` | Save activity edits |
 | POST | `/activities/<id>/delete` | Delete activity |
-| GET | `/activities/<id>/edit` | Edit activity form |
-| POST | `/activities/<id>/edit` | Save activity edits |
 | POST | `/project/switch` | Switch active project (form: project_id) |
+| POST | `/project/add` | New project (form: name optional) |
+| POST | `/project/<id>/duplicate` | Duplicate project |
+| POST | `/project/<id>/rename` | Rename project (form: name) |
+| POST | `/project/<id>/delete` | Delete project |
 
 ### REST API
 
@@ -167,7 +169,13 @@ Open `http://localhost:5000` (or your port). Data is stored in `atlas_data.db`.
 - `get_activities()` – Activities for active project
 - `save_activities(activities)` – Save activities
 - `add_activity(activity)` – Add activity to active project
+- `update_activity(activity_id, patch)` – Update activity
 - `delete_activity(activity_id)` – Delete by activityId
+- `set_active_project(project_id)` – Switch active project
+- `add_project(name)` – Create project
+- `duplicate_project(project_id)` – Duplicate project
+- `rename_project(project_id, new_name)` – Rename project
+- `delete_project(project_id)` – Delete project
 - `COLUMN_SCHEMA`, `sanitize_activity`, `create_empty_activity`, `generate_activity_id`
 
 ### Storage

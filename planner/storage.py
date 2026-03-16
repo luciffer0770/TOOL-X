@@ -286,6 +286,58 @@ def set_active_project(project_id):
     return False
 
 
+def add_project(name=""):
+    """Create a new empty project. Returns the new project or None."""
+    state = get_state()
+    projects = state["projects"]
+    pid = _get_next_project_id(projects)
+    name = (name or "").strip() or f"Project {len(projects) + 1}"
+    proj = _create_project(pid, name, [], [], [])
+    projects.append(proj)
+    state["activeProjectId"] = pid
+    save_state(state)
+    return proj
+
+
+def duplicate_project(project_id):
+    """Duplicate a project by ID. Returns the new project or None."""
+    state = get_state()
+    src = next((p for p in state["projects"] if p["id"] == project_id), None)
+    if not src:
+        return None
+    pid = _get_next_project_id(state["projects"])
+    name = f"{src['name']} (Copy)"
+    proj = _create_project(pid, name, [dict(a) for a in src.get("activities", [])],
+                           [dict(b) for b in src.get("baselines", [])],
+                           [dict(a) for a in src.get("actions", [])])
+    state["projects"].append(proj)
+    state["activeProjectId"] = pid
+    save_state(state)
+    return proj
+
+
+def rename_project(project_id, new_name):
+    """Rename a project. Returns True if successful."""
+    state = get_state()
+    for p in state["projects"]:
+        if p["id"] == project_id:
+            p["name"] = (new_name or "").strip() or p["name"]
+            save_state(state)
+            return True
+    return False
+
+
+def delete_project(project_id):
+    """Delete a project. Switches to another if active. Raises ValueError if last project."""
+    state = get_state()
+    if len(state["projects"]) <= 1:
+        raise ValueError("Cannot delete the last project")
+    state["projects"] = [p for p in state["projects"] if p["id"] != project_id]
+    if state["activeProjectId"] == project_id:
+        state["activeProjectId"] = state["projects"][0]["id"]
+    save_state(state)
+
+
 def get_project_baselines():
     return get_active_project().get("baselines", [])
 

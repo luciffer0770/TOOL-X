@@ -37,7 +37,7 @@
     {% block project_toolbar %}
     {% if projects is defined and projects %}
     <section class="panel" style="margin:0 0 16px 0">
-      <div class="panel-body project-toolbar" style="display:flex;align-items:center;gap:16px">
+      <div class="panel-body project-toolbar" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
         <form method="post" action="{{ url_for('project_switch') }}" style="display:flex;align-items:center;gap:8px">
           <label class="field" style="margin:0">Active Project
             <select name="project_id" onchange="this.form.submit()" style="min-width:180px">
@@ -47,6 +47,21 @@
             </select>
           </label>
         </form>
+        <form method="post" action="{{ url_for('project_add') }}" style="display:inline">
+          <button type="submit" class="ghost">New Project</button>
+        </form>
+        <form method="post" action="{{ url_for('project_duplicate', project_id=active_project_id) }}" style="display:inline">
+          <button type="submit" class="ghost">Duplicate</button>
+        </form>
+        <form method="post" action="{{ url_for('project_rename', project_id=active_project_id) }}" style="display:inline">
+          <input name="name" type="text" placeholder="New name" style="width:120px;padding:4px 8px" />
+          <button type="submit" class="ghost">Rename</button>
+        </form>
+        {% if projects|length > 1 %}
+        <form method="post" action="{{ url_for('project_delete', project_id=active_project_id) }}" style="display:inline" onsubmit="return confirm('Delete this project?');">
+          <button type="submit" class="danger">Delete</button>
+        </form>
+        {% endif %}
       </div>
     </section>
     {% endif %}

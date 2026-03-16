@@ -10,6 +10,10 @@ from .storage import (
     update_activity,
     delete_activity,
     set_active_project,
+    add_project,
+    duplicate_project,
+    rename_project,
+    delete_project,
 )
 
 __all__ = [
@@ -26,4 +30,8 @@ __all__ = [
     "update_activity",
     "delete_activity",
     "set_active_project",
+    "add_project",
+    "duplicate_project",
+    "rename_project",
+    "delete_project",
 ]

@@ -18,7 +18,20 @@ from flask import Flask, flash, jsonify, redirect, render_template, request, sen
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from planner import get_state, save_state, get_active_project, get_activities, add_activity, update_activity, delete_activity, set_active_project
+from planner import (
+    get_state,
+    save_state,
+    get_active_project,
+    get_activities,
+    add_activity,
+    update_activity,
+    delete_activity,
+    set_active_project,
+    add_project,
+    duplicate_project,
+    rename_project,
+    delete_project,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
@@ -192,6 +205,48 @@ def project_switch():
     project_id = (request.form.get("project_id") or "").strip()
     if project_id and set_active_project(project_id):
         flash(f"Switched to project {project_id}.", "success")
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+@app.route("/project/add", methods=["POST"])
+@require_auth
+def project_add():
+    name = (request.form.get("name") or "").strip() or "New Project"
+    add_project(name)
+    flash(f"Project '{name}' created.", "success")
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+@app.route("/project/<project_id>/duplicate", methods=["POST"])
+@require_auth
+def project_duplicate(project_id):
+    proj = duplicate_project(project_id)
+    if proj:
+        flash(f"Project duplicated as '{proj['name']}'.", "success")
+    else:
+        flash("Project not found.", "error")
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+@app.route("/project/<project_id>/rename", methods=["POST"])
+@require_auth
+def project_rename(project_id):
+    new_name = (request.form.get("name") or "").strip()
+    if rename_project(project_id, new_name):
+        flash("Project renamed.", "success")
+    else:
+        flash("Project not found.", "error")
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+@app.route("/project/<project_id>/delete", methods=["POST"])
+@require_auth
+def project_delete(project_id):
+    try:
+        delete_project(project_id)
+        flash("Project deleted.", "success")
+    except ValueError as e:
+        flash(str(e), "error")
     return redirect(request.referrer or url_for("dashboard"))
 
 
