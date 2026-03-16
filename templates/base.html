@@ -8,6 +8,15 @@
 </head>
 <body class="{% block body_class %}{% endblock %}">
   <div class="atlas-version-banner">ATLAS – Python Backend (100% Server-Rendered)</div>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-messages" style="padding:12px 24px;border-bottom:1px solid #e5e7eb">
+    {% for category, msg in messages %}
+    <div class="flash flash-{{ category }}" style="margin:4px 0;padding:8px 12px;border-radius:6px;{% if category == 'success' %}background:#d1fae5;color:#065f46;{% elif category == 'error' %}background:#fee2e2;color:#991b1b;{% else %}background:#fef3c7;color:#92400e;{% endif %}">{{ msg }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
   <div class="app-shell">
     <header class="top-bar">
       <div class="title-block">

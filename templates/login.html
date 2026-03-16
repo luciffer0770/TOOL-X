@@ -17,6 +17,11 @@
         <div class="signin-panel-header">
           <h2>Sign In</h2>
         </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, msg in messages %}
+        <p class="hint login-hint" style="color:{% if category == 'error' %}#dc2626{% else %}#059669{% endif %};padding:0 24px 8px">{{ msg }}</p>
+        {% endfor %}
+        {% endwith %}
         {% if error %}
         <p class="hint login-hint" style="color:#dc2626;padding:0 24px 8px">{{ error }}</p>
         {% endif %}

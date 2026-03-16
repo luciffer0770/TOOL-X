@@ -26,7 +26,7 @@ This branch implements a **100% Python backend** with server-rendered pages (Jin
 ## Last Agent Update
 
 - **Date:** 2026-03-16
-- **Scope:** Activity Edit Form — Add edit page, Edit button in list, activity_edit.html template
+- **Scope:** Flash Messages — success/error feedback on login, add, edit, delete
 
 ---
 
@@ -221,6 +221,8 @@ Uses Playwright for browser tests.
 ## Changelog
 
 ### 2026-03-16
+- **Flash messages:** Success/error feedback for login, add, edit, delete (Flask flash)
+- **Activity Edit:** Edit page, form, Edit button in activities list
 - README fully rewritten for `cursor/tool-python-consistency-db55`
 - Added planner module integration
 - Server-rendered login, dashboard, activities

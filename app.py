@@ -14,7 +14,7 @@ from pathlib import Path
 # Ensure workspace root is on path for planner package
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from flask import Flask, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
+from flask import Flask, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -137,6 +137,7 @@ def login_post():
     password = request.form.get("password") or ""
     remember = bool(request.form.get("remember"))
     if not username:
+        flash("Username required", "error")
         return render_template("login.html", error="Username required")
     try:
         conn = get_conn()
@@ -146,9 +147,11 @@ def login_post():
         ).fetchone()
         conn.close()
         if not row:
+            flash("Invalid credentials", "error")
             return render_template("login.html", error="Invalid credentials")
         _, pw_hash, display_name, role = row
         if not check_password_hash(pw_hash, password):
+            flash("Invalid credentials", "error")
             return render_template("login.html", error="Invalid credentials")
         session["user"] = {
             "username": username,
@@ -156,8 +159,10 @@ def login_post():
             "role": role,
         }
         session.permanent = remember
+        flash(f"Welcome, {display_name}!", "success")
         return redirect(url_for("dashboard"))
     except Exception as e:
+        flash(str(e), "error")
         return render_template("login.html", error=str(e))
 
 
@@ -213,8 +218,9 @@ def activity_add():
         data[key] = request.form.get(key, "")
     try:
         add_activity(data)
-    except Exception:
-        pass
+        flash("Activity added successfully.", "success")
+    except Exception as e:
+        flash(f"Failed to add activity: {e}", "error")
     return redirect(url_for("activities"))
 
 
@@ -237,7 +243,11 @@ def activity_edit_post(activity_id):
                 "baseEffortHours", "requiredMaterials", "requiredTools", "priority", "activityStatus",
                 "completionPercentage", "riskLevel", "materialStatus", "remarks"):
         data[key] = request.form.get(key, "")
-    update_activity(activity_id, data)
+    updated = update_activity(activity_id, data)
+    if updated:
+        flash("Activity updated successfully.", "success")
+    else:
+        flash("Activity not found or update failed.", "error")
     return redirect(url_for("activities"))
 
 
@@ -246,8 +256,9 @@ def activity_edit_post(activity_id):
 def activity_delete(activity_id):
     try:
         delete_activity(activity_id)
+        flash("Activity deleted.", "success")
     except ValueError:
-        pass
+        flash("Activity not found.", "error")
     return redirect(url_for("activities"))
 
 
