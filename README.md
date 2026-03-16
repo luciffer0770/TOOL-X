@@ -4,9 +4,9 @@
 
 ---
 
-## Branch: `cursor/tool-execution-c80f`
+## Branch: `cursor/project-management-modules-0589`
 
-This branch includes significant UI/UX enhancements, Gantt chart fixes, Calendar feature improvements, Activity Master refinements, and storage/backend updates. See [Changes on This Branch](#changes-on-this-branch) for details.
+This branch includes significant UI/UX enhancements, Gantt chart fixes, Calendar feature improvements, Activity Master refinements, storage/backend updates, and quality-of-life improvements. See [Changes on This Branch](#changes-on-this-branch) for details.
 
 ---
 
@@ -282,9 +282,20 @@ Uses Playwright to run login, add-activity, storage, and diagnostic tests.
 - Retry logic for backend saves (3 attempts)
 - Save status events (saving / saved / error)
 - Reduced toast noise on normal saves
+- **Debounced saves:** State writes are debounced (~450ms) to reduce write frequency on rapid edits
 
 ### Backend
 - `datetime.utcnow()` replaced with `datetime.now(timezone.utc)` for Python 3.12 compatibility
+- **Backup before restore:** Current database is saved as `atlas_data_pre_restore_backup.db` before any restore
+
+### Activity Master (additional)
+- **Dependency validation:** Warns when adding dependencies that create cycles or reference missing activity IDs
+- **Duplicate button** per row to copy activity + dependencies
+
+### Quality of Life
+- **Loading indicators** for import, backup, and restore operations
+- **tmp_index.html** removed
+- `_memoryCache` used as source of truth during debounce window for consistent reads
 
 ### Schema
 - `activityName` column order adjusted after `activityId`
@@ -294,4 +305,4 @@ Uses Playwright to run login, add-activity, storage, and diagnostic tests.
 ## License & Repository
 
 Repository: **TOOL-X**  
-Branch: **cursor/tool-execution-c80f**
+Branch: **cursor/project-management-modules-0589**

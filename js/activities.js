@@ -41,6 +41,7 @@ import {
 import { openTemplatesModal, saveCurrentAsTemplate } from "./templates.js";
 import { openCommentsModal } from "./comments.js";
 import { registerShortcut } from "./shortcuts.js";
+import { getDependencyHealth } from "./analytics.js";
 
 const longTextFields = new Set([
   "subActivity",
@@ -363,6 +364,7 @@ function renderTable() {
               canModifyActivityStructure(currentUser)
                 ? `<button class="ghost" data-insert-above="${escapeHtml(row.activityId)}">Insert Above</button>
                    <button class="ghost" data-insert-below="${escapeHtml(row.activityId)}">Insert Below</button>
+                   <button class="ghost" data-duplicate="${escapeHtml(row.activityId)}" title="Copy activity + dependencies">Duplicate</button>
                    <button class="danger" data-delete="${escapeHtml(row.activityId)}">Delete</button>`
                 : `<span class="small">Status / delay updates only</span>`
             }
@@ -708,6 +710,28 @@ function handleCellUpdate(activityId, field, value) {
   if (field === "actualEndDate" && String(value || "").trim()) {
     normalizedPatch.activityStatus = "Completed";
     normalizedPatch.completionPercentage = 100;
+  }
+
+  if (field === "dependencies") {
+    const simulated = viewState.activities.map((a) =>
+      a.activityId === activityId ? { ...a, ...normalizedPatch } : a,
+    );
+    const health = getDependencyHealth(simulated);
+    if (health.cycleCount > 0) {
+      notify(
+        `Dependency cycle detected. ${health.cycleCount} activity/activities in cycle. Consider breaking the loop.`,
+        "warning",
+      );
+    }
+    if (health.activitiesWithMissingDependencies > 0) {
+      const missing = Object.entries(health.missingByActivity).filter(
+        ([id]) => id === activityId,
+      );
+      if (missing.length) {
+        const refs = missing[0][1].join(", ");
+        notify(`Missing dependency IDs: ${refs}. These activities do not exist.`, "warning");
+      }
+    }
   }
 
   updateActivity(activityId, normalizedPatch);
@@ -1365,6 +1389,25 @@ function wireEvents() {
     const commentsId = button.dataset.comments;
     if (commentsId) {
       openCommentsModal(commentsId, refreshFromStorage);
+      return;
+    }
+
+    const duplicateId = button.dataset.duplicate;
+    if (duplicateId) {
+      if (!canModifyActivityStructure(currentUser)) {
+        notify("This role cannot add activity rows.", "warning");
+        return;
+      }
+      const source = viewState.activities.find((a) => a.activityId === duplicateId);
+      if (!source) return;
+      const idx = viewState.activities.findIndex((a) => a.activityId === duplicateId);
+      const copy = { ...source };
+      delete copy.activityId;
+      delete copy.lastModifiedDate;
+      delete copy.lastModifiedBy;
+      const inserted = insertActivityAt((idx ?? viewState.activities.length) + 1, copy);
+      notify(`Duplicated ${duplicateId} as ${inserted.activityId} (including dependencies).`, "success");
+      refreshFromStorage();
       return;
     }
 

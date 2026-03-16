@@ -162,23 +162,35 @@ function renderTimelineChart() {
   });
 }
 
+function getMaterialNeededBy(activity) {
+  const requiredDate = activity.materialRequiredDate ? new Date(activity.materialRequiredDate) : null;
+  const plannedStart = activity.plannedStartDate ? new Date(activity.plannedStartDate) : null;
+  const leadTimeHours = Number(activity.materialLeadTime) || 0;
+  const leadTimeMs = leadTimeHours * 60 * 60 * 1000;
+  const orderByDate = plannedStart && leadTimeHours > 0 ? new Date(plannedStart.getTime() - leadTimeMs) : null;
+  if (requiredDate && orderByDate) return requiredDate < orderByDate ? requiredDate : orderByDate;
+  return requiredDate || orderByDate;
+}
+
 function renderForecast() {
   const list = dom.forecastList;
   if (!list) return;
   const horizon = Number(dom.forecastHorizon?.value) || 14;
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const future = new Date(now);
   future.setDate(future.getDate() + horizon);
+  future.setHours(23, 59, 59, 999);
 
   const forecast = health.enriched
     .filter((a) => {
       const status = String(a.materialStatus || "").toLowerCase();
       if (status === "received") return false;
-      const required = new Date(a.materialRequiredDate || "");
-      if (Number.isNaN(required.getTime())) return false;
-      return required >= now && required <= future;
+      const neededBy = getMaterialNeededBy(a);
+      if (!neededBy || Number.isNaN(neededBy.getTime())) return false;
+      return neededBy >= now && neededBy <= future;
     })
-    .sort((a, b) => new Date(a.materialRequiredDate) - new Date(b.materialRequiredDate))
+    .sort((a, b) => getMaterialNeededBy(a) - getMaterialNeededBy(b))
     .slice(0, 15);
 
   if (!forecast.length) {

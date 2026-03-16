@@ -7,6 +7,7 @@ const STORAGE_KEY = "industrial_planning_intelligence_state_v1";
 export const SAVE_STATUS_EVENT = "industrial_planning_save_status";
 const SAVE_RETRY_ATTEMPTS = 3;
 const SAVE_RETRY_DELAY_MS = 1000;
+const SAVE_DEBOUNCE_MS = 450;
 
 // Backend API mode: when true, state is loaded/saved via /api/state
 let _useBackend = false;
@@ -164,10 +165,8 @@ function normalizeProjectName(rawName, index) {
 }
 
 function readRawState() {
-  if (_useBackend) {
-    if (_memoryCache) return _memoryCache;
-    return baseState();
-  }
+  if (_memoryCache) return _memoryCache;
+  if (_useBackend) return baseState();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
@@ -254,6 +253,78 @@ function emitSaveStatus(status, detail = {}) {
   }
 }
 
+const SAVE_DEBOUNCE_MS = 400;
+let _saveDebounceTimer = null;
+let _pendingPayload = null;
+
+function flushPendingSave() {
+  if (!_pendingPayload) return;
+  const toSave = _pendingPayload;
+  _pendingPayload = null;
+  if (_saveDebounceTimer) {
+    clearTimeout(_saveDebounceTimer);
+    _saveDebounceTimer = null;
+  }
+  if (_useBackend) {
+    try {
+      fetch("/api/state", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: toSave,
+        keepalive: true,
+      });
+    } catch (_) {}
+  } else {
+    try {
+      localStorage.setItem(STORAGE_KEY, toSave);
+      idbSetState(toSave).catch(() => {});
+    } catch (_) {}
+  }
+}
+
+function schedulePersist(payload) {
+  _pendingPayload = payload;
+  if (_saveDebounceTimer) clearTimeout(_saveDebounceTimer);
+  _saveDebounceTimer = setTimeout(() => {
+    _saveDebounceTimer = null;
+    const toSave = _pendingPayload;
+    _pendingPayload = null;
+    if (toSave) doPersist(toSave);
+  }, SAVE_DEBOUNCE_MS);
+  if (typeof window !== "undefined" && !window.__atlasFlushBound) {
+    window.__atlasFlushBound = true;
+    window.addEventListener("beforeunload", flushPendingSave);
+  }
+}
+
+function doPersist(payload) {
+  if (_useBackend) {
+    putStateWithRetry(payload)
+      .then((result) => {
+        if (result?.ok) {
+          emitSaveStatus("saved", { savedAt: new Date().toISOString() });
+        } else {
+          throw new Error("Save failed");
+        }
+      })
+      .catch((e) => {
+        console.error("[storage] Backend save error:", e);
+        emitSaveStatus("error", { error: String(e?.message || e) });
+        notify("Save failed. Check your connection and try again.", "error");
+      });
+  } else {
+    try {
+      localStorage.setItem(STORAGE_KEY, payload);
+      emitSaveStatus("saved", { savedAt: new Date().toISOString() });
+      idbSetState(payload).catch((e) => console.error("[storage] writeState idbSetState error", e));
+    } catch (err) {
+      console.error("[storage] writeState failed:", err);
+      emitSaveStatus("error", { error: String(err) });
+      notify("Save failed. Storage may be full.", "error");
+    }
+  }
+}
+
 async function putStateWithRetry(payload) {
   for (let attempt = 1; attempt <= SAVE_RETRY_ATTEMPTS; attempt++) {
     try {
@@ -276,48 +347,9 @@ async function putStateWithRetry(payload) {
 function writeState(state) {
   const normalized = normalizeState(state);
   const payload = JSON.stringify(normalized);
-
-  if (_useBackend) {
-    _memoryCache = normalized;
-    emitSaveStatus("saving");
-    putStateWithRetry(payload)
-      .then((result) => {
-        if (result?.ok) {
-          emitSaveStatus("saved", { savedAt: new Date().toISOString() });
-        } else {
-          throw new Error("Save failed");
-        }
-      })
-      .catch((e) => {
-        console.error("[storage] Backend save error:", e);
-        emitSaveStatus("error", { error: String(e?.message || e) });
-        notify("Save failed. Check your connection and try again.", "error");
-      });
-    emitStateChange();
-    return;
-  }
-
-  let savedToLocal = false;
-  try {
-    localStorage.setItem(STORAGE_KEY, payload);
-    savedToLocal = true;
-    emitSaveStatus("saved", { savedAt: new Date().toISOString() });
-    if (localStorage.getItem("atlas_debug_verbose") === "1") {
-      console.debug("[storage] writeState saved to localStorage", { key: STORAGE_KEY, size: payload.length });
-    }
-  } catch (err) {
-    console.error("[storage] writeState failed to save to localStorage:", err);
-    try { window.__atlas_last_storage_error = String(err); } catch (_) {}
-    emitSaveStatus("error", { error: String(err) });
-    notify("Save failed. Storage may be full.", "error");
-  }
-  try {
-    idbSetState(payload).then((ok) => {
-      if (localStorage.getItem("atlas_debug_verbose") === "1") console.debug("[storage] writeState idbSetState result", ok);
-    }).catch((e) => console.error("[storage] writeState idbSetState error", e));
-  } catch (err) {
-    console.error("[storage] writeState idbSetState sync error", err);
-  }
+  _memoryCache = normalized;
+  emitSaveStatus("saving");
+  schedulePersist(payload);
   emitStateChange();
 }
 

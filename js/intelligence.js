@@ -1,5 +1,5 @@
 import { computePortfolioMetrics, getDelayAndRiskRows, getPhaseProgress, runScenarioSimulation } from "./analytics.js";
-import { escapeHtml, formatHours, notify, setActiveNavigation, statusClass } from "./common.js";
+import { escapeHtml, formatHours, notify, setActiveNavigation, showModal, statusClass } from "./common.js";
 import { getActivities, getSavedScenarios, saveScenario, updateActivity } from "./storage.js";
 import { initPage } from "./page-init.js";
 import { canRunOptimization } from "./auth.js";

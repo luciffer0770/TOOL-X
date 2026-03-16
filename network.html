@@ -53,7 +53,7 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Dependency Network</h2>
-          <span class="panel-subtitle">Node–link diagram with drag, zoom &amp; pan • Click node to open Activity Master</span>
+          <span class="panel-subtitle">Links = activity Dependencies (e.g. ACT-001 in B’s Dependencies → link A→B). Add deps in Activity Master to see links.</span>
           <div class="row-actions">
             <label class="field field-inline" style="margin:0">
               <input type="checkbox" id="network-critical-path-toggle" checked />
@@ -73,7 +73,6 @@
         </div>
       </section>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
     <script type="module" src="./js/network.js?v=atlas20260222"></script>
   </body>
 </html>

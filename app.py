@@ -241,6 +241,10 @@ def restore():
             backup_path.unlink(missing_ok=True)
             return jsonify({"ok": False, "error": "Invalid backup file"}), 400
         import shutil
+        # Create backup of current DB before overwriting
+        if DB_PATH.exists():
+            pre_backup = BASE_DIR / "atlas_data_pre_restore_backup.db"
+            shutil.copy(str(DB_PATH), str(pre_backup))
         shutil.copy(str(backup_path), str(DB_PATH))
         backup_path.unlink(missing_ok=True)
         return jsonify({"ok": True})

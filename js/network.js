@@ -1,15 +1,26 @@
-/** Network diagram - activity dependencies with graph layout, zoom, pan, drag, critical path, export */
+/** Network diagram - activity dependencies with custom layout, zoom, pan, drag, critical path, export */
 import { escapeHtml, notify, setActiveNavigation } from "./common.js";
 import { parseDependencies } from "./schema.js";
 import { getActivities } from "./storage.js";
-import { getBlockedActivities, getCriticalPath } from "./analytics.js";
+import {
+  buildDependencyGraph,
+  getBlockedActivities,
+  getCriticalPath,
+  getPlannedDurationHours,
+  topologicalSort,
+} from "./analytics.js";
 import { initializeProjectToolbar } from "./project-toolbar.js";
 import { initializeAccessShell } from "./access-shell.js";
 import { initShell } from "./shell.js";
 import { stateReady } from "./storage.js";
 
-const NODE_WIDTH = 140;
-const NODE_HEIGHT = 48;
+const NODE_WIDTH = 120;
+const NODE_HEIGHT = 40;
+const LAYER_GAP = 60;
+const ROW_GAP = 36;
+const MAX_NODES_PER_ROW = 8;
+const MAX_CANVAS_WIDTH = 1800;
+const MAX_CANVAS_HEIGHT = 900;
 
 let criticalPathToggle = true;
 let zoom = 1;
@@ -24,44 +35,75 @@ let dragOffsetY = 0;
 let didDrag = false;
 let nodePositions = {};
 
-function getDagre() {
-  if (typeof window.dagre !== "undefined") return window.dagre;
-  return null;
-}
-
-function buildGraph(activities, criticalPathSet) {
+/** Custom hierarchical layout - no external deps, predictable coordinates */
+function computeLayout(activities, criticalPathSet) {
   const byId = new Map(activities.map((a) => [a.activityId, a]));
+  const graph = buildDependencyGraph(activities);
+  const order = topologicalSort(activities);
   const blocked = new Set(getBlockedActivities(activities).map((a) => a.activityId));
-  const g = getDagre()?.graphlib?.Graph ? new dagre.graphlib.Graph({ compound: true }) : null;
 
-  if (!g) return null;
+  const layers = [];
+  const idToLayer = new Map();
+  const layerRows = new Map();
 
-  g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 60 });
-  g.setDefaultEdgeLabel(() => ({}));
+  for (const id of order) {
+    const deps = graph.get(id) ?? [];
+    let layer = 0;
+    for (const depId of deps) {
+      layer = Math.max(layer, (idToLayer.get(depId) ?? -1) + 1);
+    }
+    idToLayer.set(id, layer);
+    if (!layerRows.has(layer)) layerRows.set(layer, []);
+    layerRows.get(layer).push(id);
+  }
 
-  activities.forEach((a) => {
-    if (!a.activityId) return;
-    const shortName = (a.activityName || "").slice(0, 20) + ((a.activityName || "").length > 20 ? "…" : "");
-    g.setNode(a.activityId, {
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
-      label: `${a.activityId}\n${shortName}`,
-      isBlocked: blocked.has(a.activityId),
-      isCritical: criticalPathSet.has(a.activityId),
-      activityId: a.activityId,
+  const positions = {};
+  const paddingX = 40;
+  const paddingY = 40;
+  let maxX = 0;
+  let maxY = 0;
+
+  layerRows.forEach((ids, layer) => {
+    const baseX = paddingX + layer * (NODE_WIDTH + LAYER_GAP);
+    const perRow = Math.min(ids.length, MAX_NODES_PER_ROW);
+    const numRows = Math.ceil(ids.length / perRow);
+    ids.forEach((id, idx) => {
+      const row = Math.floor(idx / perRow);
+      const col = idx % perRow;
+      const x = baseX + col * (NODE_WIDTH + LAYER_GAP * 0.5);
+      const y = paddingY + row * (NODE_HEIGHT + ROW_GAP);
+      positions[id] = { x: x + NODE_WIDTH / 2, y: y + NODE_HEIGHT / 2 };
+      maxX = Math.max(maxX, x + NODE_WIDTH);
+      maxY = Math.max(maxY, y + NODE_HEIGHT);
     });
   });
 
+  const canvasWidth = Math.min(MAX_CANVAS_WIDTH, Math.max(800, maxX + paddingX));
+  const canvasHeight = Math.min(MAX_CANVAS_HEIGHT, Math.max(450, maxY + paddingY));
+
+  const nodes = order.map((id) => ({
+    id,
+    ...byId.get(id),
+    isBlocked: blocked.has(id),
+    isCritical: criticalPathSet.has(id),
+    label: `${id}\n${((byId.get(id)?.activityName || "").slice(0, 20) || "")}${(byId.get(id)?.activityName || "").length > 20 ? "…" : ""}`,
+  }));
+
+  const edges = [];
   activities.forEach((a) => {
     const deps = parseDependencies(a.dependencies);
     deps.forEach((depId) => {
-      if (byId.has(depId) && byId.has(a.activityId)) {
-        g.setEdge(depId, a.activityId);
+      if (byId.has(depId) && positions[depId] && positions[a.activityId]) {
+        edges.push({
+          from: depId,
+          to: a.activityId,
+          isCritical: criticalPathToggle && criticalPathSet.has(depId) && criticalPathSet.has(a.activityId),
+        });
       }
     });
   });
 
-  return g;
+  return { nodes, edges, positions, canvasWidth, canvasHeight };
 }
 
 function getCriticalPathSet(activities) {
@@ -73,106 +115,95 @@ function getCriticalPathSet(activities) {
   }
 }
 
-function applyLayout(g) {
-  const dagreLib = getDagre();
-  if (!dagreLib) return {};
-  dagreLib.layout(g);
-  const positions = {};
-  g.nodes().forEach((id) => {
-    const node = g.node(id);
-    if (node) {
-      positions[id] = { x: node.x, y: node.y };
-    }
-  });
-  return positions;
-}
-
 function renderSvg(container, activities) {
   const svgEl = document.getElementById("network-svg");
   const wrapper = container?.querySelector(".network-graph-wrapper");
   if (!svgEl || !wrapper || !activities.length) return;
 
   const criticalPathSet = getCriticalPathSet(activities);
-  const g = buildGraph(activities, criticalPathSet);
-
-  if (!g || !getDagre()) {
-    container.innerHTML = `
-      <div class="network-graph-wrapper">
-        <div class="empty-state">No activities. Add activities in Activity Master, or enable JavaScript for graph layout.</div>
-      </div>
-    `;
-    return;
-  }
-
-  const positions = applyLayout(g);
-  nodePositions = positions;
-
-  const allNodes = g.nodes();
-  const allEdges = g.edges();
-  const criticalEdges = criticalPathToggle
-    ? new Set(
-        allEdges
-          .filter((e) => criticalPathSet.has(e.v) && criticalPathSet.has(e.w))
-          .map((e) => `${e.v}->${e.w}`),
-      )
-    : new Set();
+  const { nodes, edges, positions, canvasWidth, canvasHeight } = computeLayout(activities, criticalPathSet);
+  nodePositions = { ...positions };
 
   const xs = Object.values(positions).map((p) => p.x);
   const ys = Object.values(positions).map((p) => p.y);
-  const minX = Math.min(...xs) - NODE_WIDTH / 2 - 20;
-  const maxX = Math.max(...xs) + NODE_WIDTH / 2 + 20;
-  const minY = Math.min(...ys) - NODE_HEIGHT / 2 - 20;
-  const maxY = Math.max(...ys) + NODE_HEIGHT / 2 + 20;
-  const width = Math.max(800, maxX - minX + 40);
-  const height = Math.max(400, maxY - minY + 40);
+  const minX = xs.length ? Math.min(...xs) - NODE_WIDTH / 2 - 30 : 0;
+  const minY = ys.length ? Math.min(...ys) - NODE_HEIGHT / 2 - 30 : 0;
+  const width = xs.length ? Math.max(800, canvasWidth) : 800;
+  const height = ys.length ? Math.max(450, canvasHeight) : 450;
 
-  let edgesSvg = "";
-  allEdges.forEach((e) => {
-    const edge = g.edge(e);
-    const points = edge?.points || [];
-    const isCrit = criticalPathToggle && criticalEdges.has(`${e.v}->${e.w}`);
-    const stroke = isCrit ? "#d9152e" : "#2f8fff";
-    const strokeWidth = isCrit ? 2.5 : 1.2;
-    if (points.length >= 2) {
-      let pathD = `M ${points[0].x} ${points[0].y}`;
-      for (let i = 1; i < points.length; i++) {
-        pathD += ` L ${points[i].x} ${points[i].y}`;
-      }
-      edgesSvg += `<path d="${pathD}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${isCrit ? 0.9 : 0.6}" />`;
-    }
+  const arrowIdNormal = "arrow-normal";
+  const arrowIdCritical = "arrow-critical";
+  let edgesSvg = `
+    <defs>
+      <marker id="${arrowIdNormal}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#2f8fff" />
+      </marker>
+      <marker id="${arrowIdCritical}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#d9152e" />
+      </marker>
+    </defs>
+  `;
+  const rad = 6;
+  edges.forEach((edge) => {
+    const from = positions[edge.from];
+    const to = positions[edge.to];
+    if (!from || !to) return;
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    const startX = from.x + ux * (NODE_WIDTH / 2 + rad);
+    const startY = from.y + uy * (NODE_HEIGHT / 2 + rad);
+    const endX = to.x - ux * (NODE_WIDTH / 2 + rad);
+    const endY = to.y - uy * (NODE_HEIGHT / 2 + rad);
+    const stroke = edge.isCritical ? "#d9152e" : "#2f8fff";
+    const strokeWidth = edge.isCritical ? 2.5 : 1.5;
+    const marker = edge.isCritical ? arrowIdCritical : arrowIdNormal;
+    const pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
+    edgesSvg += `<path d="${pathD}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${edge.isCritical ? 0.95 : 0.75}" stroke-linecap="round" marker-end="url(#${marker})" />`;
   });
 
   let nodesSvg = "";
-  allNodes.forEach((id) => {
-    const node = g.node(id);
-    if (!node) return;
-    const x = node.x - NODE_WIDTH / 2;
-    const y = node.y - NODE_HEIGHT / 2;
-    const isBlocked = node.isBlocked;
-    const isCritical = criticalPathToggle && node.isCritical;
+  nodes.forEach((node) => {
+    const pos = positions[node.id];
+    if (!pos) return;
+    const x = pos.x - NODE_WIDTH / 2;
+    const y = pos.y - NODE_HEIGHT / 2;
     let fill = "#f6f9fe";
     let stroke = "#bfd0ea";
-    if (isCritical) {
+    if (node.isCritical) {
       fill = "rgba(217, 21, 46, 0.12)";
       stroke = "#d9152e";
-    } else if (isBlocked) {
+    } else if (node.isBlocked) {
       fill = "rgba(255, 77, 99, 0.12)";
       stroke = "#ff4d63";
     }
-    const lines = (node.label || id).split("\n");
+    const lines = (node.label || node.id).split("\n");
     nodesSvg += `
-      <g class="network-node" data-activity-id="${escapeHtml(id)}" transform="translate(${x},${y})">
+      <g class="network-node" data-activity-id="${escapeHtml(node.id)}" transform="translate(${x},${y})">
         <rect width="${NODE_WIDTH}" height="${NODE_HEIGHT}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="1.5" />
-        <text x="${NODE_WIDTH / 2}" y="${NODE_HEIGHT / 2 - 6}" text-anchor="middle" font-size="11" font-weight="600">${escapeHtml(lines[0] || id)}</text>
+        <text x="${NODE_WIDTH / 2}" y="${NODE_HEIGHT / 2 - 6}" text-anchor="middle" font-size="11" font-weight="600">${escapeHtml(lines[0] || node.id)}</text>
         <text x="${NODE_WIDTH / 2}" y="${NODE_HEIGHT / 2 + 10}" text-anchor="middle" font-size="9" fill="#5f779c">${escapeHtml(lines[1] || "")}</text>
       </g>
     `;
   });
 
-  svgEl.setAttribute("viewBox", `${minX - 20} ${minY - 20} ${width} ${height}`);
+  const viewBoxX = Math.min(minX, 0);
+  const viewBoxY = Math.min(minY, 0);
+  const viewBoxW = Math.max(width, 800);
+  const viewBoxH = Math.max(height, 450);
+  svgEl.setAttribute("viewBox", `${viewBoxX} ${viewBoxY} ${viewBoxW} ${viewBoxH}`);
+
+  const hintX = viewBoxX + viewBoxW / 2;
+  const hintY = viewBoxY + 28;
+  const noLinksHint = edges.length === 0 ? `<g class="network-no-links-hint"><text x="${hintX}" y="${hintY}" text-anchor="middle" font-size="12" fill="#5f779c">No links — add Dependencies in Activity Master (e.g. ACT-025,ACT-026) to show relationships</text></g>` : "";
   svgEl.setAttribute("width", "100%");
   svgEl.setAttribute("height", "500");
-  svgEl.innerHTML = `<g class="edges">${edgesSvg}</g><g class="nodes">${nodesSvg}</g>`;
+  svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svgEl.style.minHeight = "500px";
+  svgEl.style.maxHeight = "500px";
+  svgEl.innerHTML = `<g class="edges">${edgesSvg}</g><g class="nodes">${nodesSvg}</g>${noLinksHint}`;
   svgEl.style.cursor = isPanning ? "grabbing" : "default";
 
   wrapper.querySelectorAll(".network-node").forEach((gEl) => {
@@ -258,7 +289,7 @@ function setupPanZoom(container) {
   function applyTransform() {
     if (wrapper) {
       wrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-      wrapper.style.transformOrigin = "0 0";
+      wrapper.style.transformOrigin = "center center";
     }
   }
 
@@ -278,10 +309,9 @@ function exportPng() {
   const container = document.getElementById("network-diagram");
   if (!svgEl || !container) return;
 
-  const canvas = document.createElement("canvas");
-  const rect = svgEl.getBoundingClientRect();
   const vb = svgEl.getAttribute("viewBox")?.split(/\s+/).map(Number) || [0, 0, 800, 500];
   const scale = 2;
+  const canvas = document.createElement("canvas");
   canvas.width = (vb[2] || 800) * scale;
   canvas.height = (vb[3] || 500) * scale;
   const ctx = canvas.getContext("2d");
@@ -332,15 +362,6 @@ function render() {
 
   if (!activities.length) {
     container.innerHTML = '<div class="empty-state">No activities. Add activities in Activity Master.</div>';
-    return;
-  }
-
-  if (!getDagre()) {
-    container.innerHTML = `
-      <div class="network-graph-wrapper">
-        <div class="empty-state">Graph layout library loading... Refresh if this persists.</div>
-      </div>
-    `;
     return;
   }
 

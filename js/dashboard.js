@@ -1,6 +1,7 @@
 import { computePortfolioMetrics, getDelayAndRiskRows, getMaterialHealth, getPhaseProgress, groupBy } from "./analytics.js";
 import { escapeHtml, formatCurrency, formatHours, notify, renderEmptyState, setActiveNavigation, statusClass } from "./common.js";
-import { getActivities, getDashboardKpiConfig, getProjectActions, saveDashboardKpiConfig } from "./storage.js";
+import { createSampleDataset } from "./schema.js";
+import { getActivities, getDashboardKpiConfig, getProjectActions, saveActivities, saveDashboardKpiConfig } from "./storage.js";
 import { getRoleLabel } from "./auth.js";
 import { initPage } from "./page-init.js";
 import { hasCompletedOnboarding, startOnboarding } from "./onboarding.js";
@@ -167,7 +168,7 @@ function renderRiskTable(rows) {
     .slice(0, 14)
     .map(
       (row) => `
-      <tr>
+      <tr class="row-clickable" data-activity-id="${escapeHtml(row.activityId)}" title="Click to open in Activity Master">
         <td><strong>${row.activityId}</strong><br /><span class="small">${row.activityName || "-"}</span></td>
         <td>${row.phase || "-"}</td>
         <td><span class="${statusClass(row.activityStatus)}">${row.activityStatus}</span></td>
@@ -183,6 +184,15 @@ function renderRiskTable(rows) {
     `,
     )
     .join("");
+
+  body.querySelectorAll("tr.row-clickable").forEach((tr) => {
+    tr.style.cursor = "pointer";
+    tr.addEventListener("click", (e) => {
+      if (e.target.tagName === "A" || e.target.closest("a")) return;
+      const id = tr.dataset.activityId;
+      if (id) window.location.href = `activities.html?search=${encodeURIComponent(id)}`;
+    });
+  });
 }
 
 function renderAlertCenter(metrics, activities) {
@@ -401,6 +411,9 @@ function render() {
       : riskRows;
   renderRiskTable(roleRows);
   renderAlertCenter(metrics, activities);
+
+  const emptyBanner = document.getElementById("dashboard-empty-banner");
+  if (emptyBanner) emptyBanner.hidden = !!allActivities.length;
 
   const datePicker = document.querySelector("#dashboard-date-picker");
   if (datePicker) {

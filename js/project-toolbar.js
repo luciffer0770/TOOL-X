@@ -1,4 +1,4 @@
-import { escapeHtml, notify, showModal, triggerDownload } from "./common.js";
+import { escapeHtml, notify, showLoading, showModal, triggerDownload } from "./common.js";
 import {
   addProject,
   deleteProject,
@@ -267,6 +267,7 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
       backupBtn.textContent = "Backup DB";
       backupBtn.title = "Download full database backup";
       backupBtn.addEventListener("click", async () => {
+        const hideLoading = showLoading("Preparing backup...");
         try {
           const r = await fetch("/api/backup");
           if (!r.ok) throw new Error("Backup failed");
@@ -280,6 +281,8 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
           notify("Database backup downloaded.", "success");
         } catch (e) {
           notify("Backup failed: " + (e.message || "Unknown error"), "error");
+        } finally {
+          hideLoading();
         }
       });
       rowActions.appendChild(backupBtn);
@@ -302,6 +305,7 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
           e.target.value = "";
           return;
         }
+        const hideLoading = showLoading("Restoring...");
         try {
           const form = new FormData();
           form.append("file", file);
@@ -315,8 +319,10 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
           }
         } catch (err) {
           notify("Restore failed: " + err.message, "error");
+        } finally {
+          hideLoading();
+          e.target.value = "";
         }
-        e.target.value = "";
       });
       rowActions.appendChild(restoreLabel);
     }
