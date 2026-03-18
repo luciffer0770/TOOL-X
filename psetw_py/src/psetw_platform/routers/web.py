@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -76,8 +76,12 @@ def _serialize_activity(activity: Activity) -> dict[str, object]:
         "material_status": activity.material_status,
         "material_ownership": activity.material_ownership,
         "material_criticality": activity.material_criticality,
-        "material_required_date": activity.material_required_date.isoformat() if activity.material_required_date else None,
-        "material_received_date": activity.material_received_date.isoformat() if activity.material_received_date else None,
+        "material_required_date": (
+            activity.material_required_date.isoformat() if activity.material_required_date else None
+        ),
+        "material_received_date": (
+            activity.material_received_date.isoformat() if activity.material_received_date else None
+        ),
         "material_lead_time": activity.material_lead_time,
         "risk_score": activity.risk_score,
         "risk_probability": activity.risk_probability,
@@ -121,11 +125,12 @@ def _ensure_projects(db: DBSession, user: User) -> list[Project]:
 
 
 def _resolve_project(projects: Iterable[Project], requested_id: str | None) -> Project:
+    project_list = list(projects)
     if requested_id:
-        for project in projects:
+        for project in project_list:
             if project.id == requested_id:
                 return project
-    return list(projects)[0]
+    return next(iter(project_list))
 
 
 def _base_context(
@@ -212,7 +217,11 @@ def ui_dashboard(
     projects = _ensure_projects(db, user)
     active_project = _resolve_project(projects, project_id)
     activities = list(
-        db.scalars(select(Activity).where(Activity.project_id == active_project.id).order_by(Activity.created_at.asc())).all()
+        db.scalars(
+            select(Activity)
+            .where(Activity.project_id == active_project.id)
+            .order_by(Activity.created_at.asc())
+        ).all()
     )
     actions = list(db.scalars(select(ActionItem).where(ActionItem.project_id == active_project.id)).all())
 
@@ -256,7 +265,11 @@ def ui_activities(
     projects = _ensure_projects(db, user)
     active_project = _resolve_project(projects, project_id)
     activities = list(
-        db.scalars(select(Activity).where(Activity.project_id == active_project.id).order_by(Activity.created_at.asc())).all()
+        db.scalars(
+            select(Activity)
+            .where(Activity.project_id == active_project.id)
+            .order_by(Activity.created_at.asc())
+        ).all()
     )
     context = _base_context(request, user, projects, active_project, "/ui/activities", message)
     context.update(
@@ -539,10 +552,18 @@ def ui_anomaly_center(
     activities = list(db.scalars(select(Activity).where(Activity.project_id == active_project.id)).all())
     anomalies = detect_activity_anomalies(activities)
     baselines = list(
-        db.scalars(select(Baseline).where(Baseline.project_id == active_project.id).order_by(Baseline.created_at.desc())).all()
+        db.scalars(
+            select(Baseline)
+            .where(Baseline.project_id == active_project.id)
+            .order_by(Baseline.created_at.desc())
+        ).all()
     )
     actions = list(
-        db.scalars(select(ActionItem).where(ActionItem.project_id == active_project.id).order_by(ActionItem.updated_at.desc())).all()
+        db.scalars(
+            select(ActionItem)
+            .where(ActionItem.project_id == active_project.id)
+            .order_by(ActionItem.updated_at.desc())
+        ).all()
     )
     return _render_planning_page(
         request,
