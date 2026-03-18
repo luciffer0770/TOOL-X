@@ -5,6 +5,7 @@ browser-test-results/page-debug.html
 *.log
 .DS_Store
 psetw_data.db
+psetw_py/psetw_platform.db
 psetw_py/.venv/
 psetw_py/test_psetw_platform.db
 psetw_py/.mypy_cache/

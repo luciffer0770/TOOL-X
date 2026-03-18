@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h1>Materials Health</h1>
+    <div class="kpi-grid">
+      <article class="kpi"><div class="kpi-title">Pending Critical</div><div class="kpi-value">{{ health.pending_critical_count }}</div></article>
+      <article class="kpi"><div class="kpi-title">Late Materials</div><div class="kpi-value">{{ health.late_material_count }}</div></article>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Status Distribution</h2>
+    <table>
+      <thead><tr><th>Status</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for key, value in health.status_counts.items() %}
+          <tr><td>{{ key }}</td><td>{{ value }}</td></tr>
+        {% else %}
+          <tr><td colspan="2" class="muted">No material statuses yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Material Fields by Activity</h2>
+    <table>
+      <thead><tr><th>Code</th><th>Name</th><th>Status</th><th>Ownership</th><th>Criticality</th><th>Required</th><th>Received</th><th>Lead Time (h)</th></tr></thead>
+      <tbody>
+        {% for activity in activities %}
+          <tr>
+            <td>{{ activity.activity_code }}</td>
+            <td>{{ activity.activity_name }}</td>
+            <td>{{ activity.material_status }}</td>
+            <td>{{ activity.material_ownership }}</td>
+            <td>{{ activity.material_criticality }}</td>
+            <td>{{ activity.material_required_date or "-" }}</td>
+            <td>{{ activity.material_received_date or "-" }}</td>
+            <td>{{ activity.material_lead_time }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="8" class="muted">No activities available.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

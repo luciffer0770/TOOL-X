@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PS-ETW - Login</title>
+    <link rel="stylesheet" href="/ui-static/ui.css" />
+  </head>
+  <body style="display:grid;place-items:center;min-height:100vh">
+    <section class="panel" style="width:min(420px,94vw)">
+      <h1>PS-ETW Login</h1>
+      <p class="muted">Python-first platform access</p>
+      {% if error %}
+        <div class="alert" style="background:#fff2f4;border-color:#f4c2cb;color:#9e2236">{{ error }}</div>
+      {% endif %}
+      <form method="post" action="/ui/login" class="form-grid">
+        <div>
+          <label for="username">Username</label>
+          <input id="username" name="username" value="planner" required />
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <input id="password" type="password" name="password" value="planner123" required />
+        </div>
+        <div>
+          <label><input type="checkbox" name="remember_me" value="true" /> Remember me</label>
+        </div>
+        <div>
+          <button class="primary" type="submit">Sign in</button>
+        </div>
+      </form>
+      <p class="small muted">
+        Demo users: planner/planner123, management/management123, technician/technician123
+      </p>
+    </section>
+  </body>
+</html>

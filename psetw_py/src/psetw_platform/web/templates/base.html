@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PS-ETW - {{ title }}</title>
+    <link rel="stylesheet" href="/ui-static/ui.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">PS-ETW Platform</div>
+      <div class="small">
+        Signed in as <strong>{{ user.display_name }}</strong> ({{ user.role.value }})
+      </div>
+      <form method="post" action="/ui/logout">
+        <button type="submit">Logout</button>
+      </form>
+    </header>
+    <div class="layout">
+      <nav class="sidebar">
+        <a href="/ui/dashboard?project_id={{ active_project.id }}" class="{% if current_path == '/ui/dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="/ui/activities?project_id={{ active_project.id }}" class="{% if current_path == '/ui/activities' %}active{% endif %}">Activities</a>
+        <a href="/ui/gantt?project_id={{ active_project.id }}" class="{% if current_path == '/ui/gantt' %}active{% endif %}">Gantt</a>
+        <a href="/ui/calendar?project_id={{ active_project.id }}" class="{% if current_path == '/ui/calendar' %}active{% endif %}">Calendar</a>
+        <a href="/ui/network?project_id={{ active_project.id }}" class="{% if current_path == '/ui/network' %}active{% endif %}">Network</a>
+        <a href="/ui/risk-register?project_id={{ active_project.id }}" class="{% if current_path == '/ui/risk-register' %}active{% endif %}">Risk Register</a>
+        <a href="/ui/anomaly-center?project_id={{ active_project.id }}" class="{% if current_path == '/ui/anomaly-center' %}active{% endif %}">Anomaly Center</a>
+        <a href="/ui/materials?project_id={{ active_project.id }}" class="{% if current_path == '/ui/materials' %}active{% endif %}">Materials</a>
+        <a href="/ui/intelligence?project_id={{ active_project.id }}" class="{% if current_path == '/ui/intelligence' %}active{% endif %}">Intelligence</a>
+      </nav>
+      <main class="main">
+        {% if message %}
+          <div class="alert">{{ message }}</div>
+        {% endif %}
+        <section class="panel">
+          <form method="get" action="{{ current_path }}" class="form-grid">
+            <div>
+              <label for="project-id">Active project</label>
+              <select id="project-id" name="project_id" onchange="this.form.submit()">
+                {% for project in projects %}
+                  <option value="{{ project.id }}" {% if project.id == active_project.id %}selected{% endif %}>
+                    {{ project.name }} ({{ project.id }})
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          </form>
+        </section>
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h1>Intelligence / What-if Simulation</h1>
+    <p class="muted">Run planning simulation for {{ activity_count }} activities.</p>
+    <form method="post" action="/ui/intelligence/simulate" class="form-grid">
+      <input type="hidden" name="project_id" value="{{ active_project.id }}" />
+      <div><label>Manpower Boost %</label><input type="number" name="manpower_boost_pct" min="0" max="100" value="{{ scenario.manpower_boost_pct if scenario else 0 }}" /></div>
+      <div><label>Overtime Hours / Day</label><input type="number" step="0.1" name="overtime_hours_per_day" min="0" max="12" value="{{ scenario.overtime_hours_per_day if scenario else 0 }}" /></div>
+      <div><label>Lead Time Reduction %</label><input type="number" name="lead_time_reduction_pct" min="0" max="100" value="{{ scenario.lead_time_reduction_pct if scenario else 0 }}" /></div>
+      <div><label>&nbsp;</label><button class="primary" type="submit">Run simulation</button></div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Simulation Result</h2>
+    {% if simulation_result %}
+      <div class="kpi-grid">
+        <article class="kpi"><div class="kpi-title">Baseline Finish</div><div class="kpi-value small">{{ simulation_result.baseline_finish_date or "-" }}</div></article>
+        <article class="kpi"><div class="kpi-title">Simulated Finish</div><div class="kpi-value small">{{ simulation_result.simulated_finish_date or "-" }}</div></article>
+        <article class="kpi"><div class="kpi-title">Improvement (h)</div><div class="kpi-value">{{ simulation_result.improvement_hours }}</div></article>
+      </div>
+      <table>
+        <thead><tr><th>Code</th><th>Name</th><th>Start</th><th>Finish</th><th>Baseline h</th><th>Simulated h</th><th>Saved h</th></tr></thead>
+        <tbody>
+          {% for impact in simulation_result.impacts %}
+            <tr>
+              <td>{{ impact.activity_code }}</td>
+              <td>{{ impact.activity_name }}</td>
+              <td>{{ impact.start_date }}</td>
+              <td>{{ impact.finish_date }}</td>
+              <td>{{ impact.baseline_duration_hours }}</td>
+              <td>{{ impact.simulated_duration_hours }}</td>
+              <td>{{ impact.saved_hours }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="7" class="muted">No impact rows.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Run a scenario to see results.</p>
+    {% endif %}
+  </section>
+{% endblock %}

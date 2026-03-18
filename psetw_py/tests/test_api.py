@@ -305,3 +305,58 @@ def test_legacy_compat_auth_and_state_endpoints(client: TestClient) -> None:
     logout = client.post("/api/auth/logout", json={"token": login_payload["token"]})
     assert logout.status_code == 200
     assert logout.json()["ok"] is True
+
+
+def test_server_rendered_ui_login_and_pages(client: TestClient) -> None:
+    login_page = client.get("/ui/login")
+    assert login_page.status_code == 200
+    assert "PS-ETW Login" in login_page.text
+
+    login = client.post(
+        "/ui/login",
+        data={"username": "planner", "password": "planner123", "remember_me": "true"},
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+    assert login.headers["location"] == "/ui/dashboard"
+    auth_cookie = login.cookies.get("psetw_ui_token")
+    assert auth_cookie is not None
+
+    cookies = {"psetw_ui_token": auth_cookie}
+    dashboard = client.get("/ui/dashboard", cookies=cookies)
+    assert dashboard.status_code == 200
+    assert "Dashboard" in dashboard.text
+
+    create_project = client.post("/api/v1/projects", json={"name": "UI Project"}, headers=_auth_headers(client))
+    assert create_project.status_code == 201
+    project_id = create_project.json()["id"]
+
+    create_activity = client.post(
+        f"/ui/projects/{project_id}/activities",
+        data={
+            "activity_code": "UI-100",
+            "activity_name": "Rendered UI flow",
+            "phase": "Planning",
+            "status": "In Progress",
+            "planned_start_date": "2026-03-01",
+            "planned_end_date": "2026-03-05",
+            "completion_percentage": "40",
+            "base_effort_hours": "32",
+            "risk_score": "60",
+        },
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert create_activity.status_code == 303
+
+    activities_page = client.get(f"/ui/activities?project_id={project_id}", cookies=cookies)
+    assert activities_page.status_code == 200
+    assert "UI-100" in activities_page.text
+
+    gantt_page = client.get(f"/ui/gantt?project_id={project_id}", cookies=cookies)
+    assert gantt_page.status_code == 200
+    assert "Gantt Planning" in gantt_page.text
+
+    intelligence_page = client.get(f"/ui/intelligence?project_id={project_id}", cookies=cookies)
+    assert intelligence_page.status_code == 200
+    assert "What-if Simulation" in intelligence_page.text

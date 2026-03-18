@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h1>Calendar</h1>
+    <form method="get" action="/ui/calendar" class="form-grid">
+      <input type="hidden" name="project_id" value="{{ active_project.id }}" />
+      <div><label>Month</label><input type="month" name="month" value="{{ month_cursor.strftime('%Y-%m') }}" /></div>
+      <div><label>&nbsp;</label><button class="primary" type="submit">Go</button></div>
+      <div><label>&nbsp;</label><a href="/ui/calendar?project_id={{ active_project.id }}&month={{ prev_month }}">← Prev</a></div>
+      <div><label>&nbsp;</label><a href="/ui/calendar?project_id={{ active_project.id }}&month={{ next_month }}">Next →</a></div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="calendar-grid">
+      {% for bucket in calendar_rows %}
+        <article class="calendar-day">
+          <h4>{{ bucket.day }}</h4>
+          {% for activity in bucket.activities %}
+            <div class="tag">{{ activity.activity_code }} ({{ activity.status.value }})</div>
+          {% else %}
+            <span class="small muted">No activities</span>
+          {% endfor %}
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

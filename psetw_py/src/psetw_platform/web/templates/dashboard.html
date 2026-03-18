@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h1>Dashboard</h1>
+    <p class="muted">Portfolio KPIs and operational health for {{ active_project.name }}</p>
+    <div class="kpi-grid">
+      <article class="kpi"><div class="kpi-title">Total Activities</div><div class="kpi-value">{{ portfolio_metrics.total_activities }}</div></article>
+      <article class="kpi"><div class="kpi-title">Delayed</div><div class="kpi-value">{{ portfolio_metrics.delayed_activities }}</div></article>
+      <article class="kpi"><div class="kpi-title">High Risk</div><div class="kpi-value">{{ portfolio_metrics.high_risk_activities }}</div></article>
+      <article class="kpi"><div class="kpi-title">Blocked</div><div class="kpi-value">{{ portfolio_metrics.blocked_activities }}</div></article>
+      <article class="kpi"><div class="kpi-title">Completion</div><div class="kpi-value">{{ portfolio_metrics.average_completion }}%</div></article>
+      <article class="kpi"><div class="kpi-title">Open Actions</div><div class="kpi-value">{{ open_action_count }}</div></article>
+      <article class="kpi"><div class="kpi-title">Overdue Actions</div><div class="kpi-value">{{ overdue_action_count }}</div></article>
+      <article class="kpi"><div class="kpi-title">Dependency Cycles</div><div class="kpi-value">{{ dependency_health.cycle_count }}</div></article>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Top Risks</h2>
+    <table>
+      <thead>
+        <tr><th>Code</th><th>Name</th><th>Status</th><th>Risk</th><th>Delay Days</th><th>Reason</th></tr>
+      </thead>
+      <tbody>
+        {% for row in top_risks %}
+          <tr>
+            <td>{{ row.activity_code }}</td>
+            <td>{{ row.activity_name }}</td>
+            <td><span class="status {{ row.status.value|lower|replace(' ', '-') }}">{{ row.status.value }}</span></td>
+            <td><span class="status {{ row.risk_level|lower }}">{{ row.risk_level }}</span> ({{ row.risk_score }})</td>
+            <td>{{ row.delay_days }}</td>
+            <td>{{ row.delay_reason or "-" }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="muted">No risk rows yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Phase Progress</h2>
+    <table>
+      <thead><tr><th>Phase</th><th>Activities</th><th>Avg Completion</th><th>Delayed</th></tr></thead>
+      <tbody>
+        {% for row in phase_progress %}
+          <tr>
+            <td>{{ row.phase }}</td>
+            <td>{{ row.activity_count }}</td>
+            <td>{{ row.average_completion }}%</td>
+            <td>{{ row.delayed_activities }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="muted">No phase data available.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Anomaly Severity</h2>
+    <div class="kpi-grid">
+      {% for label, value in anomaly_counts.items() %}
+        <article class="kpi"><div class="kpi-title">{{ label }}</div><div class="kpi-value">{{ value }}</div></article>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

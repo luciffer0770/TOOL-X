@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h1>Activity Master</h1>
+    <p class="muted">Create and track work-packages for {{ active_project.name }}</p>
+    <form method="post" action="/ui/projects/{{ active_project.id }}/activities" class="form-grid">
+      <div><label>Code</label><input name="activity_code" placeholder="ACT-100" required /></div>
+      <div><label>Name</label><input name="activity_name" placeholder="Tooling release gate" required /></div>
+      <div><label>Phase</label><input name="phase" placeholder="Execution" /></div>
+      <div>
+        <label>Status</label>
+        <select name="status">
+          {% for status in status_values %}
+            <option value="{{ status }}">{{ status }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div><label>Planned Start</label><input type="date" name="planned_start_date" /></div>
+      <div><label>Planned End</label><input type="date" name="planned_end_date" /></div>
+      <div><label>Completion %</label><input type="number" name="completion_percentage" min="0" max="100" value="0" /></div>
+      <div><label>Effort Hours</label><input type="number" name="base_effort_hours" min="0" value="0" /></div>
+      <div><label>Dependencies (comma)</label><input name="dependencies" placeholder="ACT-050, ACT-075" /></div>
+      <div><label>Risk Score</label><input type="number" name="risk_score" min="0" max="100" value="0" /></div>
+      <div><label>&nbsp;</label><button class="primary" type="submit">Create activity</button></div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Activities ({{ activities|length }})</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Code / Name</th>
+          <th>Phase</th>
+          <th>Status</th>
+          <th>Completion</th>
+          <th>Planned Dates</th>
+          <th>Risk</th>
+          <th>Update</th>
+          <th>Delete</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for activity in activities %}
+          <tr>
+            <td><strong>{{ activity.activity_code }}</strong><br /><span class="small muted">{{ activity.activity_name }}</span></td>
+            <td>{{ activity.phase or "-" }}</td>
+            <td><span class="status {{ activity.status.value|lower|replace(' ', '-') }}">{{ activity.status.value }}</span></td>
+            <td>{{ activity.completion_percentage }}%</td>
+            <td>{{ activity.planned_start_date or "-" }} → {{ activity.planned_end_date or "-" }}</td>
+            <td>{{ activity.risk_score }}</td>
+            <td>
+              <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" class="row-actions">
+                <select name="status">
+                  {% for status in status_values %}
+                    <option value="{{ status }}" {% if status == activity.status.value %}selected{% endif %}>{{ status }}</option>
+                  {% endfor %}
+                </select>
+                <input type="number" name="completion_percentage" min="0" max="100" value="{{ activity.completion_percentage }}" />
+                <input name="delay_reason" placeholder="Delay reason" value="{{ activity.delay_reason }}" />
+                <input name="remarks" placeholder="Remarks" value="{{ activity.remarks }}" />
+                <button class="primary" type="submit">Save</button>
+              </form>
+            </td>
+            <td>
+              <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/delete">
+                <button class="danger" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="8" class="muted">No activities available.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

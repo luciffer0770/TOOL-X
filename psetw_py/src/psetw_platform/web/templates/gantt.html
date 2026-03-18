@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h1>Gantt Planning</h1>
+    <p class="muted">Timeline bounds: {{ timeline_bounds.min_date }} to {{ timeline_bounds.max_date }}</p>
+    <form method="get" action="/ui/gantt" class="form-grid">
+      <input type="hidden" name="project_id" value="{{ active_project.id }}" />
+      <div><label>Phase filter</label><input name="phase" value="{{ phase_filter }}" placeholder="Planning" /></div>
+      <div>
+        <label>Status filter</label>
+        <select name="status_filter">
+          <option value="">All</option>
+          {% for status in status_values %}
+            <option value="{{ status }}" {% if status_filter == status %}selected{% endif %}>{{ status }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div><label>&nbsp;</label><button class="primary" type="submit">Apply</button></div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <table>
+      <thead>
+        <tr><th>Code</th><th>Name</th><th>Phase</th><th>Status</th><th>Start</th><th>End</th><th>Duration(h)</th><th>Completion</th><th>Delay(h)</th><th>Critical</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.activity_code }}</td>
+            <td>{{ row.activity_name }}</td>
+            <td>{{ row.phase or "-" }}</td>
+            <td><span class="status {{ row.status.value|lower|replace(' ', '-') }}">{{ row.status.value }}</span></td>
+            <td>{{ row.planned_start_date or "-" }}</td>
+            <td>{{ row.planned_end_date or "-" }}</td>
+            <td>{{ row.planned_duration_hours }}</td>
+            <td>{{ row.completion_percentage }}%</td>
+            <td>{{ row.delay_hours }}</td>
+            <td>{% if row.critical_path %}Yes{% else %}-{% endif %}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="10" class="muted">No rows in current filter.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

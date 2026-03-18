@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
 from psetw_platform.core.config import get_settings
@@ -25,6 +28,7 @@ from psetw_platform.routers import (
     planning,
     projects,
     scenarios,
+    web,
 )
 
 settings = get_settings()
@@ -76,6 +80,9 @@ def create_app() -> FastAPI:
         seed_demo_users()
         logger.info("PS-ETW platform startup complete")
 
+    static_dir = Path(__file__).resolve().parent / "web" / "static"
+    app.mount("/ui-static", StaticFiles(directory=str(static_dir)), name="ui-static")
+
     app.include_router(health.router, prefix="/api")
     app.include_router(legacy.router)
     app.include_router(auth.router, prefix="/api/v1")
@@ -87,10 +94,11 @@ def create_app() -> FastAPI:
     app.include_router(analytics.router, prefix="/api/v1")
     app.include_router(dashboard.router, prefix="/api/v1")
     app.include_router(planning.router, prefix="/api/v1")
+    app.include_router(web.router)
 
-    @app.get("/")
-    def root() -> dict[str, str]:
-        return {"service": settings.app_name, "status": "running", "docs": "/docs"}
+    @app.get("/", include_in_schema=False)
+    def root() -> RedirectResponse:
+        return RedirectResponse(url="/ui", status_code=307)
 
     return app
 

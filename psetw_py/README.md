@@ -33,6 +33,11 @@ API docs:
 - `http://localhost:8000/docs`
 - `http://localhost:8000/redoc`
 
+Web UI (server-rendered):
+
+- `http://localhost:8000/ui/login`
+- After login, the app redirects to `/ui/dashboard`
+
 ## Default Demo Users
 
 When `PSETW_SEED_DEMO_USERS=true`:
@@ -69,6 +74,18 @@ Legacy frontend compatibility endpoints (for transition period):
 - `POST /api/auth/login`
 - `GET|POST /api/auth/me`
 - `POST /api/auth/logout`
+
+Python-rendered UI endpoints:
+
+- `/ui/dashboard`
+- `/ui/activities`
+- `/ui/gantt`
+- `/ui/calendar`
+- `/ui/network`
+- `/ui/risk-register`
+- `/ui/anomaly-center`
+- `/ui/materials`
+- `/ui/intelligence`
 
 ## Directory Layout
 

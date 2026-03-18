@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h1>Anomaly Center</h1>
+    <p class="muted">Data-quality findings, baselines, and action tracking</p>
+  </section>
+
+  <section class="panel">
+    <h2>Lock Baseline</h2>
+    <form method="post" action="/ui/projects/{{ active_project.id }}/baselines" class="form-grid">
+      <div><label>Baseline Name</label><input name="name" placeholder="Weekly baseline" /></div>
+      <div><label>&nbsp;</label><button class="primary" type="submit">Lock baseline</button></div>
+    </form>
+    <h3>Baselines ({{ baselines|length }})</h3>
+    <table>
+      <thead><tr><th>Name</th><th>By</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for baseline in baselines %}
+          <tr><td>{{ baseline.name }}</td><td>{{ baseline.created_by }}</td><td>{{ baseline.created_at }}</td></tr>
+        {% else %}
+          <tr><td colspan="3" class="muted">No baselines yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Anomalies ({{ anomalies|length }})</h2>
+    <table>
+      <thead><tr><th>Rule</th><th>Activity</th><th>Severity</th><th>Issue</th><th>Recommendation</th></tr></thead>
+      <tbody>
+        {% for anomaly in anomalies %}
+          <tr>
+            <td>{{ anomaly.rule_id }}</td>
+            <td>{{ anomaly.activity_code }} - {{ anomaly.activity_name }}</td>
+            <td><span class="status {{ anomaly.severity|lower }}">{{ anomaly.severity }}</span></td>
+            <td>{{ anomaly.issue }}</td>
+            <td>{{ anomaly.recommendation }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="muted">No anomalies detected.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Actions ({{ actions|length }})</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Activity ID</th><th>Title</th><th>Owner</th><th>Due</th><th>Status</th><th>Priority</th></tr></thead>
+      <tbody>
+        {% for action in actions %}
+          <tr>
+            <td>{{ action.id }}</td>
+            <td>{{ action.activity_id or "-" }}</td>
+            <td>{{ action.title }}</td>
+            <td>{{ action.owner }}</td>
+            <td>{{ action.due_date or "-" }}</td>
+            <td>{{ action.status.value }}</td>
+            <td>{{ action.priority.value }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="muted">No actions yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}
