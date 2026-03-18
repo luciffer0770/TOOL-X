@@ -21,6 +21,7 @@ from psetw_platform.routers import (
     baselines,
     dashboard,
     health,
+    legacy,
     planning,
     projects,
     scenarios,
@@ -76,6 +77,7 @@ def create_app() -> FastAPI:
         logger.info("PS-ETW platform startup complete")
 
     app.include_router(health.router, prefix="/api")
+    app.include_router(legacy.router)
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(projects.router, prefix="/api/v1")
     app.include_router(activities.router, prefix="/api/v1")

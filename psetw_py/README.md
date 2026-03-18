@@ -63,6 +63,13 @@ The replatform now includes dedicated planning endpoints:
 - `POST /api/v1/projects/{project_id}/planning/simulate`
 - `GET /api/v1/projects/{project_id}/dashboard/overview`
 
+Legacy frontend compatibility endpoints (for transition period):
+
+- `GET|PUT|POST /api/state`
+- `POST /api/auth/login`
+- `GET|POST /api/auth/me`
+- `POST /api/auth/logout`
+
 ## Directory Layout
 
 ```text

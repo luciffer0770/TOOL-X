@@ -267,3 +267,41 @@ def test_phase2_planning_endpoints(client: TestClient) -> None:
     assert "portfolio_metrics" in dashboard_payload
     assert "timeline_bounds" in dashboard_payload
     assert "action_summary" in dashboard_payload
+
+
+def test_legacy_compat_auth_and_state_endpoints(client: TestClient) -> None:
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "planner", "password": "planner123", "rememberMe": True},
+    )
+    assert login.status_code == 200
+    login_payload = login.json()
+    assert login_payload["ok"] is True
+    assert login_payload["token"]
+
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {login_payload['token']}"})
+    assert me.status_code == 200
+    me_payload = me.json()
+    assert me_payload["ok"] is True
+    assert me_payload["user"]["username"] == "planner"
+
+    default_state = client.get("/api/state")
+    assert default_state.status_code == 200
+    assert "projects" in default_state.json()
+
+    updated_state = {
+        "projects": [{"id": "PRJ-0099", "name": "Legacy Project", "activities": [], "baselines": [], "actions": []}],
+        "activeProjectId": "PRJ-0099",
+        "settings": {"tableColumnVisibility": {}, "defaultEditor": "Planner"},
+    }
+    save_state = client.put("/api/state", json=updated_state)
+    assert save_state.status_code == 200
+    assert save_state.json()["ok"] is True
+
+    loaded_state = client.get("/api/state")
+    assert loaded_state.status_code == 200
+    assert loaded_state.json()["activeProjectId"] == "PRJ-0099"
+
+    logout = client.post("/api/auth/logout", json={"token": login_payload["token"]})
+    assert logout.status_code == 200
+    assert logout.json()["ok"] is True

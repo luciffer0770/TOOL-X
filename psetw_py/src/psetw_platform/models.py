@@ -202,3 +202,13 @@ class AuditEvent(Base):
     entity_id: Mapped[str] = mapped_column(String(100))
     details: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class PlatformState(Base):
+    """Legacy whole-project JSON state payload for compatibility endpoints."""
+
+    __tablename__ = "platform_state"
+
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
