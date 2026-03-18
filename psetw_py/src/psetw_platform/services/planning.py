@@ -132,6 +132,12 @@ def _critical_path_codes(activities: list[Activity]) -> list[str]:
     return path
 
 
+def compute_critical_path_codes(activities: list[Activity]) -> list[str]:
+    """Return critical path as ordered activity codes."""
+
+    return _critical_path_codes(activities)
+
+
 def _blocking_dependencies(activity: Activity, by_code: dict[str, Activity]) -> list[str]:
     blocking: list[str] = []
     for dependency in _parse_dependencies(activity.dependencies):

@@ -327,3 +327,25 @@ class ScenarioSimulationResult(BaseModel):
     simulated_finish_date: date | None
     improvement_hours: float
     impacts: list[ScenarioImpactRow]
+
+
+class ActionSummary(BaseModel):
+    total_actions: int
+    open_actions: int
+    overdue_actions: int
+
+
+class AnomalySummary(BaseModel):
+    total: int
+    by_severity: dict[str, int]
+
+
+class DashboardOverview(BaseModel):
+    portfolio_metrics: PortfolioMetrics
+    timeline_bounds: TimelineBounds
+    phase_progress: list[PhaseProgressRow]
+    top_risks: list[DelayRiskRow]
+    dependency_health: DependencyHealth
+    anomaly_summary: AnomalySummary
+    action_summary: ActionSummary
+    critical_path_codes: list[str]

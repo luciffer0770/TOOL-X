@@ -260,3 +260,10 @@ def test_phase2_planning_endpoints(client: TestClient) -> None:
     simulation_payload = simulation.json()
     assert "improvement_hours" in simulation_payload
     assert len(simulation_payload["impacts"]) == 3
+
+    dashboard = client.get(f"/api/v1/projects/{project_id}/dashboard/overview", headers=headers)
+    assert dashboard.status_code == 200
+    dashboard_payload = dashboard.json()
+    assert "portfolio_metrics" in dashboard_payload
+    assert "timeline_bounds" in dashboard_payload
+    assert "action_summary" in dashboard_payload

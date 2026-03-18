@@ -61,6 +61,7 @@ The replatform now includes dedicated planning endpoints:
 - `GET /api/v1/projects/{project_id}/planning/network`
 - `GET /api/v1/projects/{project_id}/planning/materials-health`
 - `POST /api/v1/projects/{project_id}/planning/simulate`
+- `GET /api/v1/projects/{project_id}/dashboard/overview`
 
 ## Directory Layout
 
