@@ -360,3 +360,59 @@ def test_server_rendered_ui_login_and_pages(client: TestClient) -> None:
     intelligence_page = client.get(f"/ui/intelligence?project_id={project_id}", cookies=cookies)
     assert intelligence_page.status_code == 200
     assert "What-if Simulation" in intelligence_page.text
+
+
+def test_ui_activities_import_export_and_bulk_actions(client: TestClient) -> None:
+    login = client.post(
+        "/ui/login",
+        data={"username": "planner", "password": "planner123", "remember_me": "true"},
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+    auth_cookie = login.cookies.get("psetw_ui_session")
+    assert auth_cookie
+    cookies = {"psetw_ui_session": auth_cookie}
+
+    create_project = client.post("/api/v1/projects", json={"name": "Import Export Project"}, headers=_auth_headers(client))
+    assert create_project.status_code == 201
+    project_id = create_project.json()["id"]
+
+    csv_payload = (
+        "Activity ID,Activity Name,Phase,Sub Activity,Base Effort Hours,Required Materials,Required Tools,"
+        "Material Ownership,Material Lead Time,Dependencies,Activity Status,Completion Percentage,Risk Score\n"
+        "ACT-100,Line Install,Build-Up,Prep,24,Frame,Torque Wrench,Mechanical,12,,In Progress,35,65\n"
+        "ACT-200,Validation Run,Validation,Trial,16,Sensor,Analyzer,Electrical,8,ACT-100,Not Started,0,45\n"
+    )
+    import_response = client.post(
+        f"/ui/projects/{project_id}/activities/import",
+        data={"merge_strategy": "merge"},
+        files={"file": ("activities.csv", csv_payload, "text/csv")},
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert import_response.status_code == 303
+
+    activities_page = client.get(f"/ui/activities?project_id={project_id}&search=ACT-100", cookies=cookies)
+    assert activities_page.status_code == 200
+    assert "ACT-100" in activities_page.text
+
+    api_headers = _auth_headers(client)
+    list_response = client.get(f"/api/v1/projects/{project_id}/activities", headers=api_headers)
+    assert list_response.status_code == 200
+    first_id = list_response.json()[0]["id"]
+
+    bulk_status = client.post(
+        f"/ui/projects/{project_id}/activities/bulk-status",
+        data={"selected_ids": [first_id], "bulk_status": "Delayed"},
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert bulk_status.status_code == 303
+
+    export_csv = client.get(f"/ui/projects/{project_id}/activities/export.csv", cookies=cookies)
+    assert export_csv.status_code == 200
+    assert "Activity ID" in export_csv.text
+
+    export_json = client.get(f"/ui/projects/{project_id}/activities/export.json", cookies=cookies)
+    assert export_json.status_code == 200
+    assert "ACT-100" in export_json.text

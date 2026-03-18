@@ -48,31 +48,49 @@ class ActivityBase(BaseModel):
     activity_code: str = Field(min_length=1, max_length=64)
     activity_name: str = Field(min_length=1, max_length=300)
     phase: str = ""
+    sub_activity: str = ""
     status: ActivityStatus = ActivityStatus.not_started
     completion_percentage: int = Field(default=0, ge=0, le=100)
     planned_start_date: date | None = None
     planned_end_date: date | None = None
+    planned_duration_hours: int = Field(default=0, ge=0)
     actual_start_date: date | None = None
     actual_end_date: date | None = None
+    actual_duration_hours: int = Field(default=0, ge=0)
     base_effort_hours: int = Field(default=0, ge=0)
+    required_materials: str = ""
+    required_tools: str = ""
     dependencies: list[str] = Field(default_factory=list)
     dependency_type: str = "FS"
     priority: str = "Medium"
+    milestone: str = ""
     assigned_manpower: int = Field(default=1, ge=1)
+    manpower_skill_level: str = ""
+    resource_name: str = ""
+    resource_department: str = ""
+    shift_type: str = ""
     material_status: str = "Not Ordered"
     material_ownership: str = "Mechanical"
+    material_supplier: str = ""
     material_criticality: str = "Medium"
     material_required_date: date | None = None
     material_received_date: date | None = None
     material_lead_time: int = Field(default=0, ge=0)
+    risk_level: str = "Low"
     risk_score: int = Field(default=0, ge=0, le=100)
     risk_probability: int = Field(default=3, ge=1, le=5)
     risk_impact: int = Field(default=3, ge=1, le=5)
     risk_mitigation_status: str = "Planned"
     risk_owner: str = ""
     risk_review_date: date | None = None
+    manual_override_duration: int = Field(default=0, ge=0)
+    override_reason: str = ""
+    override_approved_by: str = ""
     estimated_cost: int = Field(default=0, ge=0)
     actual_cost: int = Field(default=0, ge=0)
+    cost_center: str = ""
+    last_modified_by: str = ""
+    last_modified_date: date | None = None
     delay_reason: str = ""
     remarks: str = ""
 
@@ -84,31 +102,49 @@ class ActivityCreate(ActivityBase):
 class ActivityUpdate(BaseModel):
     activity_name: str | None = None
     phase: str | None = None
+    sub_activity: str | None = None
     status: ActivityStatus | None = None
     completion_percentage: int | None = Field(default=None, ge=0, le=100)
     planned_start_date: date | None = None
     planned_end_date: date | None = None
+    planned_duration_hours: int | None = Field(default=None, ge=0)
     actual_start_date: date | None = None
     actual_end_date: date | None = None
+    actual_duration_hours: int | None = Field(default=None, ge=0)
     base_effort_hours: int | None = Field(default=None, ge=0)
+    required_materials: str | None = None
+    required_tools: str | None = None
     dependencies: list[str] | None = None
     dependency_type: str | None = None
     priority: str | None = None
+    milestone: str | None = None
     assigned_manpower: int | None = Field(default=None, ge=1)
+    manpower_skill_level: str | None = None
+    resource_name: str | None = None
+    resource_department: str | None = None
+    shift_type: str | None = None
     material_status: str | None = None
     material_ownership: str | None = None
+    material_supplier: str | None = None
     material_criticality: str | None = None
     material_required_date: date | None = None
     material_received_date: date | None = None
     material_lead_time: int | None = Field(default=None, ge=0)
+    risk_level: str | None = None
     risk_score: int | None = Field(default=None, ge=0, le=100)
     risk_probability: int | None = Field(default=None, ge=1, le=5)
     risk_impact: int | None = Field(default=None, ge=1, le=5)
     risk_mitigation_status: str | None = None
     risk_owner: str | None = None
     risk_review_date: date | None = None
+    manual_override_duration: int | None = Field(default=None, ge=0)
+    override_reason: str | None = None
+    override_approved_by: str | None = None
     estimated_cost: int | None = Field(default=None, ge=0)
     actual_cost: int | None = Field(default=None, ge=0)
+    cost_center: str | None = None
+    last_modified_by: str | None = None
+    last_modified_date: date | None = None
     delay_reason: str | None = None
     remarks: str | None = None
 

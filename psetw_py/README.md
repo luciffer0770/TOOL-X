@@ -87,6 +87,25 @@ Python-rendered UI endpoints:
 - `/ui/materials`
 - `/ui/intelligence`
 
+## Python UI Feature Parity Progress
+
+The server-rendered Python UI is actively closing parity with the previous tool.
+
+Implemented in Python UI now:
+
+- Activity creation/edit/delete with rich planning/risk/material fields
+- Activity search + phase/status filtering + pagination
+- Bulk activity operations (status update and delete)
+- Spreadsheet import for Activities (`.xlsx`, `.csv`) with merge/replace mode
+- Activity export (`.csv`, `.xlsx`, `.json`)
+- Dashboard KPIs, planning pages (Gantt/Calendar/Network), risk register, anomaly center, materials, intelligence simulation
+- Baseline lock from Python UI
+
+Note:
+
+- The target is parity (or better) with the previous frontend, while keeping the new Python-first architecture.
+- Additional parity hardening is ongoing for advanced interaction workflows.
+
 ## Directory Layout
 
 ```text
