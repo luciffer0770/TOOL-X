@@ -3,7 +3,7 @@
   <section class="panel">
     <h1>Activity Master</h1>
     <p class="muted">Create, import, filter, bulk-edit, and export activities for {{ active_project.name }}</p>
-    <form method="post" action="/ui/projects/{{ active_project.id }}/activities" class="form-grid">
+    <form method="post" action="/ui/projects/{{ active_project.id }}/activities" class="form-grid compact-form">
       <div><label>Code</label><input name="activity_code" placeholder="ACT-100" required /></div>
       <div><label>Name</label><input name="activity_name" placeholder="Tooling release gate" required /></div>
       <div><label>Phase</label><input name="phase" placeholder="Execution" /></div>
@@ -18,44 +18,49 @@
       </div>
       <div><label>Planned Start</label><input type="date" name="planned_start_date" /></div>
       <div><label>Planned End</label><input type="date" name="planned_end_date" /></div>
-      <div><label>Planned Duration (h)</label><input type="number" name="planned_duration_hours" min="0" value="0" /></div>
       <div><label>Completion %</label><input type="number" name="completion_percentage" min="0" max="100" value="0" /></div>
       <div><label>Effort Hours</label><input type="number" name="base_effort_hours" min="0" value="0" /></div>
       <div><label>Required Materials</label><input name="required_materials" placeholder="Comma separated materials" /></div>
       <div><label>Required Tools</label><input name="required_tools" placeholder="Comma separated tools" /></div>
       <div><label>Dependencies (comma)</label><input name="dependencies" placeholder="ACT-050, ACT-075" /></div>
-      <div><label>Dependency Type</label><input name="dependency_type" value="FS" /></div>
-      <div><label>Priority</label><input name="priority" value="Medium" /></div>
-      <div><label>Milestone</label><input name="milestone" /></div>
-      <div><label>Assigned Manpower</label><input type="number" name="assigned_manpower" min="1" value="1" /></div>
-      <div><label>Manpower Skill Level</label><input name="manpower_skill_level" /></div>
-      <div><label>Resource Name</label><input name="resource_name" /></div>
-      <div><label>Resource Department</label><input name="resource_department" /></div>
-      <div><label>Shift Type</label><input name="shift_type" /></div>
-      <div><label>Material Status</label><input name="material_status" value="Not Ordered" /></div>
-      <div><label>Material Ownership</label><input name="material_ownership" value="Mechanical" /></div>
-      <div><label>Material Supplier</label><input name="material_supplier" /></div>
-      <div><label>Material Criticality</label><input name="material_criticality" value="Medium" /></div>
-      <div><label>Material Required Date</label><input type="date" name="material_required_date" /></div>
-      <div><label>Material Received Date</label><input type="date" name="material_received_date" /></div>
-      <div><label>Material Lead Time (h)</label><input type="number" name="material_lead_time" min="0" value="0" /></div>
-      <div><label>Risk Level</label><input name="risk_level" value="Low" /></div>
       <div><label>Risk Score</label><input type="number" name="risk_score" min="0" max="100" value="0" /></div>
-      <div><label>Risk Probability (1-5)</label><input type="number" name="risk_probability" min="1" max="5" value="3" /></div>
-      <div><label>Risk Impact (1-5)</label><input type="number" name="risk_impact" min="1" max="5" value="3" /></div>
-      <div><label>Mitigation Status</label><input name="risk_mitigation_status" value="Planned" /></div>
-      <div><label>Risk Owner</label><input name="risk_owner" /></div>
-      <div><label>Risk Review Date</label><input type="date" name="risk_review_date" /></div>
-      <div><label>Manual Override Duration</label><input type="number" name="manual_override_duration" min="0" value="0" /></div>
-      <div><label>Override Reason</label><input name="override_reason" /></div>
-      <div><label>Override Approved By</label><input name="override_approved_by" /></div>
-      <div><label>Estimated Cost</label><input type="number" name="estimated_cost" min="0" value="0" /></div>
-      <div><label>Actual Cost</label><input type="number" name="actual_cost" min="0" value="0" /></div>
-      <div><label>Cost Center</label><input name="cost_center" /></div>
-      <div><label>Last Modified By</label><input name="last_modified_by" value="{{ user.username }}" /></div>
-      <div><label>Last Modified Date</label><input type="date" name="last_modified_date" /></div>
-      <div><label>Delay Reason</label><input name="delay_reason" /></div>
-      <div><label>Remarks</label><input name="remarks" /></div>
+      <details class="collapsible" style="grid-column: 1 / -1">
+        <summary>Advanced activity fields (optional)</summary>
+        <div class="form-grid" style="margin-top: 10px">
+          <div><label>Planned Duration (h)</label><input type="number" name="planned_duration_hours" min="0" value="0" /></div>
+          <div><label>Dependency Type</label><input name="dependency_type" value="FS" /></div>
+          <div><label>Priority</label><input name="priority" value="Medium" /></div>
+          <div><label>Milestone</label><input name="milestone" /></div>
+          <div><label>Assigned Manpower</label><input type="number" name="assigned_manpower" min="1" value="1" /></div>
+          <div><label>Manpower Skill Level</label><input name="manpower_skill_level" /></div>
+          <div><label>Resource Name</label><input name="resource_name" /></div>
+          <div><label>Resource Department</label><input name="resource_department" /></div>
+          <div><label>Shift Type</label><input name="shift_type" /></div>
+          <div><label>Material Status</label><input name="material_status" value="Not Ordered" /></div>
+          <div><label>Material Ownership</label><input name="material_ownership" value="Mechanical" /></div>
+          <div><label>Material Supplier</label><input name="material_supplier" /></div>
+          <div><label>Material Criticality</label><input name="material_criticality" value="Medium" /></div>
+          <div><label>Material Required Date</label><input type="date" name="material_required_date" /></div>
+          <div><label>Material Received Date</label><input type="date" name="material_received_date" /></div>
+          <div><label>Material Lead Time (h)</label><input type="number" name="material_lead_time" min="0" value="0" /></div>
+          <div><label>Risk Level</label><input name="risk_level" value="Low" /></div>
+          <div><label>Risk Probability (1-5)</label><input type="number" name="risk_probability" min="1" max="5" value="3" /></div>
+          <div><label>Risk Impact (1-5)</label><input type="number" name="risk_impact" min="1" max="5" value="3" /></div>
+          <div><label>Mitigation Status</label><input name="risk_mitigation_status" value="Planned" /></div>
+          <div><label>Risk Owner</label><input name="risk_owner" /></div>
+          <div><label>Risk Review Date</label><input type="date" name="risk_review_date" /></div>
+          <div><label>Manual Override Duration</label><input type="number" name="manual_override_duration" min="0" value="0" /></div>
+          <div><label>Override Reason</label><input name="override_reason" /></div>
+          <div><label>Override Approved By</label><input name="override_approved_by" /></div>
+          <div><label>Estimated Cost</label><input type="number" name="estimated_cost" min="0" value="0" /></div>
+          <div><label>Actual Cost</label><input type="number" name="actual_cost" min="0" value="0" /></div>
+          <div><label>Cost Center</label><input name="cost_center" /></div>
+          <div><label>Last Modified By</label><input name="last_modified_by" value="{{ user.username }}" /></div>
+          <div><label>Last Modified Date</label><input type="date" name="last_modified_date" /></div>
+          <div><label>Delay Reason</label><input name="delay_reason" /></div>
+          <div><label>Remarks</label><input name="remarks" /></div>
+        </div>
+      </details>
       <div><label>&nbsp;</label><button class="primary" type="submit">Create activity</button></div>
     </form>
   </section>
@@ -137,7 +142,8 @@
       <div><label>&nbsp;</label><button class="danger" formaction="/ui/projects/{{ active_project.id }}/activities/bulk-delete" type="submit">Delete Selected</button></div>
     </form>
 
-    <table>
+    <div class="data-grid-wrap">
+    <table class="data-grid">
       <thead>
         <tr>
           <th>Select</th>
@@ -170,7 +176,7 @@
             <td>{{ activity.material_status }} / {{ activity.material_ownership }}</td>
             <td><span class="status {{ activity.risk_level|lower }}">{{ activity.risk_level }}</span> {{ activity.risk_score }}</td>
             <td>
-              <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" class="row-actions">
+              <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" class="row-actions inline-update">
                 <select name="status">
                   {% for status in status_values %}
                     <option value="{{ status }}" {% if status == activity.status.value %}selected{% endif %}>{{ status }}</option>
@@ -178,8 +184,6 @@
                 </select>
                 <input type="number" name="completion_percentage" min="0" max="100" value="{{ activity.completion_percentage }}" />
                 <input type="number" name="risk_score" min="0" max="100" value="{{ activity.risk_score }}" />
-                <input name="material_status" value="{{ activity.material_status }}" />
-                <input name="material_ownership" value="{{ activity.material_ownership }}" />
                 <input name="delay_reason" placeholder="Delay reason" value="{{ activity.delay_reason }}" />
                 <input name="remarks" placeholder="Remarks" value="{{ activity.remarks }}" />
                 <button class="primary" type="submit">Save</button>
@@ -196,6 +200,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     <div class="row-actions" style="margin-top: 10px">
       {% if page > 1 %}

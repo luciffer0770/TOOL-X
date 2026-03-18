@@ -353,9 +353,17 @@ def test_server_rendered_ui_login_and_pages(client: TestClient) -> None:
     assert activities_page.status_code == 200
     assert "UI-100" in activities_page.text
 
-    gantt_page = client.get(f"/ui/gantt?project_id={project_id}", cookies=cookies)
-    assert gantt_page.status_code == 200
-    assert "Gantt Planning" in gantt_page.text
+    gantt_page = client.get(
+        f"/ui/gantt?project_id={project_id}",
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert gantt_page.status_code == 303
+    assert "/ui/calendar" in gantt_page.headers["location"]
+
+    calendar_page = client.get(f"/ui/calendar?project_id={project_id}", cookies=cookies)
+    assert calendar_page.status_code == 200
+    assert "Drag activity chips between days" in calendar_page.text
 
     intelligence_page = client.get(f"/ui/intelligence?project_id={project_id}", cookies=cookies)
     assert intelligence_page.status_code == 200
@@ -503,3 +511,84 @@ def test_ui_anomaly_baseline_and_action_workflows(client: TestClient) -> None:
 
     actions_after = client.get(f"/api/v1/projects/{project_id}/actions", headers=headers).json()
     assert actions_after[0]["status"] == "Closed"
+
+
+def test_ui_calendar_reschedule_and_eod_logs(client: TestClient) -> None:
+    login = client.post(
+        "/ui/login",
+        data={"username": "planner", "password": "planner123", "remember_me": "true"},
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+    auth_cookie = login.cookies.get("psetw_ui_session")
+    assert auth_cookie
+    cookies = {"psetw_ui_session": auth_cookie}
+    headers = _auth_headers(client)
+
+    create_project = client.post("/api/v1/projects", json={"name": "Calendar EOD Project"}, headers=headers)
+    assert create_project.status_code == 201
+    project_id = create_project.json()["id"]
+
+    create_activity = client.post(
+        f"/ui/projects/{project_id}/activities",
+        data={
+            "activity_code": "CAL-100",
+            "activity_name": "Movable Activity",
+            "phase": "Execution",
+            "status": "Not Started",
+            "planned_start_date": "2026-03-10",
+            "planned_end_date": "2026-03-12",
+            "completion_percentage": "0",
+            "base_effort_hours": "16",
+            "risk_score": "10",
+        },
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert create_activity.status_code == 303
+
+    activities = client.get(f"/api/v1/projects/{project_id}/activities", headers=headers).json()
+    assert len(activities) == 1
+    activity_id = activities[0]["id"]
+
+    move_response = client.post(
+        f"/ui/projects/{project_id}/activities/{activity_id}/reschedule",
+        data={"target_date": "2026-03-20"},
+        cookies=cookies,
+    )
+    assert move_response.status_code == 200
+    payload = move_response.json()
+    assert payload["ok"] is True
+    assert payload["start"] == "2026-03-20"
+
+    updated = client.get(f"/api/v1/projects/{project_id}/activities", headers=headers).json()
+    assert updated[0]["planned_start_date"] == "2026-03-20"
+    assert updated[0]["planned_end_date"] == "2026-03-22"
+
+    create_eod = client.post(
+        f"/ui/projects/{project_id}/eod-logs",
+        data={
+            "log_date": "2026-03-20",
+            "engineer": "Planner",
+            "activities_worked_on": "CAL-100",
+            "phase": "Execution",
+            "activity_count": "1",
+            "hours_logged": "8",
+            "progress_delta": "15",
+            "blockers": "None",
+            "next_day_plan": "Continue execution",
+            "materials_received": "Harness",
+            "issues_observed": "No defects",
+            "status": "Submitted",
+            "verified_by": "Lead",
+        },
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert create_eod.status_code == 303
+    assert "/ui/eod-logs" in create_eod.headers["location"]
+
+    eod_page = client.get(f"/ui/eod-logs?project_id={project_id}", cookies=cookies)
+    assert eod_page.status_code == 200
+    assert "EOD History (1)" in eod_page.text
+    assert "CAL-100" in eod_page.text

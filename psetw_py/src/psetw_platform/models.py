@@ -92,6 +92,9 @@ class Project(Base):
     scenarios: Mapped[list[Scenario]] = relationship(
         "Scenario", back_populates="project", cascade="all, delete-orphan"
     )
+    eod_logs: Mapped[list[EodLog]] = relationship(
+        "EodLog", back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class Activity(Base):
@@ -206,6 +209,30 @@ class Scenario(Base):
     saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     project: Mapped[Project] = relationship("Project", back_populates="scenarios")
+
+
+class EodLog(Base):
+    """End-of-day execution log entry."""
+
+    __tablename__ = "eod_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    log_date: Mapped[date] = mapped_column(Date, default=date.today)
+    engineer: Mapped[str] = mapped_column(String(200), default="")
+    activities_worked_on: Mapped[str] = mapped_column(Text, default="")
+    phase: Mapped[str] = mapped_column(String(120), default="")
+    activity_count: Mapped[int] = mapped_column(Integer, default=0)
+    hours_logged: Mapped[int] = mapped_column(Integer, default=0)
+    progress_delta: Mapped[int] = mapped_column(Integer, default=0)
+    blockers: Mapped[str] = mapped_column(Text, default="")
+    next_day_plan: Mapped[str] = mapped_column(Text, default="")
+    materials_received: Mapped[str] = mapped_column(Text, default="")
+    issues_observed: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(64), default="Open")
+    verified_by: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    project: Mapped[Project] = relationship("Project", back_populates="eod_logs")
 
 
 class AuditEvent(Base):

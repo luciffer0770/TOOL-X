@@ -5,13 +5,14 @@ from __future__ import annotations
 import csv
 import io
 import json
+from calendar import SUNDAY, Calendar
 from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, Request, Response, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from openpyxl import Workbook, load_workbook
 from sqlalchemy import select
@@ -25,6 +26,7 @@ from psetw_platform.models import (
     Activity,
     ActivityStatus,
     Baseline,
+    EodLog,
     Project,
     User,
     UserRole,
@@ -38,11 +40,9 @@ from psetw_platform.services.analytics import (
 )
 from psetw_platform.services.planning import (
     compute_calendar_buckets,
-    compute_gantt_rows,
     compute_material_health,
     compute_network_graph,
     compute_phase_progress,
-    compute_timeline_bounds,
     simulate_scenario,
 )
 
@@ -437,6 +437,47 @@ def _apply_import_row(activity: Activity, row_values: dict[str, object]) -> None
             setattr(activity, key, _parse_dependencies(value))
         else:
             setattr(activity, key, _as_text(value))
+
+
+def _compute_activity_duration_days(activity: Activity) -> int:
+    if activity.planned_start_date and activity.planned_end_date:
+        delta = (activity.planned_end_date - activity.planned_start_date).days
+        if delta > 0:
+            return delta
+    if activity.planned_duration_hours > 0:
+        return max(1, (activity.planned_duration_hours + 23) // 24)
+    if activity.base_effort_hours > 0:
+        return max(1, (activity.base_effort_hours + 23) // 24)
+    return 1
+
+
+def _build_calendar_matrix(activities: list[Activity], month_date: date) -> list[list[dict[str, object]]]:
+    month_calendar = Calendar(firstweekday=SUNDAY)
+    activity_by_day: dict[date, list[Activity]] = {}
+    for activity in activities:
+        anchor = activity.planned_start_date or activity.planned_end_date or activity.actual_start_date
+        if anchor is None:
+            continue
+        activity_by_day.setdefault(anchor, []).append(activity)
+
+    matrix: list[list[dict[str, object]]] = []
+    today = date.today()
+    for week in month_calendar.monthdatescalendar(month_date.year, month_date.month):
+        week_rows: list[dict[str, object]] = []
+        for day in week:
+            week_rows.append(
+                {
+                    "day": day,
+                    "in_month": day.month == month_date.month,
+                    "is_today": day == today,
+                    "activities": sorted(
+                        activity_by_day.get(day, []),
+                        key=lambda activity: activity.activity_code.lower(),
+                    ),
+                }
+            )
+        matrix.append(week_rows)
+    return matrix
 
 
 @router.get("/ui", include_in_schema=False)
@@ -1023,13 +1064,14 @@ def _render_planning_page(
     current_path: str,
     title: str,
     extra_context: dict[str, object],
+    message: str = "",
 ) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
     projects = _ensure_projects(db, user)
     active_project = _resolve_project(projects, project_id)
-    context = _base_context(request, user, projects, active_project, current_path)
+    context = _base_context(request, user, projects, active_project, current_path, message=message)
     context.update(extra_context)
     context["title"] = title
     return templates.TemplateResponse(template_name, context)
@@ -1040,36 +1082,15 @@ def ui_gantt(
     request: Request,
     db: DBSession,
     project_id: str | None = None,
-    phase: str | None = None,
-    status_filter: str | None = None,
 ) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
     projects = _ensure_projects(db, user)
     active_project = _resolve_project(projects, project_id)
-    activities = list(db.scalars(select(Activity).where(Activity.project_id == active_project.id)).all())
-
-    status_value: ActivityStatus | None = None
-    if status_filter:
-        try:
-            status_value = ActivityStatus(status_filter)
-        except ValueError:
-            status_value = None
-    rows = compute_gantt_rows(activities, phase_filter=phase, status_filter=status_value)
-    return _render_planning_page(
-        request,
-        db,
-        active_project.id,
-        "gantt.html",
-        "/ui/gantt",
-        "Gantt",
-        {
-            "rows": rows,
-            "phase_filter": phase or "",
-            "status_filter": status_filter or "",
-            "timeline_bounds": compute_timeline_bounds(activities),
-        },
+    return RedirectResponse(
+        url=f"/ui/calendar?project_id={active_project.id}&message=Gantt view was merged into interactive calendar.",
+        status_code=303,
     )
 
 
@@ -1079,6 +1100,7 @@ def ui_calendar(
     db: DBSession,
     project_id: str | None = None,
     month: str | None = None,
+    message: str = "",
 ) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
@@ -1088,13 +1110,18 @@ def ui_calendar(
     activities = list(db.scalars(select(Activity).where(Activity.project_id == active_project.id)).all())
 
     if month:
-        month_date = datetime.strptime(f"{month}-01", "%Y-%m-%d").date()
+        try:
+            month_date = datetime.strptime(f"{month}-01", "%Y-%m-%d").date()
+        except ValueError:
+            today = date.today()
+            month_date = date(today.year, today.month, 1)
     else:
         today = date.today()
         month_date = date(today.year, today.month, 1)
     next_month = date(month_date.year + int(month_date.month == 12), (month_date.month % 12) + 1, 1)
     month_end = next_month - timedelta(days=1)
     calendar_rows = compute_calendar_buckets(activities, month_date, month_end)
+    calendar_matrix = _build_calendar_matrix(activities, month_date)
 
     prev_month = month_date - timedelta(days=1)
     next_month_cursor = month_end + timedelta(days=1)
@@ -1110,8 +1137,42 @@ def ui_calendar(
             "prev_month": f"{prev_month.year}-{prev_month.month:02d}",
             "next_month": f"{next_month_cursor.year}-{next_month_cursor.month:02d}",
             "calendar_rows": calendar_rows,
+            "calendar_matrix": calendar_matrix,
+            "weekday_labels": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
         },
+        message=message,
     )
+
+
+@router.post("/ui/projects/{project_id}/activities/{activity_id}/reschedule", include_in_schema=False)
+def ui_reschedule_activity(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    activity_id: str,
+    target_date: Annotated[str, Form()],
+) -> Response:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return JSONResponse({"ok": False, "error": "Authentication required"}, status_code=401)
+
+    target = _parse_date(target_date)
+    if target is None:
+        return JSONResponse({"ok": False, "error": "Invalid target date"}, status_code=422)
+
+    activity = db.scalar(
+        select(Activity).where(Activity.project_id == project_id, Activity.id == activity_id)
+    )
+    if activity is None:
+        return JSONResponse({"ok": False, "error": "Activity not found"}, status_code=404)
+
+    duration_days = _compute_activity_duration_days(activity)
+    activity.planned_start_date = target
+    activity.planned_end_date = target + timedelta(days=duration_days)
+    activity.last_modified_by = user.username
+    activity.last_modified_date = date.today()
+    db.commit()
+    return JSONResponse({"ok": True, "start": activity.planned_start_date.isoformat(), "end": activity.planned_end_date.isoformat()})
 
 
 @router.get("/ui/network", response_class=HTMLResponse, include_in_schema=False)
@@ -1209,6 +1270,13 @@ def ui_anomaly_center(
 
 def _anomaly_redirect(project_id: str, message: str = "") -> RedirectResponse:
     url = f"/ui/anomaly-center?project_id={project_id}"
+    if message:
+        url += f"&message={message}"
+    return RedirectResponse(url=url, status_code=303)
+
+
+def _eod_redirect(project_id: str, message: str = "") -> RedirectResponse:
+    url = f"/ui/eod-logs?project_id={project_id}"
     if message:
         url += f"&message={message}"
     return RedirectResponse(url=url, status_code=303)
@@ -1363,6 +1431,82 @@ def ui_delete_action(request: Request, db: DBSession, project_id: str, action_id
         db.delete(action)
         db.commit()
     return _anomaly_redirect(project_id, "Action deleted.")
+
+
+@router.get("/ui/eod-logs", response_class=HTMLResponse, include_in_schema=False)
+def ui_eod_logs(
+    request: Request,
+    db: DBSession,
+    project_id: str | None = None,
+    message: str = "",
+) -> Response:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    projects = _ensure_projects(db, user)
+    active_project = _resolve_project(projects, project_id)
+    logs = list(
+        db.scalars(
+            select(EodLog).where(EodLog.project_id == active_project.id).order_by(EodLog.log_date.desc(), EodLog.created_at.desc())
+        ).all()
+    )
+    activities = list(
+        db.scalars(select(Activity).where(Activity.project_id == active_project.id).order_by(Activity.activity_code.asc())).all()
+    )
+    return _render_planning_page(
+        request,
+        db,
+        active_project.id,
+        "eod_logs.html",
+        "/ui/eod-logs",
+        "EOD Logs",
+        {"logs": logs, "activities": activities},
+        message=message,
+    )
+
+
+@router.post("/ui/projects/{project_id}/eod-logs", include_in_schema=False)
+def ui_create_eod_log(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    log_date: Annotated[str, Form()],
+    engineer: Annotated[str, Form()] = "",
+    activities_worked_on: Annotated[str, Form()] = "",
+    phase: Annotated[str, Form()] = "",
+    activity_count: Annotated[int, Form()] = 0,
+    hours_logged: Annotated[int, Form()] = 0,
+    progress_delta: Annotated[int, Form()] = 0,
+    blockers: Annotated[str, Form()] = "",
+    next_day_plan: Annotated[str, Form()] = "",
+    materials_received: Annotated[str, Form()] = "",
+    issues_observed: Annotated[str, Form()] = "",
+    status: Annotated[str, Form()] = "Open",
+    verified_by: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    parsed_log_date = _parse_date(log_date) or date.today()
+    entry = EodLog(
+        project_id=project_id,
+        log_date=parsed_log_date,
+        engineer=engineer.strip() or user.display_name or user.username,
+        activities_worked_on=activities_worked_on.strip(),
+        phase=phase.strip(),
+        activity_count=max(0, activity_count),
+        hours_logged=max(0, hours_logged),
+        progress_delta=progress_delta,
+        blockers=blockers.strip(),
+        next_day_plan=next_day_plan.strip(),
+        materials_received=materials_received.strip(),
+        issues_observed=issues_observed.strip(),
+        status=status.strip() or "Open",
+        verified_by=verified_by.strip(),
+    )
+    db.add(entry)
+    db.commit()
+    return _eod_redirect(project_id, "EOD log entry added.")
 
 
 @router.get("/ui/materials", response_class=HTMLResponse, include_in_schema=False)
