@@ -13,13 +13,14 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
+from openpyxl import Workbook, load_workbook
 from sqlalchemy import select
-from openpyxl import load_workbook
 
 from psetw_platform.core.security import create_access_token, decode_access_token, verify_password
 from psetw_platform.dependencies import DBSession
 from psetw_platform.models import (
     ActionItem,
+    ActionPriority,
     ActionStatus,
     Activity,
     ActivityStatus,
@@ -388,6 +389,8 @@ def _parse_import_rows(file_name: str, content: bytes) -> list[dict[str, object]
     if lower_name.endswith(".xlsx"):
         workbook = load_workbook(io.BytesIO(content), data_only=True)
         sheet = workbook.active
+        if sheet is None:
+            return []
         rows = list(sheet.iter_rows(values_only=True))
         if not rows:
             return []
@@ -400,10 +403,20 @@ def _parse_import_rows(file_name: str, content: bytes) -> list[dict[str, object]
 
 
 def _apply_import_row(activity: Activity, row_values: dict[str, object]) -> None:
+    date_fields = {
+        "planned_start_date",
+        "planned_end_date",
+        "actual_start_date",
+        "actual_end_date",
+        "material_required_date",
+        "material_received_date",
+        "risk_review_date",
+        "last_modified_date",
+    }
     for key, value in row_values.items():
         if key == "status":
             activity.status = _coerce_status(value)
-        elif key in {"planned_start_date", "planned_end_date", "actual_start_date", "actual_end_date", "material_required_date", "material_received_date", "risk_review_date", "last_modified_date"}:
+        elif key in date_fields:
             setattr(activity, key, _as_date(value))
         elif key in {
             "completion_percentage",
@@ -857,7 +870,7 @@ async def ui_import_activities(
     request: Request,
     db: DBSession,
     project_id: str,
-    file: UploadFile = File(...),
+    file: Annotated[UploadFile, File(...)],
     merge_strategy: Annotated[str, Form()] = "merge",
 ) -> RedirectResponse:
     user = _get_cookie_user(request, db)
@@ -899,16 +912,16 @@ async def ui_import_activities(
     existing_codes = {activity.activity_code for activity in existing}
 
     if merge_strategy == "replace":
-        for row in existing:
-            db.delete(row)
+        for existing_row in existing:
+            db.delete(existing_row)
         db.flush()
         existing_by_code = {}
         existing_codes = set()
 
     created = 0
     updated = 0
-    for row in normalized_rows:
-        code = _as_text(row.get("activity_code"))
+    for import_row in normalized_rows:
+        code = _as_text(import_row.get("activity_code"))
         if not code:
             code = _next_activity_code(existing_codes)
         target = existing_by_code.get(code)
@@ -916,7 +929,7 @@ async def ui_import_activities(
             target = Activity(
                 project_id=project_id,
                 activity_code=code,
-                activity_name=_as_text(row.get("activity_name")) or "Unnamed",
+                activity_name=_as_text(import_row.get("activity_name")) or "Unnamed",
             )
             db.add(target)
             existing_by_code[code] = target
@@ -924,7 +937,7 @@ async def ui_import_activities(
             created += 1
         else:
             updated += 1
-        _apply_import_row(target, row)
+        _apply_import_row(target, import_row)
         target.activity_code = code
         if not target.activity_name:
             target.activity_name = "Unnamed"
@@ -981,10 +994,11 @@ def ui_export_activities_xlsx(request: Request, db: DBSession, project_id: str) 
     )
 
     workbook_buffer = io.BytesIO()
-    from openpyxl import Workbook
 
     workbook = Workbook()
     sheet = workbook.active
+    if sheet is None:
+        sheet = workbook.create_sheet("Activities")
     sheet.title = "Activities"
     headers = [label for label, _ in ACTIVITY_EXPORT_COLUMNS]
     sheet.append(headers)
@@ -1182,8 +1196,22 @@ def ui_anomaly_center(
         "anomaly_center.html",
         "/ui/anomaly-center",
         "Anomaly Center",
-        {"anomalies": anomalies, "baselines": baselines, "actions": actions},
+        {
+            "anomalies": anomalies,
+            "baselines": baselines,
+            "actions": actions,
+            "action_status_values": [status.value for status in ActionStatus],
+            "action_priority_values": [priority.value for priority in ActionPriority],
+            "activities": activities,
+        },
     )
+
+
+def _anomaly_redirect(project_id: str, message: str = "") -> RedirectResponse:
+    url = f"/ui/anomaly-center?project_id={project_id}"
+    if message:
+        url += f"&message={message}"
+    return RedirectResponse(url=url, status_code=303)
 
 
 @router.post("/ui/projects/{project_id}/baselines", include_in_schema=False)
@@ -1197,10 +1225,7 @@ def ui_create_baseline(
     if user is None:
         return _login_redirect()
     if user.role not in {UserRole.planner, UserRole.management}:
-        return RedirectResponse(
-            url=f"/ui/anomaly-center?project_id={project_id}&message=Only planning or management can lock baselines.",
-            status_code=303,
-        )
+        return _anomaly_redirect(project_id, "Only planning or management can lock baselines.")
     activities = list(db.scalars(select(Activity).where(Activity.project_id == project_id)).all())
     baseline = Baseline(
         project_id=project_id,
@@ -1210,7 +1235,134 @@ def ui_create_baseline(
     )
     db.add(baseline)
     db.commit()
-    return RedirectResponse(url=f"/ui/anomaly-center?project_id={project_id}", status_code=303)
+    return _anomaly_redirect(project_id, "Baseline locked.")
+
+
+@router.post("/ui/projects/{project_id}/baselines/{baseline_id}/restore", include_in_schema=False)
+def ui_restore_baseline(request: Request, db: DBSession, project_id: str, baseline_id: str) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if user.role not in {UserRole.planner, UserRole.management}:
+        return _anomaly_redirect(project_id, "Only planning or management can restore baselines.")
+
+    baseline = db.scalar(select(Baseline).where(Baseline.project_id == project_id, Baseline.id == baseline_id))
+    if baseline is None:
+        return _anomaly_redirect(project_id, "Baseline not found.")
+
+    snapshot_rows = baseline.snapshot.get("activities")
+    if not isinstance(snapshot_rows, list):
+        return _anomaly_redirect(project_id, "Baseline snapshot is invalid.")
+
+    current_rows = list(db.scalars(select(Activity).where(Activity.project_id == project_id)).all())
+    for row in current_rows:
+        db.delete(row)
+    db.flush()
+    existing_codes: set[str] = set()
+    for snapshot_row in snapshot_rows:
+        if not isinstance(snapshot_row, dict):
+            continue
+        code = _as_text(snapshot_row.get("activity_code")) or _next_activity_code(existing_codes)
+        activity = Activity(
+            project_id=project_id,
+            activity_code=code,
+            activity_name=_as_text(snapshot_row.get("activity_name")) or "Unnamed",
+        )
+        _apply_import_row(activity, snapshot_row)
+        existing_codes.add(code)
+        db.add(activity)
+    db.commit()
+    return _anomaly_redirect(project_id, f"Restored baseline {baseline.name}.")
+
+
+@router.post("/ui/projects/{project_id}/actions", include_in_schema=False)
+def ui_create_action(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    activity_id: Annotated[str, Form()] = "",
+    title: Annotated[str, Form()] = "",
+    owner: Annotated[str, Form()] = "",
+    due_date: Annotated[str, Form()] = "",
+    priority: Annotated[str, Form()] = "Medium",
+    status: Annotated[str, Form()] = "Open",
+    notes: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if user.role not in {UserRole.planner, UserRole.management}:
+        return _anomaly_redirect(project_id, "Only planning or management can create actions.")
+    if not title.strip() or not owner.strip():
+        return _anomaly_redirect(project_id, "Action title and owner are required.")
+
+    try:
+        priority_value = ActionPriority(priority)
+    except ValueError:
+        priority_value = ActionPriority.medium
+    try:
+        status_value = ActionStatus(status)
+    except ValueError:
+        status_value = ActionStatus.open
+
+    linked_activity_id = activity_id.strip() or None
+    if linked_activity_id:
+        exists = db.scalar(
+            select(Activity.id).where(Activity.project_id == project_id, Activity.id == linked_activity_id)
+        )
+        if exists is None:
+            return _anomaly_redirect(project_id, "Linked activity not found.")
+
+    action = ActionItem(
+        project_id=project_id,
+        activity_id=linked_activity_id,
+        title=title.strip(),
+        owner=owner.strip(),
+        due_date=_parse_date(due_date),
+        priority=priority_value,
+        status=status_value,
+        notes=notes.strip(),
+        created_by=user.username,
+    )
+    db.add(action)
+    db.commit()
+    return _anomaly_redirect(project_id, "Action created.")
+
+
+@router.post("/ui/projects/{project_id}/actions/{action_id}/status", include_in_schema=False)
+def ui_update_action_status(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    action_id: str,
+    status: Annotated[str, Form()],
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    action = db.scalar(select(ActionItem).where(ActionItem.project_id == project_id, ActionItem.id == action_id))
+    if action is None:
+        return _anomaly_redirect(project_id, "Action not found.")
+    try:
+        action.status = ActionStatus(status)
+    except ValueError:
+        return _anomaly_redirect(project_id, "Invalid action status.")
+    db.commit()
+    return _anomaly_redirect(project_id, "Action status updated.")
+
+
+@router.post("/ui/projects/{project_id}/actions/{action_id}/delete", include_in_schema=False)
+def ui_delete_action(request: Request, db: DBSession, project_id: str, action_id: str) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if user.role not in {UserRole.planner, UserRole.management}:
+        return _anomaly_redirect(project_id, "Only planning or management can delete actions.")
+    action = db.scalar(select(ActionItem).where(ActionItem.project_id == project_id, ActionItem.id == action_id))
+    if action is not None:
+        db.delete(action)
+        db.commit()
+    return _anomaly_redirect(project_id, "Action deleted.")
 
 
 @router.get("/ui/materials", response_class=HTMLResponse, include_in_schema=False)

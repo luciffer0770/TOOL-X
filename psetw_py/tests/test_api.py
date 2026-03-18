@@ -373,7 +373,11 @@ def test_ui_activities_import_export_and_bulk_actions(client: TestClient) -> Non
     assert auth_cookie
     cookies = {"psetw_ui_session": auth_cookie}
 
-    create_project = client.post("/api/v1/projects", json={"name": "Import Export Project"}, headers=_auth_headers(client))
+    create_project = client.post(
+        "/api/v1/projects",
+        json={"name": "Import Export Project"},
+        headers=_auth_headers(client),
+    )
     assert create_project.status_code == 201
     project_id = create_project.json()["id"]
 
@@ -416,3 +420,86 @@ def test_ui_activities_import_export_and_bulk_actions(client: TestClient) -> Non
     export_json = client.get(f"/ui/projects/{project_id}/activities/export.json", cookies=cookies)
     assert export_json.status_code == 200
     assert "ACT-100" in export_json.text
+
+
+def test_ui_anomaly_baseline_and_action_workflows(client: TestClient) -> None:
+    login = client.post(
+        "/ui/login",
+        data={"username": "planner", "password": "planner123", "remember_me": "true"},
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+    auth_cookie = login.cookies.get("psetw_ui_session")
+    assert auth_cookie
+    cookies = {"psetw_ui_session": auth_cookie}
+
+    create_project = client.post("/api/v1/projects", json={"name": "Anomaly Project"}, headers=_auth_headers(client))
+    assert create_project.status_code == 201
+    project_id = create_project.json()["id"]
+
+    create_activity = client.post(
+        f"/ui/projects/{project_id}/activities",
+        data={
+            "activity_code": "AN-100",
+            "activity_name": "Action Source",
+            "phase": "Validation",
+            "status": "In Progress",
+            "completion_percentage": "50",
+            "base_effort_hours": "16",
+            "risk_score": "70",
+            "required_materials": "Cable",
+            "required_tools": "Meter",
+            "material_ownership": "Mechanical",
+            "material_lead_time": "6",
+            "dependencies": "",
+            "sub_activity": "Wire checks",
+        },
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert create_activity.status_code == 303
+
+    baseline_create = client.post(
+        f"/ui/projects/{project_id}/baselines",
+        data={"name": "B1"},
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert baseline_create.status_code == 303
+
+    anomaly_page = client.get(f"/ui/anomaly-center?project_id={project_id}", cookies=cookies)
+    assert anomaly_page.status_code == 200
+    assert "B1" in anomaly_page.text
+
+    headers = _auth_headers(client)
+    activities = client.get(f"/api/v1/projects/{project_id}/activities", headers=headers).json()
+    activity_id = activities[0]["id"]
+
+    action_create = client.post(
+        f"/ui/projects/{project_id}/actions",
+        data={
+            "activity_id": activity_id,
+            "title": "Close anomaly",
+            "owner": "Planner",
+            "priority": "High",
+            "status": "Open",
+        },
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert action_create.status_code == 303
+
+    actions = client.get(f"/api/v1/projects/{project_id}/actions", headers=headers).json()
+    assert len(actions) == 1
+    action_id = actions[0]["id"]
+
+    action_status = client.post(
+        f"/ui/projects/{project_id}/actions/{action_id}/status",
+        data={"status": "Closed"},
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert action_status.status_code == 303
+
+    actions_after = client.get(f"/api/v1/projects/{project_id}/actions", headers=headers).json()
+    assert actions_after[0]["status"] == "Closed"

@@ -33,6 +33,7 @@ dev = [
   "bandit>=1.7.0",
   "types-python-jose>=3.5.0",
   "types-passlib>=1.7.7",
+  "types-openpyxl>=3.1.5",
 ]
 
 [project.scripts]

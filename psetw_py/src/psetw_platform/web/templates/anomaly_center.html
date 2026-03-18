@@ -13,12 +13,21 @@
     </form>
     <h3>Baselines ({{ baselines|length }})</h3>
     <table>
-      <thead><tr><th>Name</th><th>By</th><th>Date</th></tr></thead>
+      <thead><tr><th>Name</th><th>By</th><th>Date</th><th>Restore</th></tr></thead>
       <tbody>
         {% for baseline in baselines %}
-          <tr><td>{{ baseline.name }}</td><td>{{ baseline.created_by }}</td><td>{{ baseline.created_at }}</td></tr>
+          <tr>
+            <td>{{ baseline.name }}</td>
+            <td>{{ baseline.created_by }}</td>
+            <td>{{ baseline.created_at }}</td>
+            <td>
+              <form method="post" action="/ui/projects/{{ active_project.id }}/baselines/{{ baseline.id }}/restore">
+                <button class="danger" type="submit">Restore</button>
+              </form>
+            </td>
+          </tr>
         {% else %}
-          <tr><td colspan="3" class="muted">No baselines yet.</td></tr>
+          <tr><td colspan="4" class="muted">No baselines yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -45,9 +54,45 @@
   </section>
 
   <section class="panel">
+    <h2>Create Action</h2>
+    <form method="post" action="/ui/projects/{{ active_project.id }}/actions" class="form-grid">
+      <div>
+        <label>Activity</label>
+        <select name="activity_id">
+          <option value="">-- Optional --</option>
+          {% for activity in activities %}
+            <option value="{{ activity.id }}">{{ activity.activity_code }} - {{ activity.activity_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div><label>Title</label><input name="title" required /></div>
+      <div><label>Owner</label><input name="owner" required /></div>
+      <div><label>Due Date</label><input type="date" name="due_date" /></div>
+      <div>
+        <label>Priority</label>
+        <select name="priority">
+          {% for priority in action_priority_values %}
+            <option value="{{ priority }}">{{ priority }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Status</label>
+        <select name="status">
+          {% for status in action_status_values %}
+            <option value="{{ status }}">{{ status }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="grid-column: 1 / -1"><label>Notes</label><input name="notes" /></div>
+      <div><label>&nbsp;</label><button class="primary" type="submit">Create Action</button></div>
+    </form>
+  </section>
+
+  <section class="panel">
     <h2>Actions ({{ actions|length }})</h2>
     <table>
-      <thead><tr><th>ID</th><th>Activity ID</th><th>Title</th><th>Owner</th><th>Due</th><th>Status</th><th>Priority</th></tr></thead>
+      <thead><tr><th>ID</th><th>Activity ID</th><th>Title</th><th>Owner</th><th>Due</th><th>Status</th><th>Priority</th><th>Update</th><th>Delete</th></tr></thead>
       <tbody>
         {% for action in actions %}
           <tr>
@@ -58,9 +103,24 @@
             <td>{{ action.due_date or "-" }}</td>
             <td>{{ action.status.value }}</td>
             <td>{{ action.priority.value }}</td>
+            <td>
+              <form method="post" action="/ui/projects/{{ active_project.id }}/actions/{{ action.id }}/status" class="row-actions">
+                <select name="status">
+                  {% for status in action_status_values %}
+                    <option value="{{ status }}" {% if status == action.status.value %}selected{% endif %}>{{ status }}</option>
+                  {% endfor %}
+                </select>
+                <button class="primary" type="submit">Save</button>
+              </form>
+            </td>
+            <td>
+              <form method="post" action="/ui/projects/{{ active_project.id }}/actions/{{ action.id }}/delete">
+                <button class="danger" type="submit">Delete</button>
+              </form>
+            </td>
           </tr>
         {% else %}
-          <tr><td colspan="7" class="muted">No actions yet.</td></tr>
+          <tr><td colspan="9" class="muted">No actions yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
