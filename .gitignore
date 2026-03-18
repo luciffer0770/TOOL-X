@@ -5,3 +5,9 @@ browser-test-results/page-debug.html
 *.log
 .DS_Store
 atlas_data.db
+atlas_py/.venv/
+atlas_py/test_atlas_platform.db
+atlas_py/.mypy_cache/
+atlas_py/.pytest_cache/
+atlas_py/.ruff_cache/
+atlas_py/.coverage

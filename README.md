@@ -10,6 +10,18 @@ This branch includes significant UI/UX enhancements, Gantt chart fixes, Calendar
 
 ---
 
+## Python-First Replatform (Enterprise Baseline)
+
+A greenfield Python rewrite foundation is available under `atlas_py/` for organization-standard deployment on dedicated servers.
+
+- Platform code: `atlas_py/`
+- Standards mapping: `docs/PYTHON_REWRITE_STANDARDS.md`
+- Migration roadmap: `docs/PYTHON_REPLATFORM_ROADMAP.md`
+
+This enables a controlled transition from the legacy implementation toward a Python-first architecture with security, quality, and process controls.
+
+---
+
 ## Tech Stack
 
 | Layer    | Technology                                      |

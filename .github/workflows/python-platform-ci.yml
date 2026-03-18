@@ -1,0 +1,43 @@
+name: Python Platform CI
+
+on:
+  push:
+    paths:
+      - "atlas_py/**"
+      - ".github/workflows/python-platform-ci.yml"
+  pull_request:
+    paths:
+      - "atlas_py/**"
+      - ".github/workflows/python-platform-ci.yml"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: atlas_py
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Type check
+        run: mypy src
+
+      - name: Security scan
+        run: bandit -q -r src
+
+      - name: Test
+        run: pytest
