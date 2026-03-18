@@ -45,7 +45,7 @@ router = APIRouter(tags=["web-ui"])
 templates = Jinja2Templates(
     directory=str(Path(__file__).resolve().parent.parent / "web" / "templates"),
 )
-TOKEN_COOKIE_NAME = "psetw_ui_token"
+SESSION_COOKIE_NAME = "psetw_ui_session"
 
 
 def _parse_date(value: str | None) -> date | None:
@@ -97,7 +97,7 @@ def _serialize_activity(activity: Activity) -> dict[str, object]:
 
 
 def _get_cookie_user(request: Request, db: DBSession) -> User | None:
-    token = request.cookies.get(TOKEN_COOKIE_NAME)
+    token = request.cookies.get(SESSION_COOKIE_NAME)
     if not token:
         return None
     username = decode_access_token(token)
@@ -188,7 +188,7 @@ def ui_login_action(
     token = create_access_token(subject=user.username, expires_minutes=expires_minutes)
     response = RedirectResponse(url="/ui/dashboard", status_code=303)
     response.set_cookie(
-        TOKEN_COOKIE_NAME,
+        SESSION_COOKIE_NAME,
         token,
         max_age=expires_minutes * 60,
         httponly=True,
@@ -200,7 +200,7 @@ def ui_login_action(
 @router.post("/ui/logout", include_in_schema=False)
 def ui_logout() -> RedirectResponse:
     response = RedirectResponse(url="/ui/login", status_code=303)
-    response.delete_cookie(TOKEN_COOKIE_NAME)
+    response.delete_cookie(SESSION_COOKIE_NAME)
     return response
 
 

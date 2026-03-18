@@ -319,10 +319,10 @@ def test_server_rendered_ui_login_and_pages(client: TestClient) -> None:
     )
     assert login.status_code == 303
     assert login.headers["location"] == "/ui/dashboard"
-    auth_cookie = login.cookies.get("psetw_ui_token")
+    auth_cookie = login.cookies.get("psetw_ui_session")
     assert auth_cookie is not None
 
-    cookies = {"psetw_ui_token": auth_cookie}
+    cookies = {"psetw_ui_session": auth_cookie}
     dashboard = client.get("/ui/dashboard", cookies=cookies)
     assert dashboard.status_code == 200
     assert "Dashboard" in dashboard.text
