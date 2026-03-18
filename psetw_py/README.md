@@ -50,6 +50,18 @@ bandit -q -r src
 pytest
 ```
 
+## Phase 2 Planning APIs (in progress)
+
+The replatform now includes dedicated planning endpoints:
+
+- `GET /api/v1/projects/{project_id}/planning/timeline-bounds`
+- `GET /api/v1/projects/{project_id}/planning/phase-progress`
+- `GET /api/v1/projects/{project_id}/planning/gantt`
+- `GET /api/v1/projects/{project_id}/planning/calendar`
+- `GET /api/v1/projects/{project_id}/planning/network`
+- `GET /api/v1/projects/{project_id}/planning/materials-health`
+- `POST /api/v1/projects/{project_id}/planning/simulate`
+
 ## Directory Layout
 
 ```text

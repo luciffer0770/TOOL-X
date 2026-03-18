@@ -20,6 +20,7 @@ from psetw_platform.routers import (
     auth,
     baselines,
     health,
+    planning,
     projects,
     scenarios,
 )
@@ -81,6 +82,7 @@ def create_app() -> FastAPI:
     app.include_router(actions.router, prefix="/api/v1")
     app.include_router(scenarios.router, prefix="/api/v1")
     app.include_router(analytics.router, prefix="/api/v1")
+    app.include_router(planning.router, prefix="/api/v1")
 
     @app.get("/")
     def root() -> dict[str, str]:

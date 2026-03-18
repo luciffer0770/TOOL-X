@@ -134,3 +134,129 @@ def test_phase2_analytics_endpoints(client: TestClient) -> None:
     anomaly_rules = {row["rule_id"] for row in anomalies}
     assert "ACT-002" in anomaly_rules
     assert "ACT-003" in anomaly_rules
+
+
+def test_phase2_planning_endpoints(client: TestClient) -> None:
+    headers = _auth_headers(client)
+
+    create_project = client.post("/api/v1/projects", json={"name": "Planning Project"}, headers=headers)
+    assert create_project.status_code == 201
+    project_id = create_project.json()["id"]
+
+    activities = [
+        {
+            "activity_code": "P-100",
+            "activity_name": "Design freeze",
+            "phase": "Planning",
+            "status": "In Progress",
+            "completion_percentage": 45,
+            "planned_start_date": "2026-01-03",
+            "planned_end_date": "2026-01-12",
+            "base_effort_hours": 72,
+            "dependencies": [],
+            "dependency_type": "FS",
+            "priority": "High",
+            "assigned_manpower": 2,
+            "material_status": "Ordered",
+            "material_ownership": "Mechanical",
+            "material_criticality": "Critical",
+            "material_required_date": "2026-01-15",
+            "material_lead_time": 48,
+            "risk_score": 78,
+            "risk_probability": 4,
+            "risk_impact": 5,
+            "estimated_cost": 12000,
+            "actual_cost": 14000,
+        },
+        {
+            "activity_code": "P-200",
+            "activity_name": "Supplier validation",
+            "phase": "Execution",
+            "status": "Not Started",
+            "completion_percentage": 0,
+            "planned_start_date": "2026-01-13",
+            "planned_end_date": "2026-01-22",
+            "base_effort_hours": 80,
+            "dependencies": ["P-100"],
+            "dependency_type": "FS",
+            "priority": "Medium",
+            "assigned_manpower": 1,
+            "material_status": "Not Ordered",
+            "material_ownership": "Electrical",
+            "material_criticality": "High",
+            "material_required_date": "2026-01-18",
+            "risk_score": 58,
+            "risk_probability": 3,
+            "risk_impact": 4,
+            "estimated_cost": 8000,
+            "actual_cost": 0,
+        },
+        {
+            "activity_code": "P-300",
+            "activity_name": "PV sign-off",
+            "phase": "Validation",
+            "status": "Completed",
+            "completion_percentage": 100,
+            "planned_start_date": "2026-01-23",
+            "planned_end_date": "2026-01-25",
+            "actual_start_date": "2026-01-23",
+            "actual_end_date": "2026-01-24",
+            "base_effort_hours": 24,
+            "dependencies": ["P-200"],
+            "material_status": "Received",
+            "material_ownership": "QA",
+            "material_criticality": "Medium",
+            "material_required_date": "2026-01-20",
+            "material_received_date": "2026-01-20",
+            "risk_score": 15,
+            "estimated_cost": 3000,
+            "actual_cost": 2800,
+        },
+    ]
+
+    for payload in activities:
+        created = client.post(f"/api/v1/projects/{project_id}/activities", json=payload, headers=headers)
+        assert created.status_code == 201
+
+    timeline = client.get(f"/api/v1/projects/{project_id}/planning/timeline-bounds", headers=headers)
+    assert timeline.status_code == 200
+    assert timeline.json()["min_date"] <= "2026-01-03"
+
+    phase_progress = client.get(f"/api/v1/projects/{project_id}/planning/phase-progress", headers=headers)
+    assert phase_progress.status_code == 200
+    assert len(phase_progress.json()) >= 3
+
+    gantt = client.get(f"/api/v1/projects/{project_id}/planning/gantt", headers=headers)
+    assert gantt.status_code == 200
+    gantt_rows = gantt.json()
+    assert len(gantt_rows) == 3
+    assert any(row["critical_path"] for row in gantt_rows)
+
+    calendar = client.get(
+        f"/api/v1/projects/{project_id}/planning/calendar",
+        params={"start": "2026-01-01", "end": "2026-01-31"},
+        headers=headers,
+    )
+    assert calendar.status_code == 200
+    assert len(calendar.json()) >= 20
+
+    network = client.get(f"/api/v1/projects/{project_id}/planning/network", headers=headers)
+    assert network.status_code == 200
+    graph = network.json()
+    assert len(graph["nodes"]) == 3
+    assert len(graph["edges"]) >= 2
+
+    materials = client.get(f"/api/v1/projects/{project_id}/planning/materials-health", headers=headers)
+    assert materials.status_code == 200
+    material_payload = materials.json()
+    assert material_payload["pending_critical_count"] >= 1
+
+    simulation = client.post(
+        f"/api/v1/projects/{project_id}/planning/simulate",
+        json={"manpower_boost_pct": 20, "overtime_hours_per_day": 2, "lead_time_reduction_pct": 10},
+        headers=headers,
+    )
+    assert simulation.status_code == 200
+    simulation_payload = simulation.json()
+    assert "improvement_hours" in simulation_payload
+    assert len(simulation_payload["impacts"]) == 3
