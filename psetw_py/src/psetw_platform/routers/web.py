@@ -1172,7 +1172,12 @@ def ui_reschedule_activity(
     activity.last_modified_by = user.username
     activity.last_modified_date = date.today()
     db.commit()
-    return JSONResponse({"ok": True, "start": activity.planned_start_date.isoformat(), "end": activity.planned_end_date.isoformat()})
+    payload = {
+        "ok": True,
+        "start": activity.planned_start_date.isoformat(),
+        "end": activity.planned_end_date.isoformat(),
+    }
+    return JSONResponse(payload)
 
 
 @router.get("/ui/network", response_class=HTMLResponse, include_in_schema=False)
@@ -1447,11 +1452,17 @@ def ui_eod_logs(
     active_project = _resolve_project(projects, project_id)
     logs = list(
         db.scalars(
-            select(EodLog).where(EodLog.project_id == active_project.id).order_by(EodLog.log_date.desc(), EodLog.created_at.desc())
+            select(EodLog)
+            .where(EodLog.project_id == active_project.id)
+            .order_by(EodLog.log_date.desc(), EodLog.created_at.desc())
         ).all()
     )
     activities = list(
-        db.scalars(select(Activity).where(Activity.project_id == active_project.id).order_by(Activity.activity_code.asc())).all()
+        db.scalars(
+            select(Activity)
+            .where(Activity.project_id == active_project.id)
+            .order_by(Activity.activity_code.asc())
+        ).all()
     )
     return _render_planning_page(
         request,
