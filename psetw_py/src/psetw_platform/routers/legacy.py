@@ -68,7 +68,7 @@ def legacy_auth_login(payload: LegacyLoginRequest, db: DBSession) -> dict[str, A
 
     expires_minutes = 60 * 24 * 30 if payload.rememberMe else 60 * 8
     expires_delta = timedelta(minutes=expires_minutes)
-    token = create_access_token(subject=user.username, expires_delta=expires_delta)
+    token = create_access_token(subject=user.username, expires_minutes=expires_minutes)
     expires_at = (datetime.now(UTC) + expires_delta).isoformat()
     return {
         "ok": True,
