@@ -122,7 +122,7 @@ def _critical_path_codes(activities: list[Activity]) -> list[str]:
     if not finish_times:
         return []
 
-    terminal = max(finish_times, key=finish_times.get)
+    terminal = max(finish_times, key=lambda code: finish_times[code])
     path: list[str] = []
     cursor: str | None = terminal
     while cursor:
