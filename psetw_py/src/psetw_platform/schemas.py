@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from atlas_platform.models import ActionPriority, ActionStatus, ActivityStatus, UserRole
+from psetw_platform.models import ActionPriority, ActionStatus, ActivityStatus, UserRole
 
 
 class TokenResponse(BaseModel):
@@ -169,3 +169,37 @@ class PortfolioMetrics(BaseModel):
     completed_activities: int
     blocked_activities: int
     average_completion: float
+
+
+class DelayRiskRow(BaseModel):
+    activity_id: str
+    activity_code: str
+    activity_name: str
+    phase: str
+    status: ActivityStatus
+    completion_percentage: int
+    risk_score: int
+    risk_level: str
+    delayed: bool
+    delay_days: int
+    blocking_dependencies: list[str]
+    delay_reason: str
+
+
+class DependencyHealth(BaseModel):
+    missing_by_activity: dict[str, list[str]]
+    missing_dependency_links: int
+    activities_with_missing_dependencies: int
+    cycle_activity_ids: list[str]
+    cycle_count: int
+
+
+class AnomalyRow(BaseModel):
+    rule_id: str
+    activity_id: str
+    activity_code: str
+    activity_name: str
+    severity: str
+    issue: str
+    details: str
+    recommendation: str

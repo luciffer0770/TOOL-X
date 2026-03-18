@@ -1,12 +1,12 @@
-# ATLAS Python Replatform Roadmap (From Current Tool)
+# PS-ETW Python Replatform Roadmap (From Current Tool)
 
 ## Objective
 
-Rebuild ATLAS as an organization-standard, Python-first platform while preserving business behavior and enabling controlled migration from the legacy implementation.
+Rebuild PS-ETW as an organization-standard, Python-first platform while preserving business behavior and enabling controlled migration from the legacy implementation.
 
 ## Current Delivery in This Commit
 
-- New greenfield Python platform scaffold under `atlas_py/`.
+- New greenfield Python platform scaffold under `psetw_py/`.
 - Core domain/API modules:
   - authentication
   - project CRUD

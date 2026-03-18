@@ -16,4 +16,4 @@ test:
 	pytest
 
 run:
-	uvicorn atlas_platform.main:app --reload --host 0.0.0.0 --port 8000
+	uvicorn psetw_platform.main:app --reload --host 0.0.0.0 --port 8000

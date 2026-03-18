@@ -995,7 +995,7 @@ function exportAsPdfReport() {
       </style>
     </head>
     <body>
-      <h1>ATLAS Planning – Activity Report</h1>
+      <h1>PS-ETW Planning – Activity Report</h1>
       <p>Generated ${new Date().toLocaleString()} | ${rows.length} activities</p>
       <table>
         <thead><tr><th>${th}</th></tr></thead>

@@ -19,7 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from atlas_platform.database import Base
+from psetw_platform.database import Base
 
 
 def utc_now() -> datetime:

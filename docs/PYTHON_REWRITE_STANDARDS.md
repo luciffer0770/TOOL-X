@@ -1,4 +1,4 @@
-# ATLAS Python Replatform: Standards Alignment Baseline
+# PS-ETW Python Replatform: Standards Alignment Baseline
 
 This document defines the organizational standards baseline used for the Python rewrite foundation.
 

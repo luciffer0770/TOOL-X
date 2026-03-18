@@ -1,4 +1,4 @@
-# ATLAS – Digital Twin Engineering Preparation Platform
+# PS-ETW – Digital Twin Engineering Preparation Platform
 
 **Advanced Twin-based Lifecycle and Activity System** – Enterprise-class planning and decision intelligence for industrial preparation and build-up lifecycle control.
 
@@ -12,9 +12,9 @@ This branch includes significant UI/UX enhancements, Gantt chart fixes, Calendar
 
 ## Python-First Replatform (Enterprise Baseline)
 
-A greenfield Python rewrite foundation is available under `atlas_py/` for organization-standard deployment on dedicated servers.
+A greenfield Python rewrite foundation is available under `psetw_py/` for organization-standard deployment on dedicated servers.
 
-- Platform code: `atlas_py/`
+- Platform code: `psetw_py/`
 - Standards mapping: `docs/PYTHON_REWRITE_STANDARDS.md`
 - Migration roadmap: `docs/PYTHON_REPLATFORM_ROADMAP.md`
 
@@ -93,7 +93,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Open the forwarded port URL (e.g. `https://your-codespace-5000.app.github.dev`). Data is stored in SQLite (`atlas_data.db`).
+Open the forwarded port URL (e.g. `https://your-codespace-5000.app.github.dev`). Data is stored in SQLite (`psetw_data.db`).
 
 ### Static-only (no backend)
 

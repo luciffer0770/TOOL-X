@@ -302,18 +302,18 @@ function writeState(state) {
     localStorage.setItem(STORAGE_KEY, payload);
     savedToLocal = true;
     emitSaveStatus("saved", { savedAt: new Date().toISOString() });
-    if (localStorage.getItem("atlas_debug_verbose") === "1") {
+    if (localStorage.getItem("psetw_debug_verbose") === "1") {
       console.debug("[storage] writeState saved to localStorage", { key: STORAGE_KEY, size: payload.length });
     }
   } catch (err) {
     console.error("[storage] writeState failed to save to localStorage:", err);
-    try { window.__atlas_last_storage_error = String(err); } catch (_) {}
+    try { window.__psetw_last_storage_error = String(err); } catch (_) {}
     emitSaveStatus("error", { error: String(err) });
     notify("Save failed. Storage may be full.", "error");
   }
   try {
     idbSetState(payload).then((ok) => {
-      if (localStorage.getItem("atlas_debug_verbose") === "1") console.debug("[storage] writeState idbSetState result", ok);
+      if (localStorage.getItem("psetw_debug_verbose") === "1") console.debug("[storage] writeState idbSetState result", ok);
     }).catch((e) => console.error("[storage] writeState idbSetState error", e));
   } catch (err) {
     console.error("[storage] writeState idbSetState sync error", err);
@@ -473,7 +473,7 @@ export function saveActivities(activities) {
   try {
     saveState(state);
     logAudit("Save activities", { count: activities.length });
-    if (localStorage.getItem("atlas_debug_verbose") === "1") {
+    if (localStorage.getItem("psetw_debug_verbose") === "1") {
       // eslint-disable-next-line no-console
       console.debug("[storage] saveActivities saved", { count: activities.length });
     }
@@ -490,7 +490,7 @@ export function clearAllActivities() {
   try {
     saveState(state);
     logAudit("Clear all activities");
-    if (localStorage.getItem("atlas_debug_verbose") === "1") {
+    if (localStorage.getItem("psetw_debug_verbose") === "1") {
       // eslint-disable-next-line no-console
       console.debug("[storage] clearAllActivities performed");
     }
@@ -509,7 +509,7 @@ export function addActivity(activity) {
   try {
     saveState(state);
     logAudit("Add activity", { activityId: sanitized.activityId });
-    if (localStorage.getItem("atlas_debug_verbose") === "1") {
+    if (localStorage.getItem("psetw_debug_verbose") === "1") {
       // eslint-disable-next-line no-console
       console.debug("[storage] addActivity", sanitized.activityId);
     }
@@ -529,7 +529,7 @@ export function insertActivityAt(index, activity) {
   project.activities.splice(clampedIndex, 0, sanitized);
   try {
     saveState(state);
-    if (localStorage.getItem("atlas_debug_verbose") === "1") {
+    if (localStorage.getItem("psetw_debug_verbose") === "1") {
       // eslint-disable-next-line no-console
       console.debug("[storage] insertActivityAt", { index: clampedIndex, id: sanitized.activityId });
     }
@@ -555,7 +555,7 @@ export function upsertActivities(incomingActivities) {
   try {
     saveState(state);
     logAudit("Import/upsert activities", { count: incomingActivities.length });
-    if (localStorage.getItem("atlas_debug_verbose") === "1") {
+    if (localStorage.getItem("psetw_debug_verbose") === "1") {
       // eslint-disable-next-line no-console
       console.debug("[storage] upsertActivities", incomingActivities.length);
     }
@@ -581,7 +581,7 @@ export function updateActivity(activityId, patch) {
   try {
     saveState(state);
     logAudit("Update activity", { activityId });
-    if (localStorage.getItem("atlas_debug_verbose") === "1") {
+    if (localStorage.getItem("psetw_debug_verbose") === "1") {
       // eslint-disable-next-line no-console
       console.debug("[storage] updateActivity", activityId);
     }
@@ -599,7 +599,7 @@ export function deleteActivity(activityId) {
   try {
     saveState(state);
     logAudit("Delete activity", { activityId });
-    if (localStorage.getItem("atlas_debug_verbose") === "1") {
+    if (localStorage.getItem("psetw_debug_verbose") === "1") {
       // eslint-disable-next-line no-console
       console.debug("[storage] deleteActivity", activityId);
     }

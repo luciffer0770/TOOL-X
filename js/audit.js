@@ -3,7 +3,7 @@
  */
 import { escapeHtml } from "./common.js";
 
-const AUDIT_KEY = "atlas_planning_audit_v1";
+const AUDIT_KEY = "psetw_planning_audit_v1";
 const MAX_ENTRIES = 200;
 
 function loadAuditLog() {

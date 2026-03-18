@@ -5,9 +5,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
-from atlas_platform.dependencies import CurrentUser, DBSession, require_roles
-from atlas_platform.models import Activity, Project, UserRole
-from atlas_platform.schemas import ActivityCreate, ActivityOut, ActivityUpdate
+from psetw_platform.dependencies import CurrentUser, DBSession, require_roles
+from psetw_platform.models import Activity, Project, UserRole
+from psetw_platform.schemas import ActivityCreate, ActivityOut, ActivityUpdate
 
 router = APIRouter(prefix="/projects/{project_id}/activities", tags=["activities"])
 

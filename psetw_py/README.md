@@ -1,6 +1,6 @@
-# ATLAS Python Platform (Greenfield Replatform)
+# PS-ETW Python Platform (Greenfield Replatform)
 
-This directory contains the Python-first replatform foundation for ATLAS.
+This directory contains the Python-first replatform foundation for PS-ETW.
 
 ## Goals
 
@@ -20,12 +20,12 @@ This directory contains the Python-first replatform foundation for ATLAS.
 ## Quick Start
 
 ```bash
-cd atlas_py
+cd psetw_py
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env
-uvicorn atlas_platform.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn psetw_platform.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 API docs:
@@ -35,7 +35,7 @@ API docs:
 
 ## Default Demo Users
 
-When `ATLAS_SEED_DEMO_USERS=true`:
+When `PSETW_SEED_DEMO_USERS=true`:
 
 - planner / planner123 (role: planner)
 - management / management123 (role: management)
@@ -53,8 +53,8 @@ pytest
 ## Directory Layout
 
 ```text
-atlas_py/
-├── src/atlas_platform/
+psetw_py/
+├── src/psetw_platform/
 │   ├── core/            # config, logging, auth security
 │   ├── routers/         # HTTP route modules
 │   ├── services/        # domain/application services

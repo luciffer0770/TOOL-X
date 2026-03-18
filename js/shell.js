@@ -46,11 +46,11 @@ export function initShell() {
   }
   // Expose helpers on window so users can trigger tour/refresh from Console if needed
   try {
-    window.startAtlasTour = () => {
+    window.startPsetwTour = () => {
       try { resetOnboarding(); } catch (_) {}
       try { startOnboarding(); } catch (e) { console.error(e); notify("Unable to start tour", "error"); }
     };
-    window.refreshAtlasPage = () => { try { location.reload(); } catch (_) { location.href = location.href; } };
+    window.refreshPsetwPage = () => { try { location.reload(); } catch (_) { location.href = location.href; } };
   } catch (_) {}
   const nav = document.querySelector(".nav");
   const helpBtn = document.createElement("button");

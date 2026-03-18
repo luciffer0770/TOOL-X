@@ -2,7 +2,7 @@
  * Minimal IndexedDB helper for storing the app state as a fallback when localStorage is unavailable.
  * Exposes async getState() and setState(payload) functions.
  */
-const DB_NAME = "atlas_idb";
+const DB_NAME = "psetw_idb";
 const STORE_NAME = "kv";
 const STATE_KEY = "industrial_planning_intelligence_state_v1";
 

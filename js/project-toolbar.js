@@ -274,7 +274,7 @@ export function initializeProjectToolbar({ onProjectChange } = {}) {
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = `atlas_backup_${new Date().toISOString().slice(0, 10)}.db`;
+          a.download = `psetw_backup_${new Date().toISOString().slice(0, 10)}.db`;
           a.click();
           URL.revokeObjectURL(url);
           notify("Database backup downloaded.", "success");

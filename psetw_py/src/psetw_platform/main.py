@@ -8,12 +8,12 @@ import uvicorn
 from fastapi import FastAPI
 from sqlalchemy import select
 
-from atlas_platform.core.config import get_settings
-from atlas_platform.core.logging import configure_logging
-from atlas_platform.core.security import get_password_hash
-from atlas_platform.database import Base, SessionLocal, engine
-from atlas_platform.models import User, UserRole
-from atlas_platform.routers import (
+from psetw_platform.core.config import get_settings
+from psetw_platform.core.logging import configure_logging
+from psetw_platform.core.security import get_password_hash
+from psetw_platform.database import Base, SessionLocal, engine
+from psetw_platform.models import User, UserRole
+from psetw_platform.routers import (
     actions,
     activities,
     analytics,
@@ -26,7 +26,7 @@ from atlas_platform.routers import (
 
 settings = get_settings()
 configure_logging(settings.log_level)
-logger = logging.getLogger("atlas_platform")
+logger = logging.getLogger("psetw_platform")
 
 
 def seed_demo_users() -> None:
@@ -71,7 +71,7 @@ def create_app() -> FastAPI:
     def _startup() -> None:
         Base.metadata.create_all(bind=engine)
         seed_demo_users()
-        logger.info("ATLAS platform startup complete")
+        logger.info("PS-ETW platform startup complete")
 
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api/v1")
@@ -96,7 +96,7 @@ def main() -> None:
     """Run local dev server."""
 
     uvicorn.run(
-        "atlas_platform.main:app",
+        "psetw_platform.main:app",
         host=settings.api_host,
         port=settings.api_port,
         reload=settings.env != "prod",

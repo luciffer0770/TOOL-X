@@ -5,9 +5,9 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from atlas_platform.dependencies import CurrentUser, DBSession
-from atlas_platform.models import Project, Scenario
-from atlas_platform.schemas import ScenarioCreate, ScenarioOut
+from psetw_platform.dependencies import CurrentUser, DBSession
+from psetw_platform.models import Project, Scenario
+from psetw_platform.schemas import ScenarioCreate, ScenarioOut
 
 router = APIRouter(prefix="/projects/{project_id}/scenarios", tags=["scenarios"])
 

@@ -5,10 +5,10 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from atlas_platform.core.security import create_access_token, verify_password
-from atlas_platform.dependencies import CurrentUser, DBSession
-from atlas_platform.models import User
-from atlas_platform.schemas import LoginRequest, TokenResponse, UserOut
+from psetw_platform.core.security import create_access_token, verify_password
+from psetw_platform.dependencies import CurrentUser, DBSession
+from psetw_platform.models import User
+from psetw_platform.schemas import LoginRequest, TokenResponse, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

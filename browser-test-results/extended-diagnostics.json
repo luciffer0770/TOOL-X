@@ -15,7 +15,7 @@
     },
     "intelligence": {
       "url": "http://127.0.0.1:8080/intelligence.html",
-      "header": "ATLAS – Digital Twin Engineering Preparation Platform"
+      "header": "PS-ETW – Digital Twin Engineering Preparation Platform"
     }
   }
 }

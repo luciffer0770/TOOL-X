@@ -28,7 +28,7 @@
   box-sizing: border-box;
 }
 
-.atlas-version-banner {
+.psetw-version-banner {
   position: fixed;
   top: 0;
   left: 0;
@@ -44,12 +44,12 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
-body:has(.atlas-version-banner) {
+body:has(.psetw-version-banner) {
   padding-top: 40px;
 }
 
 /* Hide the version banner (useful for production / cleaner header) */
-.atlas-version-banner {
+.psetw-version-banner {
   display: none !important;
 }
 

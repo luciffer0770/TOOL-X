@@ -7,9 +7,9 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select
 
-from atlas_platform.dependencies import CurrentUser, DBSession, require_roles
-from atlas_platform.models import Activity, ActivityStatus, Baseline, Project, UserRole
-from atlas_platform.schemas import BaselineCreate, BaselineOut
+from psetw_platform.dependencies import CurrentUser, DBSession, require_roles
+from psetw_platform.models import Activity, ActivityStatus, Baseline, Project, UserRole
+from psetw_platform.schemas import BaselineCreate, BaselineOut
 
 router = APIRouter(prefix="/projects/{project_id}/baselines", tags=["baselines"])
 

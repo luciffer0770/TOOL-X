@@ -9,4 +9,4 @@ router = APIRouter(tags=["health"])
 def health() -> dict[str, str]:
     """Liveness endpoint."""
 
-    return {"status": "ok", "service": "atlas-platform"}
+    return {"status": "ok", "service": "psetw-platform"}

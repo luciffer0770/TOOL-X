@@ -3,13 +3,13 @@ requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "atlas-platform"
+name = "psetw-platform"
 version = "0.1.0"
 description = "Python-first enterprise planning intelligence platform"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
-authors = [{ name = "ATLAS Platform Team" }]
+authors = [{ name = "PS-ETW Platform Team" }]
 dependencies = [
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.30.0",
@@ -33,13 +33,13 @@ dev = [
 ]
 
 [project.scripts]
-atlas-api = "atlas_platform.main:main"
+psetw-api = "psetw_platform.main:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/atlas_platform"]
+packages = ["src/psetw_platform"]
 
 [tool.pytest.ini_options]
-addopts = "-q --cov=atlas_platform --cov-report=term-missing"
+addopts = "-q --cov=psetw_platform --cov-report=term-missing"
 testpaths = ["tests"]
 
 [tool.ruff]

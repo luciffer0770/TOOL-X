@@ -8,7 +8,7 @@ from typing import Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from atlas_platform.core.config import get_settings
+from psetw_platform.core.config import get_settings
 
 ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")

@@ -1,4 +1,4 @@
-"""ATLAS Python Platform package."""
+"""PS-ETW Python Platform package."""
 
 __all__ = ["__version__"]
 

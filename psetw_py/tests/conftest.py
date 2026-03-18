@@ -8,13 +8,13 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-os.environ["ATLAS_ENV"] = "test"
-os.environ["ATLAS_DATABASE_URL"] = "sqlite:///./test_atlas_platform.db"
-os.environ["ATLAS_SECRET_KEY"] = "test-secret-key"
-os.environ["ATLAS_SEED_DEMO_USERS"] = "true"
+os.environ["PSETW_ENV"] = "test"
+os.environ["PSETW_DATABASE_URL"] = "sqlite:///./test_psetw_platform.db"
+os.environ["PSETW_SECRET_KEY"] = "test-secret-key"
+os.environ["PSETW_SEED_DEMO_USERS"] = "true"
 
-from atlas_platform.database import Base, engine
-from atlas_platform.main import app
+from psetw_platform.database import Base, engine
+from psetw_platform.main import app
 
 
 @pytest.fixture(autouse=True)
@@ -39,6 +39,6 @@ def cleanup_test_db() -> None:
     """Remove sqlite test database file at the end of the run."""
 
     yield
-    db_path = Path("test_atlas_platform.db")
+    db_path = Path("test_psetw_platform.db")
     if db_path.exists():
         db_path.unlink()

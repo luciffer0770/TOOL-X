@@ -3,11 +3,11 @@ name: Python Platform CI
 on:
   push:
     paths:
-      - "atlas_py/**"
+      - "psetw_py/**"
       - ".github/workflows/python-platform-ci.yml"
   pull_request:
     paths:
-      - "atlas_py/**"
+      - "psetw_py/**"
       - ".github/workflows/python-platform-ci.yml"
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: atlas_py
+        working-directory: psetw_py
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -4,10 +4,10 @@ browser-test-results/*.png
 browser-test-results/page-debug.html
 *.log
 .DS_Store
-atlas_data.db
-atlas_py/.venv/
-atlas_py/test_atlas_platform.db
-atlas_py/.mypy_cache/
-atlas_py/.pytest_cache/
-atlas_py/.ruff_cache/
-atlas_py/.coverage
+psetw_data.db
+psetw_py/.venv/
+psetw_py/test_psetw_platform.db
+psetw_py/.mypy_cache/
+psetw_py/.pytest_cache/
+psetw_py/.ruff_cache/
+psetw_py/.coverage

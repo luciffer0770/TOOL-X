@@ -1,5 +1,5 @@
 """
-ATLAS - Python Backend
+PS-ETW - Python Backend
 Serves the full frontend (HTML, CSS, JS) and provides a REST API for persistent data storage (SQLite).
 Run in Codespace: pip install -r requirements.txt && python3 app.py
 """
@@ -16,10 +16,10 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent
 app = Flask(__name__)
-app.secret_key = os.environ.get("ATLAS_SECRET_KEY", secrets.token_hex(32))
+app.secret_key = os.environ.get("PSETW_SECRET_KEY", secrets.token_hex(32))
 CORS(app, supports_credentials=True)
 
-DB_PATH = Path(os.environ.get("ATLAS_DB_PATH", str(BASE_DIR / "atlas_data.db")))
+DB_PATH = Path(os.environ.get("PSETW_DB_PATH", str(BASE_DIR / "psetw_data.db")))
 
 _DEFAULT_STATE = {
     "projects": [{"id": "PRJ-0001", "name": "Project 1", "activities": [], "baselines": [], "actions": []}],
@@ -41,10 +41,10 @@ def get_conn():
 def init_db():
     conn = get_conn()
     conn.executescript("""
-        CREATE TABLE IF NOT EXISTS atlas_state (
+        CREATE TABLE IF NOT EXISTS psetw_state (
             key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT
         );
-        CREATE TABLE IF NOT EXISTS atlas_users (
+        CREATE TABLE IF NOT EXISTS psetw_users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
@@ -52,21 +52,21 @@ def init_db():
             role TEXT NOT NULL,
             created_at TEXT
         );
-        CREATE TABLE IF NOT EXISTS atlas_sessions (
+        CREATE TABLE IF NOT EXISTS psetw_sessions (
             token TEXT PRIMARY KEY,
             user_id INTEGER NOT NULL,
             expires_at TEXT NOT NULL,
             created_at TEXT,
-            FOREIGN KEY (user_id) REFERENCES atlas_users(id)
+            FOREIGN KEY (user_id) REFERENCES psetw_users(id)
         );
     """)
     conn.commit()
     # Seed demo users if empty
-    cursor = conn.execute("SELECT COUNT(*) FROM atlas_users")
+    cursor = conn.execute("SELECT COUNT(*) FROM psetw_users")
     if cursor.fetchone()[0] == 0:
         for username, password, display_name, role in DEFAULT_USERS:
             conn.execute(
-                "INSERT INTO atlas_users (username, password_hash, display_name, role, created_at) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO psetw_users (username, password_hash, display_name, role, created_at) VALUES (?, ?, ?, ?, ?)",
                 (username.lower(), generate_password_hash(password), display_name, role, datetime.now(timezone.utc).isoformat()),
             )
     conn.commit()
@@ -77,7 +77,7 @@ def load_state():
     try:
         conn = get_conn()
         row = conn.execute(
-            "SELECT value FROM atlas_state WHERE key = ?",
+            "SELECT value FROM psetw_state WHERE key = ?",
             ("industrial_planning_intelligence_state_v1",),
         ).fetchone()
         conn.close()
@@ -90,14 +90,14 @@ def save_state(state):
     try:
         conn = get_conn()
         conn.execute(
-            "INSERT OR REPLACE INTO atlas_state (key, value, updated_at) VALUES (?, ?, ?)",
+            "INSERT OR REPLACE INTO psetw_state (key, value, updated_at) VALUES (?, ?, ?)",
             ("industrial_planning_intelligence_state_v1", json.dumps(state), datetime.now(timezone.utc).isoformat()),
         )
         conn.commit()
         conn.close()
         return True
     except Exception as e:
-        print(f"[ATLAS] Save failed: {e}")
+        print(f"[PS-ETW] Save failed: {e}")
         return False
 
 
@@ -107,7 +107,7 @@ def verify_token(token):
     try:
         conn = get_conn()
         row = conn.execute(
-            "SELECT u.id, u.username, u.display_name, u.role FROM atlas_users u JOIN atlas_sessions s ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')",
+            "SELECT u.id, u.username, u.display_name, u.role FROM psetw_users u JOIN psetw_sessions s ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')",
             (token,),
         ).fetchone()
         conn.close()
@@ -119,13 +119,13 @@ def verify_token(token):
 try:
     init_db()
 except Exception as e:
-    print(f"[ATLAS] DB init warning: {e}")
+    print(f"[PS-ETW] DB init warning: {e}")
 
 
 # --- API ---
 @app.route("/api")
 def api_info():
-    return jsonify({"message": "ATLAS API", "endpoints": ["/api/health", "/api/state", "/api/auth/login", "/api/auth/me", "/api/backup", "/api/restore"]})
+    return jsonify({"message": "PS-ETW API", "endpoints": ["/api/health", "/api/state", "/api/auth/login", "/api/auth/me", "/api/backup", "/api/restore"]})
 
 
 @app.route("/api/health")
@@ -158,7 +158,7 @@ def auth_login():
         if not username:
             return jsonify({"ok": False, "error": "Username required"}), 400
         conn = get_conn()
-        row = conn.execute("SELECT id, password_hash, display_name, role FROM atlas_users WHERE username = ?", (username,)).fetchone()
+        row = conn.execute("SELECT id, password_hash, display_name, role FROM psetw_users WHERE username = ?", (username,)).fetchone()
         if not row:
             conn.close()
             return jsonify({"ok": False, "error": "Invalid credentials"}), 401
@@ -172,7 +172,7 @@ def auth_login():
         from datetime import timedelta
         expires_at = (now + timedelta(hours=expires_hours)).isoformat()
         conn.execute(
-            "INSERT INTO atlas_sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
+            "INSERT INTO psetw_sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
             (token, user_id, expires_at, now.isoformat()),
         )
         conn.commit()
@@ -206,7 +206,7 @@ def auth_logout():
     if token:
         try:
             conn = get_conn()
-            conn.execute("DELETE FROM atlas_sessions WHERE token = ?", (token,))
+            conn.execute("DELETE FROM psetw_sessions WHERE token = ?", (token,))
             conn.commit()
             conn.close()
         except Exception:
@@ -218,7 +218,7 @@ def auth_logout():
 @app.route("/api/backup")
 def backup():
     try:
-        return send_file(DB_PATH, as_attachment=True, download_name="atlas_backup.db")
+        return send_file(DB_PATH, as_attachment=True, download_name="psetw_backup.db")
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -231,11 +231,11 @@ def restore():
     if not f.filename or not f.filename.endswith(".db"):
         return jsonify({"ok": False, "error": "Invalid file. Use .db backup"}), 400
     try:
-        backup_path = BASE_DIR / "atlas_data_restore_temp.db"
+        backup_path = BASE_DIR / "psetw_data_restore_temp.db"
         f.save(str(backup_path))
         # Validate: try to read state
         conn = sqlite3.connect(str(backup_path))
-        row = conn.execute("SELECT value FROM atlas_state WHERE key = ?", ("industrial_planning_intelligence_state_v1",)).fetchone()
+        row = conn.execute("SELECT value FROM psetw_state WHERE key = ?", ("industrial_planning_intelligence_state_v1",)).fetchone()
         conn.close()
         if not row:
             backup_path.unlink(missing_ok=True)
@@ -245,7 +245,7 @@ def restore():
         backup_path.unlink(missing_ok=True)
         return jsonify({"ok": True})
     except Exception as e:
-        (BASE_DIR / "atlas_data_restore_temp.db").unlink(missing_ok=True)
+        (BASE_DIR / "psetw_data_restore_temp.db").unlink(missing_ok=True)
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
@@ -274,6 +274,6 @@ def serve_static(path):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"[ATLAS] Backend at http://0.0.0.0:{port}")
-    print(f"[ATLAS] Data: {DB_PATH}")
+    print(f"[PS-ETW] Backend at http://0.0.0.0:{port}")
+    print(f"[PS-ETW] Data: {DB_PATH}")
     app.run(host="0.0.0.0", port=port, debug=True)

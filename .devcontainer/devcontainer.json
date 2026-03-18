@@ -1,10 +1,10 @@
 {
-  "name": "ATLAS Python Backend",
+  "name": "PS-ETW Python Backend",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
   "postCreateCommand": "pip install --no-cache-dir -r requirements.txt",
   "portsAttributes": {
     "5000": {
-      "label": "ATLAS Backend",
+      "label": "PS-ETW Backend",
       "onAutoForward": "notify"
     }
   },
