@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
@@ -66,8 +67,8 @@ def get_gantt_rows(
     project_id: str,
     db: DBSession,
     _: CurrentUser,
-    phase: str | None = Query(default=None),
-    status_filter: ActivityStatus | None = Query(default=None, alias="status"),
+    phase: Annotated[str | None, Query()] = None,
+    status_filter: Annotated[ActivityStatus | None, Query(alias="status")] = None,
 ) -> list[GanttRow]:
     """Return activity rows enriched for Gantt chart rendering."""
 
@@ -80,8 +81,8 @@ def get_calendar_buckets(
     project_id: str,
     db: DBSession,
     _: CurrentUser,
-    start: date | None = Query(default=None),
-    end: date | None = Query(default=None),
+    start: Annotated[date | None, Query()] = None,
+    end: Annotated[date | None, Query()] = None,
 ) -> list[CalendarBucket]:
     """Return day buckets with activities for a date window."""
 

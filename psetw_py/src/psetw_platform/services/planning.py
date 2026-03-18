@@ -76,7 +76,7 @@ def _build_graph(activities: list[Activity]) -> tuple[dict[str, list[str]], dict
 
 
 def _topological_sort(graph: dict[str, list[str]]) -> list[str]:
-    indegree = {node: 0 for node in graph}
+    indegree = dict.fromkeys(graph, 0)
     adjacency: dict[str, list[str]] = {node: [] for node in graph}
 
     for node, dependencies in graph.items():
@@ -354,7 +354,9 @@ def _schedule_by_dependencies(
         activity = by_code.get(code)
         if activity is None:
             continue
-        dependency_finishes = [finish_by_code[dependency] for dependency in graph.get(code, []) if dependency in finish_by_code]
+        dependency_finishes = [
+            finish_by_code[dependency] for dependency in graph.get(code, []) if dependency in finish_by_code
+        ]
         dependency_gate = max(dependency_finishes) if dependency_finishes else fallback_start
         planned_start = activity.planned_start_date or fallback_start
         start = max(planned_start, dependency_gate)
@@ -411,10 +413,10 @@ def simulate_scenario(
 
     improvement_hours = 0.0
     if baseline_finish and simulated_finish:
+        baseline_dt = datetime.combine(baseline_finish, datetime.min.time())
+        simulated_dt = datetime.combine(simulated_finish, datetime.min.time())
         improvement_hours = round(
-            (datetime.combine(baseline_finish, datetime.min.time()) - datetime.combine(simulated_finish, datetime.min.time()))
-            .total_seconds()
-            / 3600.0,
+            (baseline_dt - simulated_dt).total_seconds() / 3600.0,
             2,
         )
 
