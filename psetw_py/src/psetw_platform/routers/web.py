@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
@@ -175,7 +175,7 @@ def ui_login_action(
     username: Annotated[str, Form()],
     password: Annotated[str, Form()],
     remember_me: Annotated[bool, Form()] = False,
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = db.scalar(select(User).where(User.username == username.strip().lower()))
     if user is None or not verify_password(password, user.password_hash):
         return templates.TemplateResponse(
@@ -209,7 +209,7 @@ def ui_dashboard(
     request: Request,
     db: DBSession,
     project_id: str | None = None,
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
@@ -258,7 +258,7 @@ def ui_activities(
     db: DBSession,
     project_id: str | None = None,
     message: str = "",
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
@@ -399,7 +399,7 @@ def _render_planning_page(
     current_path: str,
     title: str,
     extra_context: dict[str, object],
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
@@ -418,7 +418,7 @@ def ui_gantt(
     project_id: str | None = None,
     phase: str | None = None,
     status_filter: str | None = None,
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
@@ -455,7 +455,7 @@ def ui_calendar(
     db: DBSession,
     project_id: str | None = None,
     month: str | None = None,
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
@@ -495,7 +495,7 @@ def ui_network(
     request: Request,
     db: DBSession,
     project_id: str | None = None,
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
@@ -519,7 +519,7 @@ def ui_risk_register(
     request: Request,
     db: DBSession,
     project_id: str | None = None,
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
@@ -543,7 +543,7 @@ def ui_anomaly_center(
     request: Request,
     db: DBSession,
     project_id: str | None = None,
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
@@ -608,7 +608,7 @@ def ui_materials(
     request: Request,
     db: DBSession,
     project_id: str | None = None,
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
@@ -632,7 +632,7 @@ def ui_intelligence(
     request: Request,
     db: DBSession,
     project_id: str | None = None,
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
@@ -658,7 +658,7 @@ def ui_intelligence_simulate(
     manpower_boost_pct: Annotated[float, Form()] = 0.0,
     overtime_hours_per_day: Annotated[float, Form()] = 0.0,
     lead_time_reduction_pct: Annotated[float, Form()] = 0.0,
-) -> HTMLResponse | RedirectResponse:
+) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
