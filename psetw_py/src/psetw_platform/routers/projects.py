@@ -40,9 +40,9 @@ def create_project(payload: ProjectCreate, db: DBSession, user: CurrentUser) -> 
     """Create a project."""
 
     existing_codes = {
-        project.project_code.strip().upper()
-        for project in db.scalars(select(Project.project_code)).all()
-        if project and project.strip()
+        code.strip().upper()
+        for code in db.scalars(select(Project.project_code)).all()
+        if code and code.strip()
     }
     project = Project(
         name=payload.name.strip(),

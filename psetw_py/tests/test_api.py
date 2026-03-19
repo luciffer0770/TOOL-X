@@ -754,7 +754,12 @@ def test_ui_project_setup_create_save_and_team_members(client: TestClient) -> No
     assert auth_cookie
     cookies = {"psetw_ui_session": auth_cookie}
 
-    created = client.post("/ui/project-setup/new", data={"project_name": "Master Project"}, cookies=cookies)
+    created = client.post(
+        "/ui/project-setup/new",
+        data={"project_name": "Master Project"},
+        cookies=cookies,
+        follow_redirects=False,
+    )
     assert created.status_code == 303
     assert "/ui/project-setup?project_id=" in created.headers["location"]
     project_id = created.headers["location"].split("project_id=")[1].split("&")[0]
