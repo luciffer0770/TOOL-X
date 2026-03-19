@@ -44,10 +44,12 @@
         </div>
       </aside>
       <main class="main">
-        {% if message %}
-          <div class="alert">{{ message }}</div>
-        {% endif %}
-        {% block content %}{% endblock %}
+        <div class="content-shell">
+          {% if message %}
+            <div class="alert">{{ message }}</div>
+          {% endif %}
+          {% block content %}{% endblock %}
+        </div>
       </main>
     </div>
   </body>

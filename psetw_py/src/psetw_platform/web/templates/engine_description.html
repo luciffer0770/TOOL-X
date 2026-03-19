@@ -1,26 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
-  <section class="panel">
+  <section class="panel panel-tight">
     <h1>Engine Description</h1>
-    <p class="muted">Upload and manage engine requirement documents by project.</p>
-    <form method="post" action="/ui/projects/{{ active_project.id }}/engine-documents/upload" enctype="multipart/form-data" class="form-grid">
+    <p class="muted">Upload and manage engine requirement documents by project with searchable summaries.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Upload Requirement Document</h2>
+    <form method="post" action="/ui/projects/{{ active_project.id }}/engine-documents/upload" enctype="multipart/form-data" class="engine-upload-grid">
       <div>
-        <label>Upload Requirement File</label>
+        <label>Upload File</label>
         <input type="file" name="file" accept=".xlsx,.xls,.csv,.docx" required />
       </div>
       <div><label>Engine Name / Model</label><input name="engine_model" placeholder="Optional override" /></div>
       <div><label>Customer</label><input name="customer" placeholder="Optional override" /></div>
       <div><label>Program / Scope</label><input name="scope" placeholder="Optional override" /></div>
-      <div style="grid-column: 1 / -1"><label>Remarks</label><input name="remarks" placeholder="Optional notes" /></div>
-      <div><label>&nbsp;</label><button class="primary" type="submit">Upload Document</button></div>
+      <div class="full-width"><label>Remarks</label><input name="remarks" placeholder="Optional notes" /></div>
+      <div class="form-actions-left"><button class="primary" type="submit">Upload Document</button></div>
     </form>
   </section>
 
   <section class="panel">
     <h2>Search &amp; Filters</h2>
-    <form method="get" action="/ui/engine-description" class="form-grid">
+    <form method="get" action="/ui/engine-description" class="engine-filter-grid">
       <input type="hidden" name="project_id" value="{{ active_project.id }}" />
-      <div><label>Search</label><input name="search" value="{{ search }}" placeholder="Filename, engine, customer, scope" /></div>
+      <div class="engine-search-wide"><label>Search</label><input name="search" value="{{ search }}" placeholder="Filename, engine, customer, scope" /></div>
       <div>
         <label>Customer</label>
         <select name="customer_filter">
@@ -30,7 +34,7 @@
           {% endfor %}
         </select>
       </div>
-      <div><label>&nbsp;</label><button class="primary" type="submit">Apply</button></div>
+      <div class="form-actions-left"><button class="secondary-btn" type="submit">Apply</button></div>
     </form>
   </section>
 
@@ -62,7 +66,7 @@
               <td>{{ document.updated_at }}</td>
               <td><a class="secondary-btn" href="/ui/projects/{{ active_project.id }}/engine-documents/{{ document.id }}/download">Download</a></td>
             </tr>
-            <tr>
+            <tr class="doc-summary-row">
               <td colspan="8">
                 <form method="post" action="/ui/projects/{{ active_project.id }}/engine-documents/{{ document.id }}/summary" class="form-grid compact-form">
                   <div><label>Engine Model</label><input name="engine_model" value="{{ document.engine_model }}" /></div>
@@ -80,7 +84,14 @@
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="8" class="muted">No engine requirement documents uploaded yet.</td></tr>
+            <tr>
+              <td colspan="8">
+                <div class="empty-state">
+                  <p class="empty-state-title">No documents uploaded yet</p>
+                  <p class="small muted">Upload an engine requirement file to get started.</p>
+                </div>
+              </td>
+            </tr>
           {% endfor %}
         </tbody>
       </table>

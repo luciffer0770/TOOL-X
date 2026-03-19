@@ -163,7 +163,7 @@
       Showing {{ start_idx + 1 if filtered_count else 0 }}–{{ end_idx }} of {{ filtered_count }} filtered ({{ total_count }} total), page {{ page }} / {{ total_pages }}.
     </p>
     <div class="data-grid-wrap">
-      <table class="data-grid">
+      <table class="data-grid activities-grid">
         <thead>
           <tr>
             <th class="sticky-col">Select</th>
@@ -329,10 +329,10 @@
 
     <div class="row-actions" style="margin-top:10px">
       {% if page > 1 %}
-        <a href="/ui/activities?project_id={{ active_project.id }}&search={{ search }}&status_filter={{ status_filter }}&phase_filter={{ phase_filter }}&priority_filter={{ priority_filter }}&department_filter={{ department_filter }}&column_mode={{ column_mode }}&page_size={{ page_size }}&page={{ page - 1 }}">← Prev</a>
+        <a class="secondary-btn" href="/ui/activities?project_id={{ active_project.id }}&search={{ search }}&status_filter={{ status_filter }}&phase_filter={{ phase_filter }}&priority_filter={{ priority_filter }}&department_filter={{ department_filter }}&column_mode={{ column_mode }}&page_size={{ page_size }}&page={{ page - 1 }}">← Prev</a>
       {% endif %}
       {% if page < total_pages %}
-        <a href="/ui/activities?project_id={{ active_project.id }}&search={{ search }}&status_filter={{ status_filter }}&phase_filter={{ phase_filter }}&priority_filter={{ priority_filter }}&department_filter={{ department_filter }}&column_mode={{ column_mode }}&page_size={{ page_size }}&page={{ page + 1 }}">Next →</a>
+        <a class="secondary-btn" href="/ui/activities?project_id={{ active_project.id }}&search={{ search }}&status_filter={{ status_filter }}&phase_filter={{ phase_filter }}&priority_filter={{ priority_filter }}&department_filter={{ department_filter }}&column_mode={{ column_mode }}&page_size={{ page_size }}&page={{ page + 1 }}">Next →</a>
       {% endif %}
     </div>
   </section>
