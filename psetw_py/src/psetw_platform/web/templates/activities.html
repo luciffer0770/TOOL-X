@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
+  {% if hidden_column_indexes %}
+    <style>
+      {% for column_index in hidden_column_indexes %}
+        .activities-grid th:nth-child({{ column_index }}),
+        .activities-grid td:nth-child({{ column_index }}) {
+          display: none;
+        }
+      {% endfor %}
+    </style>
+  {% endif %}
   <section class="panel">
     <h1>Activities Control Sheet</h1>
     <p class="muted">Operational core table for planning, execution, risk, and material readiness.</p>
@@ -57,7 +67,32 @@
           <option value="all" {% if column_mode == "all" %}selected{% endif %}>All</option>
         </select>
       </div>
+      <details class="column-picker full-width">
+        <summary>Column Visibility ({{ visible_columns|length }}/{{ activity_column_options|length }} visible)</summary>
+        <div class="column-picker-grid">
+          {% for option in activity_column_options %}
+            <label class="column-chip">
+              <input
+                type="checkbox"
+                name="visible_columns"
+                value="{{ option.key }}"
+                {% if option.key in visible_columns %}checked{% endif %}
+              />
+              <span>{{ option.label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </details>
       <div><label>&nbsp;</label><button class="primary" type="submit">Apply</button></div>
+      <div>
+        <label>&nbsp;</label>
+        <a
+          class="secondary-btn"
+          href="/ui/activities?project_id={{ active_project.id }}&search={{ search }}&status_filter={{ status_filter }}&phase_filter={{ phase_filter }}&priority_filter={{ priority_filter }}&department_filter={{ department_filter }}&column_mode={{ column_mode }}&page_size={{ page_size }}&page={{ page }}&reset_columns=true"
+        >
+          Reset Columns
+        </a>
+      </div>
     </form>
   </section>
 
@@ -162,14 +197,15 @@
     <p class="small muted">
       Showing {{ start_idx + 1 if filtered_count else 0 }}–{{ end_idx }} of {{ filtered_count }} filtered ({{ total_count }} total), page {{ page }} / {{ total_pages }}.
     </p>
-    <div class="data-grid-wrap">
+    <div class="data-grid-wrap activities-grid-wrap">
+      <div class="activities-grid-inner">
       <table class="data-grid activities-grid">
         <thead>
           <tr>
-            <th class="sticky-col">Select</th>
-            <th class="sticky-col-2">Row Actions</th>
+            <th>Select</th>
+            <th>Row Actions</th>
             <th>Activity ID</th>
-            <th>Activity Name</th>
+            <th class="sticky-activity-name">Activity Name</th>
             <th>Phase</th>
             <th>Sub Activity</th>
             <th>Base Effort Hours</th>
@@ -209,7 +245,7 @@
         <tbody>
           {% for activity in activities %}
             <tr class="{% if highlight_id == activity.id %}row-highlight{% endif %}">
-              <td class="sticky-col">
+              <td>
                 <input type="checkbox" name="selected_ids" value="{{ activity.id }}" form="bulk-form" />
                 <form id="activity-form-{{ activity.id }}" method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress">
                   <input type="hidden" name="search" value="{{ search }}" />
@@ -224,7 +260,7 @@
                   <input type="hidden" name="risk_score" value="{{ activity.risk_score }}" />
                 </form>
               </td>
-              <td class="sticky-col-2">
+              <td>
                 <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/insert-above" class="row-actions">
                   <input type="hidden" name="search" value="{{ search }}" />
                   <input type="hidden" name="status_filter" value="{{ status_filter }}" />
@@ -261,7 +297,7 @@
                 <a class="secondary-btn" href="/ui/calendar?project_id={{ active_project.id }}&selected_activity_id={{ activity.id }}&display_mode=mixed">Open Calendar</a>
               </td>
               <td><input form="activity-form-{{ activity.id }}" name="activity_code" value="{{ activity.activity_code }}" /></td>
-              <td><input form="activity-form-{{ activity.id }}" name="activity_name" value="{{ activity.activity_name }}" /></td>
+              <td class="sticky-activity-name"><input form="activity-form-{{ activity.id }}" name="activity_name" value="{{ activity.activity_name }}" /></td>
               <td><input form="activity-form-{{ activity.id }}" name="phase" value="{{ activity.phase }}" /></td>
               <td><input form="activity-form-{{ activity.id }}" name="sub_activity" value="{{ activity.sub_activity }}" /></td>
               <td><input form="activity-form-{{ activity.id }}" type="number" min="0" name="base_effort_hours" value="{{ activity.base_effort_hours }}" /></td>
@@ -312,11 +348,6 @@
               <td>
                 <div class="row-actions">
                   <button class="primary" form="activity-form-{{ activity.id }}" type="submit">Save</button>
-                  <button class="secondary-btn" form="activity-form-{{ activity.id }}" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Not Started" type="submit">Not Started</button>
-                  <button class="secondary-btn" form="activity-form-{{ activity.id }}" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="In Progress" type="submit">In Progress</button>
-                  <button class="secondary-btn" form="activity-form-{{ activity.id }}" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="On Hold" type="submit">On Hold</button>
-                  <button class="secondary-btn" form="activity-form-{{ activity.id }}" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Delayed" type="submit">Delayed</button>
-                  <button class="secondary-btn" form="activity-form-{{ activity.id }}" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Completed" type="submit">Completed</button>
                 </div>
               </td>
             </tr>
@@ -325,6 +356,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
 
     <div class="row-actions" style="margin-top:10px">

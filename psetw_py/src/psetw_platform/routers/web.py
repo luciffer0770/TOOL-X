@@ -11,7 +11,7 @@ from calendar import SUNDAY, Calendar
 from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, File, Form, Request, Response, UploadFile
@@ -62,6 +62,65 @@ LOGIN_DEMO_USERS: dict[str, tuple[str, str, str]] = {
 }
 ENGINE_UPLOAD_EXTENSIONS = {".xlsx", ".xls", ".csv", ".docx"}
 PROJECT_ACCESS_LEVELS = ["Planner", "Management", "Technician", "Viewer", "Admin"]
+ACTIVITY_COLUMN_OPTIONS: list[dict[str, object]] = [
+    {"key": "activity_code", "label": "Activity ID", "index": 3},
+    {"key": "activity_name", "label": "Activity Name", "index": 4},
+    {"key": "phase", "label": "Phase", "index": 5},
+    {"key": "sub_activity", "label": "Sub Activity", "index": 6},
+    {"key": "base_effort_hours", "label": "Base Effort Hours", "index": 7},
+    {"key": "required_materials", "label": "Required Materials", "index": 8},
+    {"key": "required_tools", "label": "Required Tools", "index": 9},
+    {"key": "material_ownership", "label": "Material Ownership", "index": 10},
+    {"key": "material_lead_time", "label": "Material Lead Time", "index": 11},
+    {"key": "dependencies", "label": "Dependencies", "index": 12},
+    {"key": "planned_start_date", "label": "Planned Start Date", "index": 13},
+    {"key": "planned_end_date", "label": "Planned End Date", "index": 14},
+    {"key": "planned_duration_hours", "label": "Planned Duration Hours", "index": 15},
+    {"key": "priority", "label": "Priority", "index": 16},
+    {"key": "shift_type", "label": "Shift Type", "index": 17},
+    {"key": "material_status", "label": "Material Status", "index": 18},
+    {"key": "material_supplier", "label": "Supplier / Vendor", "index": 19},
+    {"key": "material_required_date", "label": "Material Required Date", "index": 20},
+    {"key": "material_received_date", "label": "Material Received Date", "index": 21},
+    {"key": "material_criticality", "label": "Material Criticality", "index": 22},
+    {"key": "actual_start_date", "label": "Actual Start Date", "index": 23},
+    {"key": "actual_end_date", "label": "Actual End Date", "index": 24},
+    {"key": "status", "label": "Activity Status", "index": 25},
+    {"key": "completion_percentage", "label": "Completion %", "index": 26},
+    {"key": "risk_level", "label": "Risk Level", "index": 27},
+    {"key": "delay_reason", "label": "Delay Reason", "index": 28},
+    {"key": "dependency_type", "label": "Dependency Type", "index": 29},
+    {"key": "override_approved_by", "label": "Override Approved By", "index": 30},
+    {"key": "estimated_cost", "label": "Estimated Cost", "index": 31},
+    {"key": "actual_cost", "label": "Actual Cost", "index": 32},
+    {"key": "cost_center", "label": "Cost Center", "index": 33},
+    {"key": "remarks", "label": "Remarks", "index": 34},
+    {"key": "last_modified_by", "label": "Last Modified By", "index": 35},
+    {"key": "last_modified_date", "label": "Last Modified Date", "index": 36},
+    {"key": "warnings", "label": "Warnings", "index": 37},
+]
+ACTIVITY_COLUMN_KEY_SET = {str(option["key"]) for option in ACTIVITY_COLUMN_OPTIONS}
+ACTIVITY_CORE_COLUMNS = [
+    "activity_code",
+    "activity_name",
+    "phase",
+    "status",
+    "completion_percentage",
+    "planned_start_date",
+    "planned_end_date",
+    "priority",
+    "dependencies",
+    "required_materials",
+    "required_tools",
+    "risk_level",
+    "delay_reason",
+    "remarks",
+    "last_modified_by",
+    "last_modified_date",
+    "warnings",
+]
+ACTIVITY_MANDATORY_COLUMNS = {"activity_name"}
+ACTIVITY_COLUMNS_COOKIE = "psetw_visible_columns"
 ACTIVITY_EXPORT_COLUMNS: list[tuple[str, str]] = [
     ("Activity ID", "activity_code"),
     ("Activity Name", "activity_name"),
@@ -750,6 +809,30 @@ def _build_activities_query_params(
     return urlencode(payload)
 
 
+def _resolve_visible_activity_columns(
+    requested_columns: Iterable[str],
+    column_mode: str,
+) -> list[str]:
+    defaults = (
+        [str(option["key"]) for option in ACTIVITY_COLUMN_OPTIONS]
+        if column_mode == "all"
+        else list(ACTIVITY_CORE_COLUMNS)
+    )
+    selected: list[str] = []
+    seen: set[str] = set()
+    for raw_value in requested_columns:
+        key = raw_value.strip()
+        if key in ACTIVITY_COLUMN_KEY_SET and key not in seen:
+            selected.append(key)
+            seen.add(key)
+    if not selected:
+        selected = defaults
+    for required in ACTIVITY_MANDATORY_COLUMNS:
+        if required not in selected:
+            selected.insert(0, required)
+    return selected
+
+
 def _coerce_form_bool(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -1125,6 +1208,7 @@ def ui_activities(
     page_size: int = DEFAULT_PAGE_SIZE,
     column_mode: str = "core",
     highlight_id: str = "",
+    reset_columns: str = "",
 ) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
@@ -1179,6 +1263,19 @@ def ui_activities(
 
     if page_size not in ALLOWED_PAGE_SIZES:
         page_size = DEFAULT_PAGE_SIZE
+    selected_mode = "all" if column_mode == "all" else "core"
+    requested_columns = [value.strip() for value in request.query_params.getlist("visible_columns") if value.strip()]
+    if not requested_columns and not _coerce_form_bool(reset_columns):
+        cookie_raw = request.cookies.get(ACTIVITY_COLUMNS_COOKIE, "")
+        requested_columns = [value for value in cookie_raw.split(",") if value]
+    visible_columns = _resolve_visible_activity_columns(requested_columns, selected_mode)
+    visible_column_set = set(visible_columns)
+    hidden_column_indexes = [
+        cast(int, option["index"])
+        for option in ACTIVITY_COLUMN_OPTIONS
+        if str(option["key"]) not in visible_column_set
+    ]
+
     total_count = len(activities)
     filtered_count = len(filtered)
     total_pages = max(1, (filtered_count + page_size - 1) // page_size)
@@ -1210,9 +1307,12 @@ def ui_activities(
             "start_idx": start_idx,
             "end_idx": min(end_idx, filtered_count),
             "allowed_page_sizes": sorted(ALLOWED_PAGE_SIZES),
-            "column_mode": "all" if column_mode == "all" else "core",
+            "column_mode": selected_mode,
             "highlight_id": highlight_id,
             "today": date.today().isoformat(),
+            "activity_column_options": ACTIVITY_COLUMN_OPTIONS,
+            "visible_columns": visible_columns,
+            "hidden_column_indexes": hidden_column_indexes,
             "warnings_by_id": {
                 activity.id: _collect_activity_warnings(
                     activity,
@@ -1222,7 +1322,14 @@ def ui_activities(
             },
         }
     )
-    return templates.TemplateResponse("activities.html", context)
+    response = templates.TemplateResponse("activities.html", context)
+    response.set_cookie(
+        ACTIVITY_COLUMNS_COOKIE,
+        ",".join(visible_columns),
+        max_age=60 * 60 * 24 * 30,
+        samesite="lax",
+    )
+    return response
 
 
 def _activities_redirect(
