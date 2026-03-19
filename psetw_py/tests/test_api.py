@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi.testclient import TestClient
 
 
@@ -326,7 +328,7 @@ def test_server_rendered_ui_login_and_pages(client: TestClient) -> None:
     cookies = {"psetw_ui_session": auth_cookie}
     dashboard = client.get("/ui/dashboard", cookies=cookies)
     assert dashboard.status_code == 200
-    assert "Dashboard" in dashboard.text
+    assert "Executive Dashboard" in dashboard.text
 
     create_project = client.post("/api/v1/projects", json={"name": "UI Project"}, headers=_auth_headers(client))
     assert create_project.status_code == 201
@@ -366,9 +368,17 @@ def test_server_rendered_ui_login_and_pages(client: TestClient) -> None:
     assert calendar_page.status_code == 200
     assert "Reschedule activities directly from calendar cards." in calendar_page.text
 
-    intelligence_page = client.get(f"/ui/intelligence?project_id={project_id}", cookies=cookies)
-    assert intelligence_page.status_code == 200
-    assert "What-if Simulation" in intelligence_page.text
+    delay_page = client.get(f"/ui/delay-optimization?project_id={project_id}", cookies=cookies)
+    assert delay_page.status_code == 200
+    assert "Delay &amp; Optimization" in delay_page.text
+
+    engine_page = client.get(f"/ui/engine-description?project_id={project_id}", cookies=cookies)
+    assert engine_page.status_code == 200
+    assert "Engine Description" in engine_page.text
+
+    settings_page = client.get(f"/ui/settings?project_id={project_id}", cookies=cookies)
+    assert settings_page.status_code == 200
+    assert "Settings" in settings_page.text
 
 
 def test_ui_activities_import_export_and_bulk_actions(client: TestClient) -> None:
@@ -594,3 +604,50 @@ def test_ui_calendar_reschedule_and_eod_logs(client: TestClient) -> None:
     assert eod_page.status_code == 200
     assert "EOD History (1)" in eod_page.text
     assert "CAL-100" in eod_page.text
+
+
+def test_ui_engine_description_upload_and_download(client: TestClient) -> None:
+    login = client.post(
+        "/ui/login",
+        data={"username": "planner", "password": "planner123", "remember_me": "true"},
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+    auth_cookie = login.cookies.get("psetw_ui_session")
+    assert auth_cookie
+    cookies = {"psetw_ui_session": auth_cookie}
+    headers = _auth_headers(client)
+
+    create_project = client.post("/api/v1/projects", json={"name": "Engine Docs Project"}, headers=headers)
+    assert create_project.status_code == 201
+    project_id = create_project.json()["id"]
+
+    csv_payload = (
+        "Engine Model,Customer,Scope,Remarks\n"
+        "V8-TT,Customer A,Preparation validation,Gate review required\n"
+    )
+    upload = client.post(
+        f"/ui/projects/{project_id}/engine-documents/upload",
+        data={"engine_model": "", "customer": "", "scope": "", "remarks": ""},
+        files={"file": ("engine_requirements.csv", csv_payload, "text/csv")},
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert upload.status_code == 303
+    assert "/ui/engine-description" in upload.headers["location"]
+
+    page = client.get(f"/ui/engine-description?project_id={project_id}", cookies=cookies)
+    assert page.status_code == 200
+    assert "engine_requirements.csv" in page.text
+    assert "V8-TT" in page.text
+
+    match = re.search(r"/ui/projects/.*/engine-documents/([a-f0-9\\-]+)/download", page.text)
+    assert match is not None
+    document_id = match.group(1)
+
+    download = client.get(
+        f"/ui/projects/{project_id}/engine-documents/{document_id}/download",
+        cookies=cookies,
+    )
+    assert download.status_code == 200
+    assert "Engine Model,Customer,Scope,Remarks" in download.text

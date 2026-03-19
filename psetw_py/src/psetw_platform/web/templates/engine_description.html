@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h1>Engine Description</h1>
+    <p class="muted">Upload and manage engine requirement documents by project.</p>
+    <form method="post" action="/ui/projects/{{ active_project.id }}/engine-documents/upload" enctype="multipart/form-data" class="form-grid">
+      <div>
+        <label>Upload Requirement File</label>
+        <input type="file" name="file" accept=".xlsx,.xls,.csv,.docx" required />
+      </div>
+      <div><label>Engine Name / Model</label><input name="engine_model" placeholder="Optional override" /></div>
+      <div><label>Customer</label><input name="customer" placeholder="Optional override" /></div>
+      <div><label>Program / Scope</label><input name="scope" placeholder="Optional override" /></div>
+      <div style="grid-column: 1 / -1"><label>Remarks</label><input name="remarks" placeholder="Optional notes" /></div>
+      <div><label>&nbsp;</label><button class="primary" type="submit">Upload Document</button></div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Search &amp; Filters</h2>
+    <form method="get" action="/ui/engine-description" class="form-grid">
+      <input type="hidden" name="project_id" value="{{ active_project.id }}" />
+      <div><label>Search</label><input name="search" value="{{ search }}" placeholder="Filename, engine, customer, scope" /></div>
+      <div>
+        <label>Customer</label>
+        <select name="customer_filter">
+          <option value="">All</option>
+          {% for customer in customer_options %}
+            <option value="{{ customer }}" {% if customer_filter == customer %}selected{% endif %}>{{ customer }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div><label>&nbsp;</label><button class="primary" type="submit">Apply</button></div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Uploaded Documents ({{ documents|length }})</h2>
+    <div class="data-grid-wrap">
+      <table class="data-grid">
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Engine Model</th>
+            <th>Customer</th>
+            <th>Scope</th>
+            <th>Remarks</th>
+            <th>Uploaded By</th>
+            <th>Updated</th>
+            <th>Download</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for document in documents %}
+            <tr>
+              <td>{{ document.filename }}</td>
+              <td>{{ document.engine_model or "-" }}</td>
+              <td>{{ document.customer or "-" }}</td>
+              <td>{{ document.scope or "-" }}</td>
+              <td>{{ document.remarks or "-" }}</td>
+              <td>{{ document.created_by }}</td>
+              <td>{{ document.updated_at }}</td>
+              <td><a class="secondary-btn" href="/ui/projects/{{ active_project.id }}/engine-documents/{{ document.id }}/download">Download</a></td>
+            </tr>
+            <tr>
+              <td colspan="8">
+                <form method="post" action="/ui/projects/{{ active_project.id }}/engine-documents/{{ document.id }}/summary" class="form-grid compact-form">
+                  <div><label>Engine Model</label><input name="engine_model" value="{{ document.engine_model }}" /></div>
+                  <div><label>Customer</label><input name="customer" value="{{ document.customer }}" /></div>
+                  <div><label>Scope</label><input name="scope" value="{{ document.scope }}" /></div>
+                  <div style="grid-column: 1 / -1"><label>Remarks</label><input name="remarks" value="{{ document.remarks }}" /></div>
+                  <div><label>&nbsp;</label><button class="primary" type="submit">Save Summary</button></div>
+                </form>
+                {% if document.parsed_summary %}
+                  <details class="collapsible" style="margin-top: 8px">
+                    <summary>Parsed summary preview</summary>
+                    <div class="small muted" style="white-space: pre-wrap; margin-top:8px">{{ document.parsed_summary.preview_text or "No extracted text preview." }}</div>
+                  </details>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8" class="muted">No engine requirement documents uploaded yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

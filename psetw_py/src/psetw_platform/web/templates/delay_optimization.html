@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h1>Delay &amp; Optimization</h1>
+    <p class="muted">Delay control, dependency stress, and risk-focused execution insights.</p>
+    <div class="kpi-grid">
+      <article class="kpi"><div class="kpi-title">Total Risk Rows</div><div class="kpi-value">{{ risk_rows|length }}</div></article>
+      <article class="kpi"><div class="kpi-title">Delayed Activities</div><div class="kpi-value">{{ delayed_rows|length }}</div></article>
+      <article class="kpi"><div class="kpi-title">Missing Dependencies</div><div class="kpi-value">{{ dependency_health.missing_dependency_links }}</div></article>
+      <article class="kpi"><div class="kpi-title">Cycle Count</div><div class="kpi-value">{{ dependency_health.cycle_count }}</div></article>
+    </div>
+  </section>
+
+  <section class="two-col">
+    <article class="panel">
+      <h2>Delayed Activity Root Cause Update</h2>
+      <form method="post" action="/ui/projects/{{ active_project.id }}/delay-root-cause" class="form-grid">
+        <div>
+          <label>Activity</label>
+          <select name="activity_id">
+            {% for row in delayed_rows %}
+              <option value="{{ row.activity_id }}">{{ row.activity_code }} — {{ row.activity_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Updated Status</label>
+          <select name="status">
+            {% for status in status_values %}
+              <option value="{{ status }}">{{ status }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div><label>Completion %</label><input type="number" name="completion_percentage" min="0" max="100" value="0" /></div>
+        <div style="grid-column: 1 / -1"><label>Delay Reason</label><input name="delay_reason" placeholder="Root cause and impact path" /></div>
+        <div style="grid-column: 1 / -1"><label>Remarks</label><input name="remarks" placeholder="Mitigation status / notes" /></div>
+        <div><label>&nbsp;</label><button class="primary" type="submit">Save Root Cause</button></div>
+      </form>
+    </article>
+
+    <article class="panel">
+      <h2>Dependency Stress Nodes</h2>
+      <div class="metric-list">
+        {% for activity_code, missing in dependency_health.missing_by_activity.items() %}
+          <div class="metric-row">
+            <div><strong>{{ activity_code }}</strong></div>
+            <div class="small muted">Missing: {{ missing|join(", ") }}</div>
+          </div>
+        {% else %}
+          <p class="muted">No dependency stress nodes currently active.</p>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="panel">
+    <h2>Delay &amp; Risk Overview</h2>
+    <div class="data-grid-wrap">
+      <table class="data-grid">
+        <thead>
+          <tr>
+            <th>Activity</th>
+            <th>Status</th>
+            <th>Completion</th>
+            <th>Delay (h)</th>
+            <th>Risk Score</th>
+            <th>Risk Level</th>
+            <th>Material Signal</th>
+            <th>Root Cause</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in risk_score_rows %}
+            <tr>
+              <td>{{ row.activity_code }}<br /><span class="small muted">{{ row.activity_name }}</span></td>
+              <td><span class="status {{ row.status.value|lower|replace(' ', '-') }}">{{ row.status.value }}</span></td>
+              <td>{{ row.completion_percentage }}%</td>
+              <td>{{ row.delay_days * 24 }}</td>
+              <td>{{ row.risk_score }}</td>
+              <td><span class="status {{ row.risk_level|lower }}">{{ row.risk_level }}</span></td>
+              <td>{{ "Blocked" if row.blocking_dependencies else "Ready" }}</td>
+              <td>{{ row.delay_reason or "-" }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8" class="muted">No delay/risk rows available.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Delay &amp; Risk Trend</h2>
+    <table>
+      <thead>
+        <tr><th>Phase</th><th>Activity Count</th><th>Total Delay (days)</th><th>Average Delay (days)</th></tr>
+      </thead>
+      <tbody>
+        {% for row in trend_rows %}
+          <tr>
+            <td>{{ row.phase }}</td>
+            <td>{{ row.activity_count }}</td>
+            <td>{{ row.delay_days }}</td>
+            <td>{{ row.avg_delay }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="muted">No trend rows available.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

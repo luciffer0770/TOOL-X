@@ -1,68 +1,188 @@
 {% extends "base.html" %}
 {% block content %}
   <section class="panel">
-    <h1>Dashboard</h1>
-    <p class="muted">Portfolio KPIs and operational health for {{ active_project.name }}</p>
-    <div class="kpi-grid">
-      <article class="kpi"><div class="kpi-title">Total Activities</div><div class="kpi-value">{{ portfolio_metrics.total_activities }}</div></article>
-      <article class="kpi"><div class="kpi-title">Delayed</div><div class="kpi-value">{{ portfolio_metrics.delayed_activities }}</div></article>
-      <article class="kpi"><div class="kpi-title">High Risk</div><div class="kpi-value">{{ portfolio_metrics.high_risk_activities }}</div></article>
-      <article class="kpi"><div class="kpi-title">Blocked</div><div class="kpi-value">{{ portfolio_metrics.blocked_activities }}</div></article>
-      <article class="kpi"><div class="kpi-title">Completion</div><div class="kpi-value">{{ portfolio_metrics.average_completion }}%</div></article>
-      <article class="kpi"><div class="kpi-title">Open Actions</div><div class="kpi-value">{{ open_action_count }}</div></article>
-      <article class="kpi"><div class="kpi-title">Overdue Actions</div><div class="kpi-value">{{ overdue_action_count }}</div></article>
-      <article class="kpi"><div class="kpi-title">Dependency Cycles</div><div class="kpi-value">{{ dependency_health.cycle_count }}</div></article>
+    <div class="page-strip">
+      <div>
+        <h1 style="margin:0">Executive Dashboard</h1>
+        <p class="muted small">Operational status for {{ active_project.name }}</p>
+      </div>
+      <form method="get" action="/ui/dashboard" class="strip-filters">
+        <input type="hidden" name="project_id" value="{{ active_project.id }}" />
+        <div>
+          <label>Snapshot Date</label>
+          <input type="date" value="{{ snapshot_date }}" disabled />
+        </div>
+        <div>
+          <label>Time Range</label>
+          <select name="time_range">
+            <option value="7d" {% if time_range == "7d" %}selected{% endif %}>7 Days</option>
+            <option value="14d" {% if time_range == "14d" %}selected{% endif %}>14 Days</option>
+            <option value="30d" {% if time_range == "30d" %}selected{% endif %}>30 Days</option>
+            <option value="90d" {% if time_range == "90d" %}selected{% endif %}>90 Days</option>
+          </select>
+        </div>
+        <div><label>&nbsp;</label><button class="primary" type="submit">Refresh</button></div>
+      </form>
     </div>
   </section>
 
   <section class="panel">
-    <h2>Top Risks</h2>
-    <table>
-      <thead>
-        <tr><th>Code</th><th>Name</th><th>Status</th><th>Risk</th><th>Delay Days</th><th>Reason</th></tr>
-      </thead>
-      <tbody>
-        {% for row in top_risks %}
-          <tr>
-            <td>{{ row.activity_code }}</td>
-            <td>{{ row.activity_name }}</td>
-            <td><span class="status {{ row.status.value|lower|replace(' ', '-') }}">{{ row.status.value }}</span></td>
-            <td><span class="status {{ row.risk_level|lower }}">{{ row.risk_level }}</span> ({{ row.risk_score }})</td>
-            <td>{{ row.delay_days }}</td>
-            <td>{{ row.delay_reason or "-" }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="6" class="muted">No risk rows yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
-
-  <section class="panel">
-    <h2>Phase Progress</h2>
-    <table>
-      <thead><tr><th>Phase</th><th>Activities</th><th>Avg Completion</th><th>Delayed</th></tr></thead>
-      <tbody>
-        {% for row in phase_progress %}
-          <tr>
-            <td>{{ row.phase }}</td>
-            <td>{{ row.activity_count }}</td>
-            <td>{{ row.average_completion }}%</td>
-            <td>{{ row.delayed_activities }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="4" class="muted">No phase data available.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
-
-  <section class="panel">
-    <h2>Anomaly Severity</h2>
     <div class="kpi-grid">
-      {% for label, value in anomaly_counts.items() %}
-        <article class="kpi"><div class="kpi-title">{{ label }}</div><div class="kpi-value">{{ value }}</div></article>
+      <article class="kpi"><div class="kpi-title">Total Activities</div><div class="kpi-value">{{ portfolio_metrics.total_activities }}</div></article>
+      <article class="kpi"><div class="kpi-title">Delayed Activities</div><div class="kpi-value">{{ portfolio_metrics.delayed_activities }}</div></article>
+      <article class="kpi"><div class="kpi-title">High/Critical Risk</div><div class="kpi-value">{{ portfolio_metrics.high_risk_activities }}</div></article>
+      <article class="kpi"><div class="kpi-title">Average Completion</div><div class="kpi-value">{{ portfolio_metrics.average_completion }}%</div></article>
+      <article class="kpi"><div class="kpi-title">Completed Activities</div><div class="kpi-value">{{ portfolio_metrics.completed_activities }}</div></article>
+      <article class="kpi"><div class="kpi-title">Dependency Blocked</div><div class="kpi-value">{{ portfolio_metrics.blocked_activities }}</div></article>
+      <article class="kpi"><div class="kpi-title">Estimated Cost</div><div class="kpi-value">{{ estimated_cost }}</div></article>
+      <article class="kpi"><div class="kpi-title">Cost Variance</div><div class="kpi-value">{{ cost_variance }}</div></article>
+      <article class="kpi"><div class="kpi-title">On-Time %</div><div class="kpi-value">{{ on_time_pct }}%</div></article>
+      <article class="kpi"><div class="kpi-title">Materials Ready %</div><div class="kpi-value">{{ materials_ready_pct }}%</div></article>
+      <article class="kpi"><div class="kpi-title">Open Anomalies</div><div class="kpi-value">{{ open_anomalies }}</div></article>
+      <article class="kpi"><div class="kpi-title">Overdue Milestones</div><div class="kpi-value">{{ overdue_milestones }}</div></article>
+      <article class="kpi"><div class="kpi-title">Pending Approvals</div><div class="kpi-value">{{ pending_approvals }}</div></article>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Phase Completion vs Delayed Activities</h2>
+    <div class="metric-list">
+      {% for row in phase_progress %}
+        <article class="metric-row">
+          <div><strong>{{ row.phase }}</strong></div>
+          <div class="small muted">Completion {{ row.average_completion }}% · Delayed {{ row.delayed_activities }}</div>
+          <div class="progress-track"><div class="progress-fill" style="width: {{ row.average_completion|int }}%"></div></div>
+        </article>
+      {% else %}
+        <p class="muted">No phase records available.</p>
       {% endfor %}
+    </div>
+  </section>
+
+  <section class="two-col">
+    <article class="panel">
+      <h2>Risk Distribution</h2>
+      <div class="metric-list">
+        {% for label, value in anomaly_counts.items() %}
+          <div class="metric-row">
+            <div>{{ label }}</div>
+            <div><strong>{{ value }}</strong></div>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+    <article class="panel">
+      <h2>Delay Trend by Phase</h2>
+      <div class="metric-list">
+        {% for row in delay_by_phase_rows %}
+          <div class="metric-row">
+            <div>{{ row.phase }}</div>
+            <div><strong>{{ row.delay_days }} days</strong></div>
+          </div>
+        {% else %}
+          <p class="muted">No delay trend rows.</p>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="two-col">
+    <article class="panel">
+      <h2>Materials Readiness</h2>
+      <div class="metric-list">
+        {% for row in material_status_rows %}
+          <div class="metric-row">
+            <div>{{ row.label }}</div>
+            <div><strong>{{ row.count }}</strong></div>
+          </div>
+        {% else %}
+          <p class="muted">No material status data.</p>
+        {% endfor %}
+      </div>
+    </article>
+    <article class="panel">
+      <h2>Weekly Completion Trend</h2>
+      <div class="metric-list">
+        {% for row in weekly_completion_rows %}
+          <article class="metric-row">
+            <div class="small">{{ row.label }}</div>
+            <div class="small muted">{{ row.completed }} completed</div>
+            <div class="progress-track"><div class="progress-fill" style="width: {{ row.bar_pct }}%"></div></div>
+          </article>
+        {% endfor %}
+      </div>
+      <p class="small muted">Tools readiness: {{ tool_readiness_pct }}%</p>
+    </article>
+  </section>
+
+  <section class="two-col">
+    <article class="panel">
+      <h2>Critical Path / Constraint Chain</h2>
+      <p class="small muted">Critical path activity sequence by dependency scheduling.</p>
+      <p><strong>{{ critical_path_codes|join(" → ") if critical_path_codes else "No critical path yet." }}</strong></p>
+      <h3>Blocked by Dependency</h3>
+      <ul>
+        {% for row in blocked_rows %}
+          <li>{{ row.activity_code }} blocked by {{ row.blocking_dependencies|join(", ") }}</li>
+        {% else %}
+          <li class="muted">No dependency blockers.</li>
+        {% endfor %}
+      </ul>
+    </article>
+    <article class="panel">
+      <h2>Alert Center / Action Required</h2>
+      <ul>
+        <li>Open Actions: <strong>{{ open_action_count }}</strong></li>
+        <li>Overdue Actions: <strong>{{ overdue_action_count }}</strong></li>
+        <li>Dependency Cycles: <strong>{{ dependency_health.cycle_count }}</strong></li>
+        <li>Missing dependency links: <strong>{{ dependency_health.missing_dependency_links }}</strong></li>
+      </ul>
+      <h3>Upcoming Milestones (14 days)</h3>
+      <ul>
+        {% for activity in upcoming_milestones %}
+          <li>{{ activity.activity_code }} — {{ activity.milestone }} ({{ activity.planned_end_date }})</li>
+        {% else %}
+          <li class="muted">No upcoming milestones.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+
+  <section class="panel">
+    <h2>Priority Risks / Delayed Activities</h2>
+    <div class="data-grid-wrap">
+      <table class="data-grid">
+        <thead>
+          <tr>
+            <th>Activity ID</th>
+            <th>Activity Name</th>
+            <th>Phase</th>
+            <th>Status</th>
+            <th>Completion %</th>
+            <th>Delay Hours</th>
+            <th>Risk Score</th>
+            <th>Owner</th>
+            <th>Root Cause / Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in top_risks %}
+            <tr>
+              <td>-</td>
+              <td>{{ row.activity_name }}</td>
+              <td>{{ row.phase }}</td>
+              <td><span class="status {{ row.status.value|lower|replace(' ', '-') }}">{{ row.status.value }}</span></td>
+              <td>{{ row.completion_percentage }}</td>
+              <td>{{ row.delay_days * 24 }}</td>
+              <td>{{ row.risk_score }}</td>
+              <td>{{ row.activity_code }}</td>
+              <td>{{ row.delay_reason or "-" }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="9" class="muted">No delayed or high-risk activities.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </section>
 {% endblock %}

@@ -79,13 +79,11 @@ Python-rendered UI endpoints:
 
 - `/ui/dashboard`
 - `/ui/activities`
-- `/ui/gantt`
 - `/ui/calendar`
-- `/ui/network`
-- `/ui/risk-register`
+- `/ui/delay-optimization`
+- `/ui/engine-description`
 - `/ui/anomaly-center`
-- `/ui/materials`
-- `/ui/intelligence`
+- `/ui/settings`
 
 ## Python UI Feature Parity Progress
 
@@ -98,8 +96,10 @@ Implemented in Python UI now:
 - Bulk activity operations (status update and delete)
 - Spreadsheet import for Activities (`.xlsx`, `.csv`) with merge/replace mode
 - Activity export (`.csv`, `.xlsx`, `.json`)
-- Dashboard KPIs, planning pages (Gantt/Calendar/Network), risk register, anomaly center, materials, intelligence simulation
-- Baseline lock from Python UI
+- Executive dashboard with KPI cards, operational insight panels, and risk/delay views
+- Delay & optimization page with root-cause updates and trend views
+- Engine description page for requirement document uploads (`.xlsx`, `.xls`, `.csv`, `.docx`) and parsed summary capture
+- Baseline lock/restore and action management from Python UI anomaly workflow
 
 Note:
 

@@ -5,11 +5,14 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
+import zipfile
 from calendar import SUNDAY, Calendar
 from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
+from xml.etree import ElementTree
 
 from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
@@ -26,12 +29,12 @@ from psetw_platform.models import (
     Activity,
     ActivityStatus,
     Baseline,
+    EngineDocument,
     EodLog,
     Project,
     User,
     UserRole,
 )
-from psetw_platform.schemas import ScenarioSimulationInput
 from psetw_platform.services.analytics import (
     compute_delay_risk_rows,
     compute_dependency_health,
@@ -40,10 +43,8 @@ from psetw_platform.services.analytics import (
 )
 from psetw_platform.services.planning import (
     compute_calendar_buckets,
-    compute_material_health,
-    compute_network_graph,
+    compute_critical_path_codes,
     compute_phase_progress,
-    simulate_scenario,
 )
 
 router = APIRouter(tags=["web-ui"])
@@ -58,6 +59,7 @@ LOGIN_DEMO_USERS: dict[str, tuple[str, str, str]] = {
     "management": ("Management", "management", "management123"),
     "technician": ("Technician", "technician", "technician123"),
 }
+ENGINE_UPLOAD_EXTENSIONS = {".xlsx", ".xls", ".csv", ".docx"}
 ACTIVITY_EXPORT_COLUMNS: list[tuple[str, str]] = [
     ("Activity ID", "activity_code"),
     ("Activity Name", "activity_name"),
@@ -485,6 +487,133 @@ def _build_calendar_matrix(activities: list[Activity], month_date: date) -> list
     return matrix
 
 
+def _extract_docx_text(content: bytes) -> str:
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            xml_bytes = archive.read("word/document.xml")
+    except (zipfile.BadZipFile, KeyError):
+        return ""
+    root = ElementTree.fromstring(xml_bytes)
+    text_parts: list[str] = []
+    for node in root.iter():
+        if node.tag.endswith("}t") and node.text:
+            text_parts.append(node.text.strip())
+    return "\n".join(part for part in text_parts if part)
+
+
+def _extract_xlsx_text(content: bytes) -> str:
+    try:
+        workbook = load_workbook(io.BytesIO(content), data_only=True, read_only=True)
+    except Exception:
+        return ""
+    try:
+        sheet = workbook.active
+        if sheet is None:
+            return ""
+        rows: list[str] = []
+        for row in sheet.iter_rows(min_row=1, max_row=40, min_col=1, max_col=12, values_only=True):
+            parts = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
+            if parts:
+                rows.append(" | ".join(parts))
+        return "\n".join(rows)
+    finally:
+        workbook.close()
+
+
+def _extract_csv_text(content: bytes) -> str:
+    decoded = content.decode("utf-8", errors="ignore")
+    lines = [line.strip() for line in decoded.splitlines()[:200] if line.strip()]
+    return "\n".join(lines)
+
+
+def _extract_engine_text(file_name: str, content: bytes) -> str:
+    suffix = Path(file_name).suffix.lower()
+    if suffix == ".docx":
+        return _extract_docx_text(content)
+    if suffix == ".xlsx":
+        return _extract_xlsx_text(content)
+    if suffix in {".csv", ".txt"}:
+        return _extract_csv_text(content)
+    return ""
+
+
+def _extract_field(text: str, labels: list[str]) -> str:
+    if not text:
+        return ""
+    label_pattern = "|".join(re.escape(label) for label in labels)
+    regex = re.compile(rf"(?:{label_pattern})\s*[:\-]\s*(.+)", re.IGNORECASE)
+    for line in text.splitlines():
+        match = regex.search(line)
+        if match:
+            return match.group(1).strip()[:300]
+    return ""
+
+
+def _derive_engine_summary(file_name: str, extracted_text: str) -> dict[str, object]:
+    stem = Path(file_name).stem.replace("_", " ").replace("-", " ").strip()
+    engine_model = _extract_field(extracted_text, ["engine model", "engine name", "engine"])
+    customer = _extract_field(extracted_text, ["customer", "client"])
+    scope = _extract_field(extracted_text, ["scope", "program", "project"])
+    remarks = _extract_field(extracted_text, ["remarks", "notes", "requirements summary"])
+    required_tools = _extract_field(extracted_text, ["required tools", "tools"])
+    required_materials = _extract_field(extracted_text, ["required materials", "materials"])
+    preparation_phases = _extract_field(extracted_text, ["preparation phases", "phases"])
+    key_milestones = _extract_field(extracted_text, ["key milestones", "milestones"])
+    dependencies = _extract_field(extracted_text, ["dependencies", "depends on"])
+    return {
+        "engine_model": engine_model or stem,
+        "customer": customer,
+        "scope": scope,
+        "remarks": remarks,
+        "required_tools": required_tools,
+        "required_materials": required_materials,
+        "preparation_phases": preparation_phases,
+        "key_milestones": key_milestones,
+        "dependencies": dependencies,
+        "preview_text": extracted_text[:3000],
+    }
+
+
+def _safe_ratio(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return round((numerator / denominator) * 100.0, 2)
+
+
+def _activity_delay_days(activity: Activity, today: date | None = None) -> int:
+    anchor = today or date.today()
+    if activity.planned_end_date is None:
+        return 0
+    if activity.status == ActivityStatus.completed:
+        end_date = activity.actual_end_date or activity.planned_end_date
+        return max(0, (end_date - activity.planned_end_date).days)
+    return max(0, (anchor - activity.planned_end_date).days)
+
+
+def _build_weekly_completion(activities: list[Activity]) -> list[dict[str, object]]:
+    anchor = date.today()
+    results: list[dict[str, object]] = []
+    for offset in range(5, -1, -1):
+        week_start = anchor - timedelta(days=anchor.weekday()) - timedelta(days=offset * 7)
+        week_end = week_start + timedelta(days=6)
+        completed = 0
+        for activity in activities:
+            completed_date = activity.actual_end_date
+            if completed_date and week_start <= completed_date <= week_end:
+                completed += 1
+        results.append(
+            {
+                "label": f"{week_start.strftime('%d %b')} - {week_end.strftime('%d %b')}",
+                "completed": completed,
+            }
+        )
+    peak = max((row["completed"] for row in results), default=0)
+    for row in results:
+        completed = int(row["completed"])
+        row["bar_pct"] = int((completed / peak) * 100) if peak > 0 else 0
+    return results
+
+
 @router.get("/ui", include_in_schema=False)
 def ui_home(request: Request, db: DBSession) -> RedirectResponse:
     user = _get_cookie_user(request, db)
@@ -501,11 +630,11 @@ def ui_login_page(
     info: str = "",
 ) -> HTMLResponse:
     prefill_username = username.strip()
-    prefill_password = ""
+    prefill_secret: str | None = None
     role_hint = ""
     key = demo_user.strip().lower()
     if key in LOGIN_DEMO_USERS:
-        role_hint, prefill_username, prefill_password = LOGIN_DEMO_USERS[key]
+        role_hint, prefill_username, prefill_secret = LOGIN_DEMO_USERS[key]
 
     return templates.TemplateResponse(
         "login.html",
@@ -514,7 +643,7 @@ def ui_login_page(
             "error": "",
             "title": "Sign In",
             "prefill_username": prefill_username,
-            "prefill_password": prefill_password,
+            "prefill_secret": prefill_secret,
             "remember_me": False,
             "role_hint": role_hint,
             "info_message": info.strip(),
@@ -548,7 +677,7 @@ def ui_login_action(
                 "error": "Invalid username or password. Check credentials and try again.",
                 "title": "Sign In",
                 "prefill_username": username.strip(),
-                "prefill_password": "",
+                "prefill_secret": None,
                 "remember_me": remember_me,
                 "role_hint": "",
                 "info_message": "",
@@ -590,6 +719,7 @@ def ui_dashboard(
     request: Request,
     db: DBSession,
     project_id: str | None = None,
+    time_range: str = "30d",
 ) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
@@ -607,6 +737,11 @@ def ui_dashboard(
     actions = list(db.scalars(select(ActionItem).where(ActionItem.project_id == active_project.id)).all())
 
     anomalies = detect_activity_anomalies(activities)
+    dependency_health = compute_dependency_health(activities)
+    phase_progress = compute_phase_progress(activities)
+    top_risks = compute_delay_risk_rows(activities)
+    critical_path_codes = compute_critical_path_codes(activities)
+
     severity_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
     for anomaly in anomalies:
         severity = anomaly.severity if anomaly.severity in severity_counts else "Low"
@@ -616,18 +751,96 @@ def ui_dashboard(
     overdue_actions = [
         action for action in open_actions if action.due_date is not None and action.due_date < date.today()
     ]
+    completed_activities = [activity for activity in activities if activity.status == ActivityStatus.completed]
+    estimated_cost = sum(activity.estimated_cost for activity in activities)
+    actual_cost = sum(activity.actual_cost for activity in activities)
+    materials_ready_count = sum(
+        1
+        for activity in activities
+        if activity.material_status.strip().lower() in {"ready", "received", "available", "ordered"}
+    )
+    on_time_completed = sum(
+        1
+        for activity in completed_activities
+        if activity.planned_end_date is None
+        or (activity.actual_end_date is not None and activity.actual_end_date <= activity.planned_end_date)
+    )
+    overdue_milestones = sum(
+        1
+        for activity in activities
+        if activity.milestone.strip()
+        and activity.planned_end_date is not None
+        and activity.planned_end_date < date.today()
+        and activity.status != ActivityStatus.completed
+    )
+    pending_approvals = sum(
+        1
+        for activity in activities
+        if activity.override_reason.strip() and not activity.override_approved_by.strip()
+    )
+    delay_by_phase: dict[str, int] = {}
+    for row in top_risks:
+        delay_by_phase[row.phase or "Unassigned"] = delay_by_phase.get(row.phase or "Unassigned", 0) + row.delay_days
+    delay_by_phase_rows = [
+        {"phase": phase, "delay_days": delay_days}
+        for phase, delay_days in sorted(delay_by_phase.items(), key=lambda item: item[1], reverse=True)
+    ][:8]
+
+    material_status_rows: list[dict[str, object]] = []
+    by_material_status: dict[str, int] = {}
+    for activity in activities:
+        label = activity.material_status.strip() or "Unknown"
+        by_material_status[label] = by_material_status.get(label, 0) + 1
+    for label, count in sorted(by_material_status.items(), key=lambda item: item[1], reverse=True):
+        material_status_rows.append({"label": label, "count": count})
+
+    tools_ready = sum(1 for activity in activities if activity.required_tools.strip())
+    tool_readiness_pct = _safe_ratio(tools_ready, len(activities))
+    upcoming_milestones = sorted(
+        [
+            activity
+            for activity in activities
+            if activity.milestone.strip()
+            and activity.planned_end_date is not None
+            and 0 <= (activity.planned_end_date - date.today()).days <= 14
+        ],
+        key=lambda activity: activity.planned_end_date or date.max,
+    )
+    recent_updates = sorted(
+        activities,
+        key=lambda activity: activity.updated_at,
+        reverse=True,
+    )[:8]
 
     context = _base_context(request, user, projects, active_project, "/ui/dashboard")
     context.update(
         {
-            "title": "Dashboard",
+            "title": "Executive Dashboard",
+            "snapshot_date": date.today().isoformat(),
+            "time_range": time_range,
             "portfolio_metrics": compute_portfolio_metrics(activities),
-            "phase_progress": compute_phase_progress(activities),
-            "top_risks": compute_delay_risk_rows(activities)[:8],
-            "dependency_health": compute_dependency_health(activities),
+            "phase_progress": phase_progress,
+            "top_risks": top_risks[:12],
+            "dependency_health": dependency_health,
             "anomaly_counts": severity_counts,
             "open_action_count": len(open_actions),
             "overdue_action_count": len(overdue_actions),
+            "estimated_cost": estimated_cost,
+            "actual_cost": actual_cost,
+            "cost_variance": actual_cost - estimated_cost,
+            "on_time_pct": _safe_ratio(on_time_completed, len(completed_activities)),
+            "materials_ready_pct": _safe_ratio(materials_ready_count, len(activities)),
+            "open_anomalies": len(anomalies),
+            "overdue_milestones": overdue_milestones,
+            "pending_approvals": pending_approvals,
+            "delay_by_phase_rows": delay_by_phase_rows,
+            "material_status_rows": material_status_rows,
+            "tool_readiness_pct": tool_readiness_pct,
+            "weekly_completion_rows": _build_weekly_completion(activities),
+            "critical_path_codes": critical_path_codes,
+            "recent_updates": recent_updates,
+            "upcoming_milestones": upcoming_milestones,
+            "blocked_rows": [row for row in top_risks if row.blocking_dependencies][:8],
         }
     )
     return templates.TemplateResponse("dashboard.html", context)
@@ -644,6 +857,7 @@ def ui_activities(
     phase_filter: str = "",
     page: int = 1,
     page_size: int = DEFAULT_PAGE_SIZE,
+    column_mode: str = "core",
 ) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
@@ -714,6 +928,7 @@ def ui_activities(
             "start_idx": start_idx,
             "end_idx": min(end_idx, filtered_count),
             "allowed_page_sizes": sorted(ALLOWED_PAGE_SIZES),
+            "column_mode": "all" if column_mode == "all" else "core",
         }
     )
     return templates.TemplateResponse("activities.html", context)
@@ -1239,35 +1454,19 @@ def ui_reschedule_activity(
     return JSONResponse(payload)
 
 
-@router.get("/ui/network", response_class=HTMLResponse, include_in_schema=False)
-def ui_network(
+def _delay_optimization_redirect(project_id: str, message: str = "") -> RedirectResponse:
+    url = f"/ui/delay-optimization?project_id={project_id}"
+    if message:
+        url += f"&message={message}"
+    return RedirectResponse(url=url, status_code=303)
+
+
+@router.get("/ui/delay-optimization", response_class=HTMLResponse, include_in_schema=False)
+def ui_delay_optimization(
     request: Request,
     db: DBSession,
     project_id: str | None = None,
-) -> Response:
-    user = _get_cookie_user(request, db)
-    if user is None:
-        return _login_redirect()
-    projects = _ensure_projects(db, user)
-    active_project = _resolve_project(projects, project_id)
-    activities = list(db.scalars(select(Activity).where(Activity.project_id == active_project.id)).all())
-    graph = compute_network_graph(activities)
-    return _render_planning_page(
-        request,
-        db,
-        active_project.id,
-        "network.html",
-        "/ui/network",
-        "Network",
-        {"graph": graph},
-    )
-
-
-@router.get("/ui/risk-register", response_class=HTMLResponse, include_in_schema=False)
-def ui_risk_register(
-    request: Request,
-    db: DBSession,
-    project_id: str | None = None,
+    message: str = "",
 ) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
@@ -1276,14 +1475,272 @@ def ui_risk_register(
     active_project = _resolve_project(projects, project_id)
     activities = list(db.scalars(select(Activity).where(Activity.project_id == active_project.id)).all())
     risk_rows = compute_delay_risk_rows(activities)
+    dependency_health = compute_dependency_health(activities)
+    delayed_rows = [row for row in risk_rows if row.delayed]
+    risk_score_rows = sorted(risk_rows, key=lambda row: row.risk_score, reverse=True)[:12]
+    trend_rows: list[dict[str, object]] = []
+    by_phase: dict[str, dict[str, int]] = {}
+    for row in risk_rows:
+        phase = row.phase or "Unassigned"
+        if phase not in by_phase:
+            by_phase[phase] = {"count": 0, "delay_days": 0}
+        by_phase[phase]["count"] += 1
+        by_phase[phase]["delay_days"] += row.delay_days
+    for phase, values in sorted(by_phase.items(), key=lambda item: item[1]["delay_days"], reverse=True):
+        trend_rows.append(
+            {
+                "phase": phase,
+                "activity_count": values["count"],
+                "delay_days": values["delay_days"],
+                "avg_delay": round(values["delay_days"] / values["count"], 2) if values["count"] else 0.0,
+            }
+        )
     return _render_planning_page(
         request,
         db,
         active_project.id,
-        "risk_register.html",
-        "/ui/risk-register",
-        "Risk Register",
-        {"risk_rows": risk_rows},
+        "delay_optimization.html",
+        "/ui/delay-optimization",
+        "Delay & Optimization",
+        {
+            "risk_rows": risk_rows,
+            "delayed_rows": delayed_rows,
+            "risk_score_rows": risk_score_rows,
+            "dependency_health": dependency_health,
+            "trend_rows": trend_rows,
+        },
+        message=message,
+    )
+
+
+@router.get("/ui/risk-register", response_class=HTMLResponse, include_in_schema=False)
+def ui_risk_register_legacy(
+    request: Request,
+    db: DBSession,
+    project_id: str | None = None,
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    projects = _ensure_projects(db, user)
+    active_project = _resolve_project(projects, project_id)
+    return RedirectResponse(url=f"/ui/delay-optimization?project_id={active_project.id}", status_code=303)
+
+
+@router.post("/ui/projects/{project_id}/delay-root-cause", include_in_schema=False)
+def ui_update_delay_root_cause(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    activity_id: Annotated[str, Form()],
+    status: Annotated[str, Form()] = "",
+    completion_percentage: Annotated[int, Form()] = 0,
+    delay_reason: Annotated[str, Form()] = "",
+    remarks: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    activity = db.scalar(select(Activity).where(Activity.project_id == project_id, Activity.id == activity_id))
+    if activity is None:
+        return _delay_optimization_redirect(project_id, "Selected activity not found.")
+    if status:
+        try:
+            activity.status = ActivityStatus(status)
+        except ValueError:
+            pass
+    activity.completion_percentage = max(0, min(100, completion_percentage))
+    activity.delay_reason = delay_reason.strip()
+    activity.remarks = remarks.strip()
+    activity.last_modified_by = user.username
+    activity.last_modified_date = date.today()
+    db.commit()
+    return _delay_optimization_redirect(project_id, "Delay root cause updated.")
+
+
+def _engine_redirect(project_id: str, message: str = "") -> RedirectResponse:
+    url = f"/ui/engine-description?project_id={project_id}"
+    if message:
+        url += f"&message={message}"
+    return RedirectResponse(url=url, status_code=303)
+
+
+@router.get("/ui/engine-description", response_class=HTMLResponse, include_in_schema=False)
+def ui_engine_description(
+    request: Request,
+    db: DBSession,
+    project_id: str | None = None,
+    message: str = "",
+    search: str = "",
+    customer_filter: str = "",
+) -> Response:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    projects = _ensure_projects(db, user)
+    active_project = _resolve_project(projects, project_id)
+
+    documents = list(
+        db.scalars(
+            select(EngineDocument)
+            .where(EngineDocument.project_id == active_project.id)
+            .order_by(EngineDocument.updated_at.desc())
+        ).all()
+    )
+
+    normalized_search = search.strip().lower()
+    normalized_customer = customer_filter.strip().lower()
+    filtered_documents: list[EngineDocument] = []
+    for document in documents:
+        if normalized_customer and document.customer.strip().lower() != normalized_customer:
+            continue
+        if normalized_search:
+            haystack = " ".join(
+                [
+                    document.filename,
+                    document.engine_model,
+                    document.customer,
+                    document.scope,
+                    document.remarks,
+                ]
+            ).lower()
+            if normalized_search not in haystack:
+                continue
+        filtered_documents.append(document)
+
+    customer_options = sorted({document.customer for document in documents if document.customer.strip()})
+    return _render_planning_page(
+        request,
+        db,
+        active_project.id,
+        "engine_description.html",
+        "/ui/engine-description",
+        "Engine Description",
+        {
+            "documents": filtered_documents,
+            "search": search,
+            "customer_filter": customer_filter,
+            "customer_options": customer_options,
+        },
+        message=message,
+    )
+
+
+@router.post("/ui/projects/{project_id}/engine-documents/upload", include_in_schema=False)
+async def ui_upload_engine_document(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    file: Annotated[UploadFile, File(...)],
+    engine_model: Annotated[str, Form()] = "",
+    customer: Annotated[str, Form()] = "",
+    scope: Annotated[str, Form()] = "",
+    remarks: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if not file.filename:
+        return _engine_redirect(project_id, "Select a document to upload.")
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in ENGINE_UPLOAD_EXTENSIONS:
+        return _engine_redirect(project_id, "Allowed formats: .xlsx, .xls, .csv, .docx")
+
+    content = await file.read()
+    if not content:
+        return _engine_redirect(project_id, "Uploaded file is empty.")
+
+    extracted_text = _extract_engine_text(file.filename, content)
+    parsed_summary = _derive_engine_summary(file.filename, extracted_text)
+    document = EngineDocument(
+        project_id=project_id,
+        filename=Path(file.filename).name,
+        content_type=file.content_type or "application/octet-stream",
+        content_blob=content,
+        engine_model=engine_model.strip() or _as_text(parsed_summary.get("engine_model")),
+        customer=customer.strip() or _as_text(parsed_summary.get("customer")),
+        scope=scope.strip() or _as_text(parsed_summary.get("scope")),
+        remarks=remarks.strip() or _as_text(parsed_summary.get("remarks")),
+        parsed_summary=parsed_summary,
+        created_by=user.username,
+    )
+    db.add(document)
+    db.commit()
+    return _engine_redirect(project_id, "Engine requirement document uploaded.")
+
+
+@router.post("/ui/projects/{project_id}/engine-documents/{document_id}/summary", include_in_schema=False)
+def ui_update_engine_document_summary(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    document_id: str,
+    engine_model: Annotated[str, Form()] = "",
+    customer: Annotated[str, Form()] = "",
+    scope: Annotated[str, Form()] = "",
+    remarks: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    document = db.scalar(
+        select(EngineDocument).where(EngineDocument.project_id == project_id, EngineDocument.id == document_id)
+    )
+    if document is None:
+        return _engine_redirect(project_id, "Document not found.")
+    document.engine_model = engine_model.strip()
+    document.customer = customer.strip()
+    document.scope = scope.strip()
+    document.remarks = remarks.strip()
+    summary = dict(document.parsed_summary)
+    summary["engine_model"] = document.engine_model
+    summary["customer"] = document.customer
+    summary["scope"] = document.scope
+    summary["remarks"] = document.remarks
+    document.parsed_summary = summary
+    db.commit()
+    return _engine_redirect(project_id, "Summary fields updated.")
+
+
+@router.get("/ui/projects/{project_id}/engine-documents/{document_id}/download", include_in_schema=False)
+def ui_download_engine_document(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    document_id: str,
+) -> Response:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    document = db.scalar(
+        select(EngineDocument).where(EngineDocument.project_id == project_id, EngineDocument.id == document_id)
+    )
+    if document is None:
+        return _engine_redirect(project_id, "Document not found.")
+    headers = {"Content-Disposition": f'attachment; filename="{document.filename}"'}
+    return Response(content=document.content_blob, media_type=document.content_type, headers=headers)
+
+
+@router.get("/ui/settings", response_class=HTMLResponse, include_in_schema=False)
+def ui_settings(
+    request: Request,
+    db: DBSession,
+    project_id: str | None = None,
+) -> Response:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    projects = _ensure_projects(db, user)
+    active_project = _resolve_project(projects, project_id)
+    return _render_planning_page(
+        request,
+        db,
+        active_project.id,
+        "settings.html",
+        "/ui/settings",
+        "Settings",
+        {"today": date.today().isoformat()},
     )
 
 
@@ -1320,7 +1777,7 @@ def ui_anomaly_center(
         active_project.id,
         "anomaly_center.html",
         "/ui/anomaly-center",
-        "Anomaly Center",
+        "Anomaly / Actions",
         {
             "anomalies": anomalies,
             "baselines": baselines,
@@ -1577,86 +2034,3 @@ def ui_create_eod_log(
     db.add(entry)
     db.commit()
     return _eod_redirect(project_id, "EOD log entry added.")
-
-
-@router.get("/ui/materials", response_class=HTMLResponse, include_in_schema=False)
-def ui_materials(
-    request: Request,
-    db: DBSession,
-    project_id: str | None = None,
-) -> Response:
-    user = _get_cookie_user(request, db)
-    if user is None:
-        return _login_redirect()
-    projects = _ensure_projects(db, user)
-    active_project = _resolve_project(projects, project_id)
-    activities = list(db.scalars(select(Activity).where(Activity.project_id == active_project.id)).all())
-    health = compute_material_health(activities)
-    return _render_planning_page(
-        request,
-        db,
-        active_project.id,
-        "materials.html",
-        "/ui/materials",
-        "Materials",
-        {"health": health, "activities": activities},
-    )
-
-
-@router.get("/ui/intelligence", response_class=HTMLResponse, include_in_schema=False)
-def ui_intelligence(
-    request: Request,
-    db: DBSession,
-    project_id: str | None = None,
-) -> Response:
-    user = _get_cookie_user(request, db)
-    if user is None:
-        return _login_redirect()
-    projects = _ensure_projects(db, user)
-    active_project = _resolve_project(projects, project_id)
-    activities = list(db.scalars(select(Activity).where(Activity.project_id == active_project.id)).all())
-    return _render_planning_page(
-        request,
-        db,
-        active_project.id,
-        "intelligence.html",
-        "/ui/intelligence",
-        "Intelligence",
-        {"simulation_result": None, "activity_count": len(activities)},
-    )
-
-
-@router.post("/ui/intelligence/simulate", response_class=HTMLResponse, include_in_schema=False)
-def ui_intelligence_simulate(
-    request: Request,
-    db: DBSession,
-    project_id: Annotated[str, Form()],
-    manpower_boost_pct: Annotated[float, Form()] = 0.0,
-    overtime_hours_per_day: Annotated[float, Form()] = 0.0,
-    lead_time_reduction_pct: Annotated[float, Form()] = 0.0,
-) -> Response:
-    user = _get_cookie_user(request, db)
-    if user is None:
-        return _login_redirect()
-    projects = _ensure_projects(db, user)
-    active_project = _resolve_project(projects, project_id)
-    activities = list(db.scalars(select(Activity).where(Activity.project_id == active_project.id)).all())
-    scenario = ScenarioSimulationInput(
-        manpower_boost_pct=manpower_boost_pct,
-        overtime_hours_per_day=overtime_hours_per_day,
-        lead_time_reduction_pct=lead_time_reduction_pct,
-    )
-    result = simulate_scenario(activities, scenario)
-    return _render_planning_page(
-        request,
-        db,
-        active_project.id,
-        "intelligence.html",
-        "/ui/intelligence",
-        "Intelligence",
-        {
-            "simulation_result": result,
-            "scenario": scenario,
-            "activity_count": len(activities),
-        },
-    )

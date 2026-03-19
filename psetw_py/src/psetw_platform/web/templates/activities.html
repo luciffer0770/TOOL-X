@@ -2,99 +2,85 @@
 {% block content %}
   <section class="panel">
     <h1>Activity Master</h1>
-    <p class="muted">Create, import, filter, bulk-edit, and export activities for {{ active_project.name }}</p>
+    <p class="muted">Manual activity entry with operations-focused fields.</p>
     <form method="post" action="/ui/projects/{{ active_project.id }}/activities" class="form-grid compact-form">
-      <div><label>Code</label><input name="activity_code" placeholder="ACT-100" required /></div>
-      <div><label>Name</label><input name="activity_name" placeholder="Tooling release gate" required /></div>
-      <div><label>Phase</label><input name="phase" placeholder="Execution" /></div>
-      <div><label>Sub Activity</label><input name="sub_activity" placeholder="Detailed scope" /></div>
-      <div>
-        <label>Status</label>
-        <select name="status">
-          {% for status in status_values %}
-            <option value="{{ status }}">{{ status }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div><label>Planned Start</label><input type="date" name="planned_start_date" /></div>
-      <div><label>Planned End</label><input type="date" name="planned_end_date" /></div>
-      <div><label>Completion %</label><input type="number" name="completion_percentage" min="0" max="100" value="0" /></div>
-      <div><label>Effort Hours</label><input type="number" name="base_effort_hours" min="0" value="0" /></div>
-      <div><label>Required Materials</label><input name="required_materials" placeholder="Comma separated materials" /></div>
-      <div><label>Required Tools</label><input name="required_tools" placeholder="Comma separated tools" /></div>
-      <div><label>Dependencies (comma)</label><input name="dependencies" placeholder="ACT-050, ACT-075" /></div>
-      <div><label>Risk Score</label><input type="number" name="risk_score" min="0" max="100" value="0" /></div>
-      <details class="collapsible" style="grid-column: 1 / -1">
-        <summary>Advanced activity fields (optional)</summary>
-        <div class="form-grid" style="margin-top: 10px">
-          <div><label>Planned Duration (h)</label><input type="number" name="planned_duration_hours" min="0" value="0" /></div>
-          <div><label>Dependency Type</label><input name="dependency_type" value="FS" /></div>
-          <div><label>Priority</label><input name="priority" value="Medium" /></div>
-          <div><label>Milestone</label><input name="milestone" /></div>
-          <div><label>Assigned Manpower</label><input type="number" name="assigned_manpower" min="1" value="1" /></div>
-          <div><label>Manpower Skill Level</label><input name="manpower_skill_level" /></div>
-          <div><label>Resource Name</label><input name="resource_name" /></div>
-          <div><label>Resource Department</label><input name="resource_department" /></div>
-          <div><label>Shift Type</label><input name="shift_type" /></div>
-          <div><label>Material Status</label><input name="material_status" value="Not Ordered" /></div>
-          <div><label>Material Ownership</label><input name="material_ownership" value="Mechanical" /></div>
-          <div><label>Material Supplier</label><input name="material_supplier" /></div>
-          <div><label>Material Criticality</label><input name="material_criticality" value="Medium" /></div>
-          <div><label>Material Required Date</label><input type="date" name="material_required_date" /></div>
-          <div><label>Material Received Date</label><input type="date" name="material_received_date" /></div>
-          <div><label>Material Lead Time (h)</label><input type="number" name="material_lead_time" min="0" value="0" /></div>
-          <div><label>Risk Level</label><input name="risk_level" value="Low" /></div>
-          <div><label>Risk Probability (1-5)</label><input type="number" name="risk_probability" min="1" max="5" value="3" /></div>
-          <div><label>Risk Impact (1-5)</label><input type="number" name="risk_impact" min="1" max="5" value="3" /></div>
-          <div><label>Mitigation Status</label><input name="risk_mitigation_status" value="Planned" /></div>
-          <div><label>Risk Owner</label><input name="risk_owner" /></div>
-          <div><label>Risk Review Date</label><input type="date" name="risk_review_date" /></div>
-          <div><label>Manual Override Duration</label><input type="number" name="manual_override_duration" min="0" value="0" /></div>
-          <div><label>Override Reason</label><input name="override_reason" /></div>
-          <div><label>Override Approved By</label><input name="override_approved_by" /></div>
-          <div><label>Estimated Cost</label><input type="number" name="estimated_cost" min="0" value="0" /></div>
-          <div><label>Actual Cost</label><input type="number" name="actual_cost" min="0" value="0" /></div>
-          <div><label>Cost Center</label><input name="cost_center" /></div>
-          <div><label>Last Modified By</label><input name="last_modified_by" value="{{ user.username }}" /></div>
-          <div><label>Last Modified Date</label><input type="date" name="last_modified_date" /></div>
-          <div><label>Delay Reason</label><input name="delay_reason" /></div>
-          <div><label>Remarks</label><input name="remarks" /></div>
-        </div>
-      </details>
-      <div><label>&nbsp;</label><button class="primary" type="submit">Create activity</button></div>
+      <div><label>Activity ID</label><input name="activity_code" placeholder="ACT-101" required /></div>
+      <div><label>Phase</label><input name="phase" placeholder="Preparation / Build-Up / Validation" /></div>
+      <div><label>Activity Name</label><input name="activity_name" placeholder="Main activity name" required /></div>
+      <div><label>Sub Activity</label><input name="sub_activity" placeholder="Sub-activity scope" /></div>
+      <div><label>Planned Start Date</label><input type="date" name="planned_start_date" /></div>
+      <div><label>Planned End Date</label><input type="date" name="planned_end_date" /></div>
+      <div><label>Base Effort Hours</label><input type="number" name="base_effort_hours" min="0" value="0" /></div>
+      <div><label>Required Materials</label><input name="required_materials" placeholder="Comma-separated materials" /></div>
+      <div><label>Required Tools</label><input name="required_tools" placeholder="Comma-separated tools" /></div>
+      <div><label>Material Lead Time (h)</label><input type="number" name="material_lead_time" min="0" value="0" /></div>
+      <div><label>Dependencies</label><input name="dependencies" placeholder="ACT-001, ACT-002" /></div>
+      <div><label>Assigned Manpower</label><input type="number" name="assigned_manpower" min="1" value="1" /></div>
+      <div><label>Resource Department</label><input name="resource_department" placeholder="Department or cell" /></div>
+      <div><label>Material Ownership</label><input name="material_ownership" value="Mechanical" /></div>
+      <div><label>Material Status</label><input name="material_status" value="Not Ordered" /></div>
+      <div><label>Priority</label><input name="priority" value="Medium" /></div>
+      <div style="grid-column: 1 / -1"><label>Remarks</label><input name="remarks" placeholder="Optional planning remarks" /></div>
+      <input type="hidden" name="status" value="Not Started" />
+      <input type="hidden" name="completion_percentage" value="0" />
+      <input type="hidden" name="risk_score" value="0" />
+      <input type="hidden" name="risk_level" value="Low" />
+      <input type="hidden" name="dependency_type" value="FS" />
+      <div><label>&nbsp;</label><button class="primary" type="submit">Create Activity</button></div>
     </form>
   </section>
 
   <section class="panel">
-    <h2>Excel / CSV Import & Export</h2>
+    <h2>Import / Export</h2>
     <form method="post" action="/ui/projects/{{ active_project.id }}/activities/import" enctype="multipart/form-data" class="form-grid">
       <div>
-        <label>Upload .xlsx or .csv</label>
+        <label>Upload Excel or CSV</label>
         <input type="file" name="file" accept=".xlsx,.csv" required />
       </div>
       <div>
         <label>Merge Strategy</label>
         <select name="merge_strategy">
-          <option value="merge">Merge into existing activities</option>
+          <option value="merge">Merge into existing records</option>
           <option value="replace">Replace all activities</option>
         </select>
       </div>
       <div><label>&nbsp;</label><button class="primary" type="submit">Import Spreadsheet</button></div>
     </form>
     <div class="row-actions" style="margin-top: 10px">
-      <a href="/ui/projects/{{ active_project.id }}/activities/export.csv">Export CSV</a>
-      <a href="/ui/projects/{{ active_project.id }}/activities/export.xlsx">Export Excel</a>
-      <a href="/ui/projects/{{ active_project.id }}/activities/export.json">Export JSON</a>
+      <a class="secondary-btn" href="/ui/projects/{{ active_project.id }}/activities/export.csv">Export CSV</a>
+      <a class="secondary-btn" href="/ui/projects/{{ active_project.id }}/activities/export.xlsx">Export Excel</a>
+      <a class="secondary-btn" href="/ui/projects/{{ active_project.id }}/activities/export.json">Export JSON</a>
+      <span class="small muted">PDF report export is not yet enabled in Python mode.</span>
     </div>
   </section>
 
   <section class="panel">
-    <h2>Activity Grid</h2>
+    <h2>Column Visibility</h2>
     <form method="get" action="/ui/activities" class="form-grid">
       <input type="hidden" name="project_id" value="{{ active_project.id }}" />
-      <div><label>Search</label><input name="search" value="{{ search }}" placeholder="ID, name, phase, remarks..." /></div>
+      <input type="hidden" name="search" value="{{ search }}" />
+      <input type="hidden" name="status_filter" value="{{ status_filter }}" />
+      <input type="hidden" name="phase_filter" value="{{ phase_filter }}" />
+      <input type="hidden" name="page_size" value="{{ page_size }}" />
       <div>
-        <label>Status</label>
+        <label>Visibility Profile</label>
+        <select name="column_mode">
+          <option value="core" {% if column_mode == "core" %}selected{% endif %}>Core Columns</option>
+          <option value="all" {% if column_mode == "all" %}selected{% endif %}>All Planning Columns</option>
+        </select>
+      </div>
+      <div><label>&nbsp;</label><button class="primary" type="submit">Apply Columns</button></div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Activity Data Grid</h2>
+    <form method="get" action="/ui/activities" class="form-grid">
+      <input type="hidden" name="project_id" value="{{ active_project.id }}" />
+      <input type="hidden" name="column_mode" value="{{ column_mode }}" />
+      <div><label>Search</label><input name="search" value="{{ search }}" placeholder="Search by ID, phase, name" /></div>
+      <div>
+        <label>Status Filter</label>
         <select name="status_filter">
           <option value="">All</option>
           {% for status in status_options %}
@@ -103,7 +89,7 @@
         </select>
       </div>
       <div>
-        <label>Phase</label>
+        <label>Phase Filter</label>
         <select name="phase_filter">
           <option value="">All</option>
           {% for phase in phase_options %}
@@ -112,7 +98,7 @@
         </select>
       </div>
       <div>
-        <label>Page size</label>
+        <label>Page Size</label>
         <select name="page_size">
           {% for size in allowed_page_sizes %}
             <option value="{{ size }}" {% if page_size == size %}selected{% endif %}>{{ size }}</option>
@@ -123,91 +109,115 @@
     </form>
 
     <p class="small muted">
-      Showing {{ start_idx + 1 if filtered_count else 0 }}–{{ end_idx }} of {{ filtered_count }} filtered
-      ({{ total_count }} total), page {{ page }} / {{ total_pages }}.
+      Showing {{ start_idx + 1 if filtered_count else 0 }}–{{ end_idx }} of {{ filtered_count }} filtered ({{ total_count }} total), page {{ page }} / {{ total_pages }}.
     </p>
 
     <form id="bulk-form" method="post" class="form-grid">
-      <input type="hidden" name="project_id" value="{{ active_project.id }}" />
       <div>
         <label>Bulk Status</label>
         <select name="bulk_status">
-          <option value="">Select status</option>
+          <option value="">-- Set status --</option>
           {% for status in status_values %}
             <option value="{{ status }}">{{ status }}</option>
           {% endfor %}
         </select>
       </div>
-      <div><label>&nbsp;</label><button class="primary" formaction="/ui/projects/{{ active_project.id }}/activities/bulk-status" type="submit">Apply to Selected</button></div>
+      <div><label>&nbsp;</label><button class="primary" formaction="/ui/projects/{{ active_project.id }}/activities/bulk-status" type="submit">Apply</button></div>
       <div><label>&nbsp;</label><button class="danger" formaction="/ui/projects/{{ active_project.id }}/activities/bulk-delete" type="submit">Delete Selected</button></div>
     </form>
 
     <div class="data-grid-wrap">
-    <table class="data-grid">
-      <thead>
-        <tr>
-          <th>Select</th>
-          <th>Code / Name</th>
-          <th>Phase</th>
-          <th>Sub Activity</th>
-          <th>Status</th>
-          <th>Completion</th>
-          <th>Planned Dates</th>
-          <th>Dependencies</th>
-          <th>Materials</th>
-          <th>Risk</th>
-          <th>Update</th>
-          <th>Delete</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for activity in activities %}
+      <table class="data-grid">
+        <thead>
           <tr>
-            <td>
-              <input type="checkbox" name="selected_ids" value="{{ activity.id }}" form="bulk-form" />
-            </td>
-            <td><strong>{{ activity.activity_code }}</strong><br /><span class="small muted">{{ activity.activity_name }}</span></td>
-            <td>{{ activity.phase or "-" }}</td>
-            <td>{{ activity.sub_activity or "-" }}</td>
-            <td><span class="status {{ activity.status.value|lower|replace(' ', '-') }}">{{ activity.status.value }}</span></td>
-            <td>{{ activity.completion_percentage }}%</td>
-            <td>{{ activity.planned_start_date or "-" }} → {{ activity.planned_end_date or "-" }}</td>
-            <td>{{ activity.dependencies|join(", ") if activity.dependencies else "-" }}</td>
-            <td>{{ activity.material_status }} / {{ activity.material_ownership }}</td>
-            <td><span class="status {{ activity.risk_level|lower }}">{{ activity.risk_level }}</span> {{ activity.risk_score }}</td>
-            <td>
-              <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" class="row-actions inline-update">
-                <select name="status">
-                  {% for status in status_values %}
-                    <option value="{{ status }}" {% if status == activity.status.value %}selected{% endif %}>{{ status }}</option>
-                  {% endfor %}
-                </select>
-                <input type="number" name="completion_percentage" min="0" max="100" value="{{ activity.completion_percentage }}" />
-                <input type="number" name="risk_score" min="0" max="100" value="{{ activity.risk_score }}" />
-                <input name="delay_reason" placeholder="Delay reason" value="{{ activity.delay_reason }}" />
-                <input name="remarks" placeholder="Remarks" value="{{ activity.remarks }}" />
-                <button class="primary" type="submit">Save</button>
-              </form>
-            </td>
-            <td>
-              <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/delete">
-                <button class="danger" type="submit">Delete</button>
-              </form>
-            </td>
+            <th class="sticky-col">Select</th>
+            <th class="sticky-col-2">Activity ID</th>
+            <th>Activity Name</th>
+            <th>Phase</th>
+            <th>Sub Activity</th>
+            <th>Status</th>
+            <th>Completion %</th>
+            <th>Planned Start</th>
+            <th>Planned End</th>
+            <th>Base Effort Hours</th>
+            <th>Required Materials</th>
+            <th>Required Tools</th>
+            {% if column_mode == "all" %}
+              <th>Material Lead Time</th>
+              <th>Dependencies</th>
+              <th>Assigned Manpower</th>
+              <th>Resource Department</th>
+              <th>Material Ownership</th>
+              <th>Material Status</th>
+              <th>Priority</th>
+              <th>Delay Reason</th>
+              <th>Remarks</th>
+            {% endif %}
+            <th>Update</th>
+            <th>Delete</th>
           </tr>
-        {% else %}
-          <tr><td colspan="12" class="muted">No activities available.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for activity in activities %}
+            <tr>
+              <td class="sticky-col"><input type="checkbox" name="selected_ids" value="{{ activity.id }}" form="bulk-form" /></td>
+              <td class="sticky-col-2">{{ activity.activity_code }}</td>
+              <td>{{ activity.activity_name }}</td>
+              <td>{{ activity.phase or "-" }}</td>
+              <td>{{ activity.sub_activity or "-" }}</td>
+              <td><span class="status {{ activity.status.value|lower|replace(' ', '-') }}">{{ activity.status.value }}</span></td>
+              <td>{{ activity.completion_percentage }}</td>
+              <td>{{ activity.planned_start_date or "-" }}</td>
+              <td>{{ activity.planned_end_date or "-" }}</td>
+              <td>{{ activity.base_effort_hours }}</td>
+              <td>{{ activity.required_materials or "-" }}</td>
+              <td>{{ activity.required_tools or "-" }}</td>
+              {% if column_mode == "all" %}
+                <td>{{ activity.material_lead_time }}</td>
+                <td>{{ activity.dependencies|join(", ") if activity.dependencies else "-" }}</td>
+                <td>{{ activity.assigned_manpower }}</td>
+                <td>{{ activity.resource_department or "-" }}</td>
+                <td>{{ activity.material_ownership or "-" }}</td>
+                <td>{{ activity.material_status or "-" }}</td>
+                <td>{{ activity.priority or "-" }}</td>
+                <td>{{ activity.delay_reason or "-" }}</td>
+                <td>{{ activity.remarks or "-" }}</td>
+              {% endif %}
+              <td>
+                <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" class="row-actions inline-update">
+                  <select name="status">
+                    {% for status in status_values %}
+                      <option value="{{ status }}" {% if status == activity.status.value %}selected{% endif %}>{{ status }}</option>
+                    {% endfor %}
+                  </select>
+                  <input type="number" name="completion_percentage" min="0" max="100" value="{{ activity.completion_percentage }}" />
+                  <input type="number" name="risk_score" min="0" max="100" value="{{ activity.risk_score }}" />
+                  <input name="material_status" value="{{ activity.material_status }}" />
+                  <input name="material_ownership" value="{{ activity.material_ownership }}" />
+                  <input name="delay_reason" value="{{ activity.delay_reason }}" placeholder="Delay reason" />
+                  <input name="remarks" value="{{ activity.remarks }}" placeholder="Remarks" />
+                  <button class="primary" type="submit">Save</button>
+                </form>
+              </td>
+              <td>
+                <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/delete">
+                  <button class="danger" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="24" class="muted">No activities available.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
 
-    <div class="row-actions" style="margin-top: 10px">
+    <div class="row-actions" style="margin-top:10px">
       {% if page > 1 %}
-        <a href="/ui/activities?project_id={{ active_project.id }}&search={{ search }}&status_filter={{ status_filter }}&phase_filter={{ phase_filter }}&page_size={{ page_size }}&page={{ page - 1 }}">← Prev</a>
+        <a href="/ui/activities?project_id={{ active_project.id }}&search={{ search }}&status_filter={{ status_filter }}&phase_filter={{ phase_filter }}&column_mode={{ column_mode }}&page_size={{ page_size }}&page={{ page - 1 }}">← Prev</a>
       {% endif %}
       {% if page < total_pages %}
-        <a href="/ui/activities?project_id={{ active_project.id }}&search={{ search }}&status_filter={{ status_filter }}&phase_filter={{ phase_filter }}&page_size={{ page_size }}&page={{ page + 1 }}">Next →</a>
+        <a href="/ui/activities?project_id={{ active_project.id }}&search={{ search }}&status_filter={{ status_filter }}&phase_filter={{ phase_filter }}&column_mode={{ column_mode }}&page_size={{ page_size }}&page={{ page + 1 }}">Next →</a>
       {% endif %}
     </div>
   </section>

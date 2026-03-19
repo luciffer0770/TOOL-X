@@ -13,6 +13,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -94,6 +95,9 @@ class Project(Base):
     )
     eod_logs: Mapped[list[EodLog]] = relationship(
         "EodLog", back_populates="project", cascade="all, delete-orphan"
+    )
+    engine_documents: Mapped[list[EngineDocument]] = relationship(
+        "EngineDocument", back_populates="project", cascade="all, delete-orphan"
     )
 
 
@@ -233,6 +237,28 @@ class EodLog(Base):
     verified_by: Mapped[str] = mapped_column(String(200), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     project: Mapped[Project] = relationship("Project", back_populates="eod_logs")
+
+
+class EngineDocument(Base):
+    """Project-linked engine requirement document and extracted summary."""
+
+    __tablename__ = "engine_documents"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str] = mapped_column(String(120), default="application/octet-stream")
+    content_blob: Mapped[bytes] = mapped_column(LargeBinary)
+    engine_model: Mapped[str] = mapped_column(String(200), default="")
+    customer: Mapped[str] = mapped_column(String(200), default="")
+    scope: Mapped[str] = mapped_column(Text, default="")
+    remarks: Mapped[str] = mapped_column(Text, default="")
+    parsed_summary: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
+    created_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    project: Mapped[Project] = relationship("Project", back_populates="engine_documents")
 
 
 class AuditEvent(Base):
