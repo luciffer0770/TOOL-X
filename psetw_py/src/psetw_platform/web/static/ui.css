@@ -237,6 +237,7 @@ button.danger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: auto;
   min-height: 34px;
   border: 1px solid #b5caeb;
   border-radius: 9px;
@@ -250,6 +251,21 @@ button.danger {
 .row-actions {
   display: grid;
   gap: 6px;
+}
+
+.inline-grid-form {
+  display: grid;
+  grid-template-columns: repeat(38, minmax(140px, 1fr));
+  gap: 6px;
+  align-items: start;
+}
+
+.inline-grid-form .row-actions {
+  grid-template-columns: 1fr;
+}
+
+.row-highlight td {
+  background: #eef6ff;
 }
 
 .inline-update {

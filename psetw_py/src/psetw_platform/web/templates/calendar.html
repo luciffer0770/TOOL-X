@@ -1,49 +1,187 @@
 {% extends "base.html" %}
 {% block content %}
   <section class="panel">
-    <h1>Calendar</h1>
-    <p class="muted">Reschedule activities directly from calendar cards.</p>
+    <h1>Calendar Scheduling Console</h1>
+    <p class="muted">Python-driven scheduling controls with planned/actual date integrity.</p>
     <form method="get" action="/ui/calendar" class="form-grid">
       <input type="hidden" name="project_id" value="{{ active_project.id }}" />
       <div><label>Month</label><input type="month" name="month" value="{{ month_anchor.strftime('%Y-%m') }}" /></div>
-      <div><label>&nbsp;</label><button class="primary" type="submit">Go</button></div>
+      <div>
+        <label>Phase</label>
+        <select name="phase_filter">
+          <option value="">All</option>
+          {% for phase in phase_options %}
+            <option value="{{ phase }}" {% if phase_filter == phase %}selected{% endif %}>{{ phase }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Status</label>
+        <select name="status_filter">
+          <option value="">All</option>
+          {% for status in status_options %}
+            <option value="{{ status }}" {% if status_filter == status %}selected{% endif %}>{{ status }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Assigned Department</label>
+        <select name="department_filter">
+          <option value="">All</option>
+          {% for department in department_options %}
+            <option value="{{ department }}" {% if department_filter == department %}selected{% endif %}>{{ department }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div><label>Date From</label><input type="date" name="date_from" value="{{ date_from }}" /></div>
+      <div><label>Date To</label><input type="date" name="date_to" value="{{ date_to }}" /></div>
+      <div><label>Search Activity</label><input name="search" value="{{ search }}" placeholder="ID, phase, name" /></div>
+      <div>
+        <label>View</label>
+        <select name="view_mode">
+          <option value="month" {% if view_mode == "month" %}selected{% endif %}>Month</option>
+          <option value="week" {% if view_mode == "week" %}selected{% endif %}>Week</option>
+          <option value="agenda" {% if view_mode == "agenda" %}selected{% endif %}>Agenda</option>
+        </select>
+      </div>
+      <div>
+        <label>Display Mode</label>
+        <select name="display_mode">
+          <option value="planned" {% if display_mode == "planned" %}selected{% endif %}>Planned</option>
+          <option value="actual" {% if display_mode == "actual" %}selected{% endif %}>Actual</option>
+          <option value="mixed" {% if display_mode == "mixed" %}selected{% endif %}>Mixed</option>
+        </select>
+      </div>
+      <div><label>&nbsp;</label><button class="primary" type="submit">Apply</button></div>
       <div><label>&nbsp;</label><a href="/ui/calendar?project_id={{ active_project.id }}&month={{ prev_month }}">← Prev</a></div>
       <div><label>&nbsp;</label><a href="/ui/calendar?project_id={{ active_project.id }}&month={{ next_month }}">Next →</a></div>
     </form>
   </section>
 
-  <section class="panel">
-    <div class="calendar-board">
-      {% for label in weekday_labels %}
-        <div class="calendar-weekday">{{ label }}</div>
-      {% endfor %}
-      {% for week in calendar_matrix %}
-        {% for day in week %}
-          <article class="calendar-day-cell {% if not day.in_month %}is-outside{% endif %} {% if day.is_today %}is-today{% endif %}" data-day="{{ day.day }}">
-            <div class="calendar-day-header">
-              <span>{{ day.day.strftime("%d %b") }}</span>
-              <span class="small muted">{{ day.activities|length }}</span>
-            </div>
-            <div class="calendar-day-body">
-              {% for activity in day.activities %}
-                <article class="calendar-chip">
-                  <div class="small"><strong>{{ activity.activity_code }}</strong> · {{ activity.status.value }}</div>
-                  <div class="small muted">{{ activity.activity_name }}</div>
-                  <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/reschedule" class="calendar-move-form">
-                    <input
-                      type="date"
-                      name="target_date"
-                      value="{{ (activity.planned_start_date or day.day).isoformat() }}"
-                      required
-                    />
-                    <button class="primary" type="submit">Move</button>
-                  </form>
-                </article>
-              {% endfor %}
-            </div>
-          </article>
+  {% if view_mode == "agenda" %}
+    <section class="panel">
+      <h2>Agenda View</h2>
+      <table>
+        <thead><tr><th>Activity</th><th>Phase</th><th>Status</th><th>Date Window</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for activity in agenda_rows %}
+            <tr>
+              <td>{{ activity.activity_code }} - {{ activity.activity_name }}</td>
+              <td>{{ activity.phase }}</td>
+              <td><span class="status {{ activity.status.value|lower|replace(' ', '-') }}">{{ activity.status.value }}</span></td>
+              <td>
+                Planned: {{ activity.planned_start_date or "-" }} → {{ activity.planned_end_date or "-" }}<br />
+                Actual: {{ activity.actual_start_date or "-" }} → {{ activity.actual_end_date or "-" }}
+              </td>
+              <td><a href="/ui/calendar?project_id={{ active_project.id }}&month={{ month_anchor.strftime('%Y-%m') }}&selected_activity_id={{ activity.id }}&phase_filter={{ phase_filter }}&status_filter={{ status_filter }}&department_filter={{ department_filter }}&search={{ search }}&view_mode={{ view_mode }}&display_mode={{ display_mode }}&date_from={{ date_from }}&date_to={{ date_to }}">Select</a></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" class="muted">No activities in selected agenda range.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% else %}
+    <section class="panel">
+      <div class="calendar-board">
+        {% for label in weekday_labels %}
+          <div class="calendar-weekday">{{ label }}</div>
         {% endfor %}
-      {% endfor %}
-    </div>
+        {% for week in calendar_matrix %}
+          {% for day in week %}
+            <article class="calendar-day-cell {% if not day.in_month %}is-outside{% endif %} {% if day.is_today %}is-today{% endif %}">
+              <div class="calendar-day-header">
+                <span>{{ day.day.strftime("%d %b") }}</span>
+                <span class="small muted">{{ day.activities|length }}</span>
+              </div>
+              <div class="calendar-day-body">
+                {% for activity in day.activities %}
+                  <article class="calendar-chip">
+                    <a href="/ui/calendar?project_id={{ active_project.id }}&month={{ month_anchor.strftime('%Y-%m') }}&selected_activity_id={{ activity.id }}&phase_filter={{ phase_filter }}&status_filter={{ status_filter }}&department_filter={{ department_filter }}&search={{ search }}&view_mode={{ view_mode }}&display_mode={{ display_mode }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                      <strong>{{ activity.activity_code }}</strong>
+                    </a>
+                    <div class="small muted">{{ activity.activity_name }}</div>
+                    <div class="small"><span class="status {{ activity.status.value|lower|replace(' ', '-') }}">{{ activity.status.value }}</span></div>
+                  </article>
+                {% endfor %}
+              </div>
+            </article>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="two-col">
+    <article class="panel">
+      <h2>Selected Activity Quick Actions</h2>
+      {% if selected_activity %}
+        <div class="metric-list">
+          <div class="metric-row"><strong>{{ selected_activity.activity_code }} — {{ selected_activity.activity_name }}</strong></div>
+          <div class="metric-row">Phase: {{ selected_activity.phase }} | Status: {{ selected_activity.status.value }}</div>
+          <div class="metric-row">Planned: {{ selected_activity.planned_start_date or "-" }} → {{ selected_activity.planned_end_date or "-" }}</div>
+          <div class="metric-row">Actual: {{ selected_activity.actual_start_date or "-" }} → {{ selected_activity.actual_end_date or "-" }}</div>
+          <div class="metric-row">Dependencies: {{ selected_activity.dependencies|join(", ") if selected_activity.dependencies else "-" }}</div>
+          <div class="metric-row">Risk: {{ selected_activity.risk_level }} | Delay Reason: {{ selected_activity.delay_reason or "-" }}</div>
+        </div>
+
+        <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ selected_activity.id }}/calendar-shift" class="form-grid" style="margin-top:10px">
+          <input type="hidden" name="month" value="{{ month_anchor.strftime('%Y-%m') }}" />
+          <input type="hidden" name="phase_filter" value="{{ phase_filter }}" />
+          <input type="hidden" name="status_filter" value="{{ status_filter }}" />
+          <input type="hidden" name="department_filter" value="{{ department_filter }}" />
+          <input type="hidden" name="search" value="{{ search }}" />
+          <input type="hidden" name="view_mode" value="{{ view_mode }}" />
+          <input type="hidden" name="display_mode" value="{{ display_mode }}" />
+          <input type="hidden" name="date_from" value="{{ date_from }}" />
+          <input type="hidden" name="date_to" value="{{ date_to }}" />
+          <div>
+            <label>Shift Type</label>
+            <select name="move_scope">
+              <option value="planned">Shift Planned Dates</option>
+              <option value="actual">Shift Actual Dates</option>
+              <option value="both">Shift Entire Activity</option>
+            </select>
+          </div>
+          <div><label>&nbsp;</label><button class="secondary-btn" name="shift_days" value="-1" type="submit">Move Back 1 Day</button></div>
+          <div><label>&nbsp;</label><button class="secondary-btn" name="shift_days" value="1" type="submit">Move Forward 1 Day</button></div>
+          <div><label>&nbsp;</label><button class="secondary-btn" name="shift_days" value="-3" type="submit">Move Back 3 Days</button></div>
+          <div><label>&nbsp;</label><button class="secondary-btn" name="shift_days" value="3" type="submit">Move Forward 3 Days</button></div>
+          <div><label>Set Planned Start</label><input type="date" name="set_start_date" value="{{ selected_activity.planned_start_date.isoformat() if selected_activity.planned_start_date else '' }}" /></div>
+          <div><label>Set Planned End</label><input type="date" name="set_end_date" value="{{ selected_activity.planned_end_date.isoformat() if selected_activity.planned_end_date else '' }}" /></div>
+          <div><label>Set Actual Start</label><input type="date" name="set_actual_start_date" value="{{ selected_activity.actual_start_date.isoformat() if selected_activity.actual_start_date else '' }}" /></div>
+          <div><label>Set Actual End</label><input type="date" name="set_actual_end_date" value="{{ selected_activity.actual_end_date.isoformat() if selected_activity.actual_end_date else '' }}" /></div>
+          <div><label>&nbsp;</label><button class="primary" type="submit">Apply Date Updates</button></div>
+          <div><label>&nbsp;</label><button class="secondary-btn" name="mark_started" value="true" type="submit">Mark Started</button></div>
+          <div><label>&nbsp;</label><button class="secondary-btn" name="mark_completed" value="true" type="submit">Mark Completed</button></div>
+          <div><label>&nbsp;</label><a class="secondary-btn" href="/ui/activities?project_id={{ active_project.id }}&highlight_id={{ selected_activity.id }}">Open in Activities</a></div>
+        </form>
+      {% else %}
+        <p class="muted">Select an activity from the calendar to view details and actions.</p>
+      {% endif %}
+    </article>
+
+    <article class="panel">
+      <h2>Scheduling Conflicts / Dependency Impact</h2>
+      {% if selected_activity %}
+        <div class="metric-list">
+          {% for warning in selected_warnings %}
+            <div class="metric-row alert-error">{{ warning }}</div>
+          {% else %}
+            <div class="metric-row muted">No rule violations for selected activity.</div>
+          {% endfor %}
+        </div>
+        <h3>Blocked Successors</h3>
+        <ul>
+          {% for row in blocked_successors %}
+            <li>{{ row.activity_code }} — {{ row.activity_name }}</li>
+          {% else %}
+            <li class="muted">No blocked successors detected.</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Select an activity to evaluate dependency and delay impact.</p>
+      {% endif %}
+    </article>
   </section>
 {% endblock %}

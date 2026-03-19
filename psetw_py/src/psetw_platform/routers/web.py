@@ -12,6 +12,7 @@ from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
@@ -457,18 +458,35 @@ def _compute_activity_duration_days(activity: Activity) -> int:
     return 1
 
 
-def _build_calendar_matrix(activities: list[Activity], month_date: date) -> list[list[dict[str, object]]]:
+def _build_calendar_matrix(
+    activities: list[Activity],
+    month_date: date,
+    display_mode: str,
+) -> list[list[dict[str, object]]]:
     month_calendar = Calendar(firstweekday=SUNDAY)
-    activity_by_day: dict[date, list[Activity]] = {}
-    for activity in activities:
-        anchor = activity.planned_start_date or activity.planned_end_date or activity.actual_start_date
-        if anchor is None:
-            continue
-        activity_by_day.setdefault(anchor, []).append(activity)
-
     matrix: list[list[dict[str, object]]] = []
     today = date.today()
-    for week in month_calendar.monthdatescalendar(month_date.year, month_date.month):
+    weeks = month_calendar.monthdatescalendar(month_date.year, month_date.month)
+    if not weeks:
+        return matrix
+
+    visible_start = weeks[0][0]
+    visible_end = weeks[-1][-1]
+    activity_by_day: dict[date, list[Activity]] = {}
+    for activity in activities:
+        window = _activity_window(activity, display_mode)
+        if window is None:
+            continue
+        start, end = window
+        if end < visible_start or start > visible_end:
+            continue
+        current = max(start, visible_start)
+        until = min(end, visible_end)
+        while current <= until:
+            activity_by_day.setdefault(current, []).append(activity)
+            current += timedelta(days=1)
+
+    for week in weeks:
         week_rows: list[dict[str, object]] = []
         for day in week:
             week_rows.append(
@@ -608,6 +626,153 @@ def _build_weekly_completion(activities: list[Activity]) -> list[dict[str, int |
         completed = int(row["completed"])
         row["bar_pct"] = int((completed / peak) * 100) if peak > 0 else 0
     return results
+
+
+def _build_activities_query_params(
+    project_id: str,
+    search: str = "",
+    status_filter: str = "",
+    phase_filter: str = "",
+    priority_filter: str = "",
+    department_filter: str = "",
+    page: int = 1,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    column_mode: str = "core",
+    highlight_id: str = "",
+    message: str = "",
+) -> str:
+    payload: dict[str, str] = {
+        "project_id": project_id,
+        "search": search,
+        "status_filter": status_filter,
+        "phase_filter": phase_filter,
+        "priority_filter": priority_filter,
+        "department_filter": department_filter,
+        "page": str(page),
+        "page_size": str(page_size),
+        "column_mode": "all" if column_mode == "all" else "core",
+    }
+    if highlight_id.strip():
+        payload["highlight_id"] = highlight_id.strip()
+    if message.strip():
+        payload["message"] = message.strip()
+    return urlencode(payload)
+
+
+def _coerce_form_bool(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _normalized_move_scope(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"actual", "both"}:
+        return normalized
+    return "planned"
+
+
+def _status_from_raw(value: str) -> ActivityStatus:
+    normalized = value.strip().lower()
+    if normalized in {"on hold", "on_hold"}:
+        return ActivityStatus.blocked
+    return STATUS_MAP.get(normalized, ActivityStatus.not_started)
+
+
+def _apply_status_business_rules(activity: Activity, next_status: ActivityStatus, working_date: date) -> list[str]:
+    warnings: list[str] = []
+    activity.status = next_status
+    if next_status == ActivityStatus.in_progress and activity.actual_start_date is None:
+        activity.actual_start_date = working_date
+    if next_status == ActivityStatus.completed:
+        if activity.actual_start_date is None:
+            activity.actual_start_date = working_date
+        if activity.actual_end_date is None:
+            activity.actual_end_date = working_date
+        if activity.completion_percentage < 100:
+            activity.completion_percentage = 100
+    if next_status == ActivityStatus.delayed and not activity.delay_reason.strip():
+        warnings.append("Delayed status requires a delay reason.")
+    if activity.completion_percentage == 100 and next_status != ActivityStatus.completed:
+        warnings.append("Completion is 100% but status is not Completed.")
+    return warnings
+
+
+def _shift_activity_dates(activity: Activity, days: int, scope: str, anchor: date) -> None:
+    if scope in {"planned", "both"}:
+        start = activity.planned_start_date or anchor
+        end = activity.planned_end_date or start
+        activity.planned_start_date = start + timedelta(days=days)
+        activity.planned_end_date = end + timedelta(days=days)
+    if scope in {"actual", "both"}:
+        start = activity.actual_start_date or activity.planned_start_date or anchor
+        end = activity.actual_end_date or start
+        activity.actual_start_date = start + timedelta(days=days)
+        activity.actual_end_date = end + timedelta(days=days)
+
+
+def _activity_window(activity: Activity, display_mode: str) -> tuple[date, date] | None:
+    mode = display_mode.strip().lower()
+    if mode == "actual":
+        start = activity.actual_start_date or activity.actual_end_date
+        end = activity.actual_end_date or activity.actual_start_date
+    elif mode == "mixed":
+        start = activity.actual_start_date or activity.planned_start_date or activity.planned_end_date
+        end = activity.actual_end_date or activity.planned_end_date or activity.planned_start_date
+    else:
+        start = activity.planned_start_date or activity.planned_end_date
+        end = activity.planned_end_date or activity.planned_start_date
+    if start is None or end is None:
+        return None
+    if end < start:
+        return (end, start)
+    return (start, end)
+
+
+def _collect_activity_warnings(activity: Activity, by_code: dict[str, Activity], today: date | None = None) -> list[str]:
+    anchor = today or date.today()
+    warnings: list[str] = []
+    if activity.planned_start_date and activity.planned_end_date and activity.planned_end_date < activity.planned_start_date:
+        warnings.append("Planned end date is before planned start date.")
+    if activity.actual_start_date and activity.actual_end_date and activity.actual_end_date < activity.actual_start_date:
+        warnings.append("Actual end date is before actual start date.")
+    if activity.completion_percentage < 0 or activity.completion_percentage > 100:
+        warnings.append("Completion percentage must be between 0 and 100.")
+    if activity.status == ActivityStatus.completed and activity.completion_percentage < 100:
+        warnings.append("Completed activities should usually have 100% completion.")
+    if activity.status == ActivityStatus.delayed and not activity.delay_reason.strip():
+        warnings.append("Delayed activity is missing delay reason.")
+    if activity.status == ActivityStatus.not_started and (activity.actual_start_date or activity.actual_end_date):
+        warnings.append("Not Started activity still has actual dates.")
+    if activity.planned_start_date and activity.material_status.strip().lower() == "not ordered":
+        if activity.planned_start_date <= anchor + timedelta(days=2):
+            warnings.append("Material is not ordered while planned start is near or overdue.")
+    for dependency_code in activity.dependencies:
+        dependency = by_code.get(dependency_code)
+        if dependency is None:
+            warnings.append(f"Missing dependency: {dependency_code}.")
+            continue
+        if (
+            dependency.planned_end_date
+            and activity.planned_start_date
+            and dependency.planned_end_date > activity.planned_start_date
+        ):
+            warnings.append(
+                f"Dependency {dependency_code} ends after this activity starts."
+            )
+    return warnings
+
+
+def _suggest_adjacent_activity_code(source_code: str, existing_codes: set[str]) -> str:
+    match = re.search(r"(\d+)$", source_code)
+    if not match:
+        return _next_activity_code(existing_codes)
+    prefix = source_code[: match.start(1)]
+    value = int(match.group(1))
+    width = len(match.group(1))
+    for delta in range(1, 1000):
+        candidate = f"{prefix}{value + delta:0{width}d}"
+        if candidate not in existing_codes:
+            return candidate
+    return _next_activity_code(existing_codes)
 
 
 @router.get("/ui", include_in_schema=False)
@@ -851,9 +1016,12 @@ def ui_activities(
     search: str = "",
     status_filter: str = "",
     phase_filter: str = "",
+    priority_filter: str = "",
+    department_filter: str = "",
     page: int = 1,
     page_size: int = DEFAULT_PAGE_SIZE,
     column_mode: str = "core",
+    highlight_id: str = "",
 ) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
@@ -869,15 +1037,25 @@ def ui_activities(
     )
     status_options = sorted({activity.status.value for activity in activities})
     phase_options = sorted({activity.phase for activity in activities if activity.phase})
+    priority_options = sorted({activity.priority for activity in activities if activity.priority.strip()})
+    department_options = sorted(
+        {activity.resource_department for activity in activities if activity.resource_department.strip()}
+    )
 
     normalized_search = search.strip().lower()
     normalized_status = status_filter.strip().lower()
     normalized_phase = phase_filter.strip().lower()
+    normalized_priority = priority_filter.strip().lower()
+    normalized_department = department_filter.strip().lower()
     filtered = []
     for activity in activities:
         if normalized_status and activity.status.value.lower() != normalized_status:
             continue
         if normalized_phase and activity.phase.strip().lower() != normalized_phase:
+            continue
+        if normalized_priority and activity.priority.strip().lower() != normalized_priority:
+            continue
+        if normalized_department and activity.resource_department.strip().lower() != normalized_department:
             continue
         if normalized_search:
             haystack = " ".join(
@@ -905,6 +1083,7 @@ def ui_activities(
     start_idx = (page - 1) * page_size
     end_idx = start_idx + page_size
     paged_activities = filtered[start_idx:end_idx]
+    by_code = {row.activity_code: row for row in activities}
 
     context = _base_context(request, user, projects, active_project, "/ui/activities", message)
     context.update(
@@ -915,9 +1094,13 @@ def ui_activities(
             "filtered_count": filtered_count,
             "status_filter": status_filter,
             "phase_filter": phase_filter,
+            "priority_filter": priority_filter,
+            "department_filter": department_filter,
             "search": search,
             "status_options": status_options,
             "phase_options": phase_options,
+            "priority_options": priority_options,
+            "department_options": department_options,
             "page_size": page_size,
             "page": page,
             "total_pages": total_pages,
@@ -925,16 +1108,47 @@ def ui_activities(
             "end_idx": min(end_idx, filtered_count),
             "allowed_page_sizes": sorted(ALLOWED_PAGE_SIZES),
             "column_mode": "all" if column_mode == "all" else "core",
+            "highlight_id": highlight_id,
+            "today": date.today().isoformat(),
+            "warnings_by_id": {
+                activity.id: _collect_activity_warnings(
+                    activity,
+                    by_code,
+                )
+                for activity in paged_activities
+            },
         }
     )
     return templates.TemplateResponse("activities.html", context)
 
 
-def _activities_redirect(project_id: str, message: str = "") -> RedirectResponse:
-    url = f"/ui/activities?project_id={project_id}"
-    if message:
-        url += f"&message={message}"
-    return RedirectResponse(url=url, status_code=303)
+def _activities_redirect(
+    project_id: str,
+    message: str = "",
+    search: str = "",
+    status_filter: str = "",
+    phase_filter: str = "",
+    priority_filter: str = "",
+    department_filter: str = "",
+    page: int = 1,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    column_mode: str = "core",
+    highlight_id: str = "",
+) -> RedirectResponse:
+    query = _build_activities_query_params(
+        project_id=project_id,
+        search=search,
+        status_filter=status_filter,
+        phase_filter=phase_filter,
+        priority_filter=priority_filter,
+        department_filter=department_filter,
+        page=page,
+        page_size=page_size,
+        column_mode=column_mode,
+        highlight_id=highlight_id,
+        message=message,
+    )
+    return RedirectResponse(url=f"/ui/activities?{query}", status_code=303)
 
 
 @router.post("/ui/projects/{project_id}/activities", include_in_schema=False)
@@ -987,18 +1201,48 @@ def ui_create_activity(
     last_modified_date: Annotated[str, Form()] = "",
     delay_reason: Annotated[str, Form()] = "",
     remarks: Annotated[str, Form()] = "",
+    search: Annotated[str, Form()] = "",
+    status_filter: Annotated[str, Form()] = "",
+    phase_filter: Annotated[str, Form()] = "",
+    priority_filter: Annotated[str, Form()] = "",
+    department_filter: Annotated[str, Form()] = "",
+    page: Annotated[int, Form()] = 1,
+    page_size: Annotated[int, Form()] = DEFAULT_PAGE_SIZE,
+    column_mode: Annotated[str, Form()] = "core",
 ) -> RedirectResponse:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
     if user.role not in {UserRole.planner, UserRole.management}:
-        return _activities_redirect(project_id, "Only planning or management can create activities.")
+        return _activities_redirect(
+            project_id,
+            "Only planning or management can create activities.",
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
 
     existing = db.scalar(
         select(Activity).where(Activity.project_id == project_id, Activity.activity_code == activity_code.strip())
     )
     if existing is not None:
-        return _activities_redirect(project_id, "Activity code already exists.")
+        return _activities_redirect(
+            project_id,
+            "Activity code already exists.",
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
 
     try:
         status_enum = ActivityStatus(status)
@@ -1055,7 +1299,138 @@ def ui_create_activity(
     )
     db.add(new_activity)
     db.commit()
-    return _activities_redirect(project_id, "Activity created.")
+    return _activities_redirect(
+        project_id,
+        "Activity created.",
+        search,
+        status_filter,
+        phase_filter,
+        priority_filter,
+        department_filter,
+        page,
+        page_size,
+        column_mode,
+        highlight_id=new_activity.id,
+    )
+
+
+def _insert_activity_relative(
+    db: DBSession,
+    project_id: str,
+    anchor_activity: Activity,
+    place_above: bool,
+    actor: User,
+) -> Activity:
+    rows = list(
+        db.scalars(
+            select(Activity)
+            .where(Activity.project_id == project_id)
+            .order_by(Activity.created_at.asc(), Activity.activity_code.asc())
+        ).all()
+    )
+    index = next((idx for idx, row in enumerate(rows) if row.id == anchor_activity.id), 0)
+    if place_above:
+        prev_ts = rows[index - 1].created_at if index > 0 else anchor_activity.created_at - timedelta(seconds=2)
+        next_ts = anchor_activity.created_at
+    else:
+        prev_ts = anchor_activity.created_at
+        next_ts = rows[index + 1].created_at if index + 1 < len(rows) else anchor_activity.created_at + timedelta(seconds=2)
+    if next_ts <= prev_ts:
+        next_ts = prev_ts + timedelta(seconds=2)
+    midpoint = prev_ts + ((next_ts - prev_ts) / 2)
+    if midpoint <= prev_ts:
+        midpoint = prev_ts + timedelta(seconds=1)
+
+    existing_codes = {row.activity_code for row in rows}
+    suggested_code = _suggest_adjacent_activity_code(anchor_activity.activity_code, existing_codes)
+    inserted = Activity(
+        project_id=project_id,
+        activity_code=suggested_code,
+        activity_name="New Activity",
+        phase=anchor_activity.phase,
+        status=ActivityStatus.not_started,
+        created_at=midpoint,
+        updated_at=midpoint,
+        last_modified_by=actor.username,
+        last_modified_date=date.today(),
+    )
+    db.add(inserted)
+    db.commit()
+    return inserted
+
+
+@router.post("/ui/projects/{project_id}/activities/{activity_id}/insert-above", include_in_schema=False)
+def ui_insert_activity_above(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    activity_id: str,
+    search: Annotated[str, Form()] = "",
+    status_filter: Annotated[str, Form()] = "",
+    phase_filter: Annotated[str, Form()] = "",
+    priority_filter: Annotated[str, Form()] = "",
+    department_filter: Annotated[str, Form()] = "",
+    page: Annotated[int, Form()] = 1,
+    page_size: Annotated[int, Form()] = DEFAULT_PAGE_SIZE,
+    column_mode: Annotated[str, Form()] = "core",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    anchor = db.scalar(select(Activity).where(Activity.project_id == project_id, Activity.id == activity_id))
+    if anchor is None:
+        return _activities_redirect(project_id, "Anchor row not found.")
+    inserted = _insert_activity_relative(db, project_id, anchor, place_above=True, actor=user)
+    return _activities_redirect(
+        project_id,
+        "Inserted activity above selected row.",
+        search,
+        status_filter,
+        phase_filter,
+        priority_filter,
+        department_filter,
+        page,
+        page_size,
+        column_mode,
+        highlight_id=inserted.id,
+    )
+
+
+@router.post("/ui/projects/{project_id}/activities/{activity_id}/insert-below", include_in_schema=False)
+def ui_insert_activity_below(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    activity_id: str,
+    search: Annotated[str, Form()] = "",
+    status_filter: Annotated[str, Form()] = "",
+    phase_filter: Annotated[str, Form()] = "",
+    priority_filter: Annotated[str, Form()] = "",
+    department_filter: Annotated[str, Form()] = "",
+    page: Annotated[int, Form()] = 1,
+    page_size: Annotated[int, Form()] = DEFAULT_PAGE_SIZE,
+    column_mode: Annotated[str, Form()] = "core",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    anchor = db.scalar(select(Activity).where(Activity.project_id == project_id, Activity.id == activity_id))
+    if anchor is None:
+        return _activities_redirect(project_id, "Anchor row not found.")
+    inserted = _insert_activity_relative(db, project_id, anchor, place_above=False, actor=user)
+    return _activities_redirect(
+        project_id,
+        "Inserted activity below selected row.",
+        search,
+        status_filter,
+        phase_filter,
+        priority_filter,
+        department_filter,
+        page,
+        page_size,
+        column_mode,
+        highlight_id=inserted.id,
+    )
 
 
 @router.post("/ui/projects/{project_id}/activities/{activity_id}/progress", include_in_schema=False)
@@ -1064,13 +1439,48 @@ def ui_update_activity_progress(
     db: DBSession,
     project_id: str,
     activity_id: str,
-    status: Annotated[str, Form()] = ActivityStatus.in_progress.value,
-    completion_percentage: Annotated[int, Form()] = 0,
-    risk_score: Annotated[int, Form()] = 0,
-    material_status: Annotated[str, Form()] = "",
+    activity_code: Annotated[str, Form()] = "",
+    activity_name: Annotated[str, Form()] = "",
+    phase: Annotated[str, Form()] = "",
+    sub_activity: Annotated[str, Form()] = "",
+    base_effort_hours: Annotated[int, Form()] = 0,
+    required_materials: Annotated[str, Form()] = "",
+    required_tools: Annotated[str, Form()] = "",
     material_ownership: Annotated[str, Form()] = "",
+    material_lead_time: Annotated[int, Form()] = 0,
+    dependencies: Annotated[str, Form()] = "",
+    planned_start_date: Annotated[str, Form()] = "",
+    planned_end_date: Annotated[str, Form()] = "",
+    planned_duration_hours: Annotated[int, Form()] = 0,
+    priority: Annotated[str, Form()] = "",
+    shift_type: Annotated[str, Form()] = "",
+    material_status: Annotated[str, Form()] = "",
+    material_supplier: Annotated[str, Form()] = "",
+    material_required_date: Annotated[str, Form()] = "",
+    material_received_date: Annotated[str, Form()] = "",
+    material_criticality: Annotated[str, Form()] = "",
+    actual_start_date: Annotated[str, Form()] = "",
+    actual_end_date: Annotated[str, Form()] = "",
+    status: Annotated[str, Form()] = ActivityStatus.not_started.value,
+    completion_percentage: Annotated[int, Form()] = 0,
+    risk_level: Annotated[str, Form()] = "",
+    dependency_type: Annotated[str, Form()] = "",
+    override_approved_by: Annotated[str, Form()] = "",
+    estimated_cost: Annotated[int, Form()] = 0,
+    actual_cost: Annotated[int, Form()] = 0,
+    cost_center: Annotated[str, Form()] = "",
+    risk_score: Annotated[int, Form()] = 0,
     delay_reason: Annotated[str, Form()] = "",
     remarks: Annotated[str, Form()] = "",
+    search: Annotated[str, Form()] = "",
+    status_filter: Annotated[str, Form()] = "",
+    phase_filter: Annotated[str, Form()] = "",
+    priority_filter: Annotated[str, Form()] = "",
+    department_filter: Annotated[str, Form()] = "",
+    page: Annotated[int, Form()] = 1,
+    page_size: Annotated[int, Form()] = DEFAULT_PAGE_SIZE,
+    column_mode: Annotated[str, Form()] = "core",
+    working_date: Annotated[str, Form()] = "",
 ) -> RedirectResponse:
     user = _get_cookie_user(request, db)
     if user is None:
@@ -1080,39 +1490,162 @@ def ui_update_activity_progress(
         select(Activity).where(Activity.project_id == project_id, Activity.id == activity_id)
     )
     if activity is None:
-        return _activities_redirect(project_id, "Activity not found.")
+        return _activities_redirect(
+            project_id,
+            "Activity not found.",
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
+
+    existing_code = activity.activity_code
+    proposed_code = activity_code.strip() or existing_code
+    if proposed_code != existing_code:
+        duplicate = db.scalar(
+            select(Activity).where(
+                Activity.project_id == project_id,
+                Activity.activity_code == proposed_code,
+                Activity.id != activity.id,
+            )
+        )
+        if duplicate is not None:
+            return _activities_redirect(
+                project_id,
+                "Activity ID already exists.",
+                search,
+                status_filter,
+                phase_filter,
+                priority_filter,
+                department_filter,
+                page,
+                page_size,
+                column_mode,
+                highlight_id=activity.id,
+            )
+        activity.activity_code = proposed_code
+
+    activity.activity_name = activity_name.strip() or activity.activity_name
+    activity.phase = phase.strip()
+    activity.sub_activity = sub_activity.strip()
+    activity.base_effort_hours = max(0, base_effort_hours)
+    activity.required_materials = required_materials.strip()
+    activity.required_tools = required_tools.strip()
+    activity.material_ownership = material_ownership.strip()
+    activity.material_lead_time = max(0, material_lead_time)
+    activity.dependencies = _parse_dependencies(dependencies)
+    activity.planned_start_date = _parse_date(planned_start_date)
+    activity.planned_end_date = _parse_date(planned_end_date)
+    activity.planned_duration_hours = max(0, planned_duration_hours)
+    activity.priority = priority.strip() or activity.priority
+    activity.shift_type = shift_type.strip()
+    activity.material_status = material_status.strip() or activity.material_status
+    activity.material_supplier = material_supplier.strip()
+    activity.material_required_date = _parse_date(material_required_date)
+    activity.material_received_date = _parse_date(material_received_date)
+    activity.material_criticality = material_criticality.strip() or activity.material_criticality
+    activity.actual_start_date = _parse_date(actual_start_date)
+    activity.actual_end_date = _parse_date(actual_end_date)
+
+    working_anchor = _parse_date(working_date) or date.today()
     try:
-        activity.status = ActivityStatus(status)
+        status_value = _status_from_raw(status)
     except ValueError:
-        pass
+        status_value = activity.status
+    status_warnings = _apply_status_business_rules(activity, status_value, working_anchor)
+
     activity.completion_percentage = max(0, min(100, completion_percentage))
     activity.risk_score = max(0, min(100, risk_score))
-    if material_status.strip():
-        activity.material_status = material_status.strip()
-    if material_ownership.strip():
-        activity.material_ownership = material_ownership.strip()
+    activity.risk_level = risk_level.strip() or activity.risk_level
+    activity.dependency_type = dependency_type.strip() or activity.dependency_type
+    activity.override_approved_by = override_approved_by.strip()
+    activity.estimated_cost = max(0, estimated_cost)
+    activity.actual_cost = max(0, actual_cost)
+    activity.cost_center = cost_center.strip()
     activity.delay_reason = delay_reason.strip()
     activity.remarks = remarks.strip()
+
+    row_warnings = _collect_activity_warnings(
+        activity,
+        {row.activity_code: row for row in db.scalars(select(Activity).where(Activity.project_id == project_id)).all()},
+    )
+    warning_message = status_warnings + row_warnings
+    if warning_message:
+        message = "Updated with warnings: " + " | ".join(dict.fromkeys(warning_message))
+    else:
+        message = "Activity updated."
+
     activity.last_modified_by = user.username
     activity.last_modified_date = date.today()
     db.commit()
-    return _activities_redirect(project_id, "Activity updated.")
+    return _activities_redirect(
+        project_id,
+        message,
+        search,
+        status_filter,
+        phase_filter,
+        priority_filter,
+        department_filter,
+        page,
+        page_size,
+        column_mode,
+        highlight_id=activity.id,
+    )
 
 
 @router.post("/ui/projects/{project_id}/activities/{activity_id}/delete", include_in_schema=False)
-def ui_delete_activity(request: Request, db: DBSession, project_id: str, activity_id: str) -> RedirectResponse:
+def ui_delete_activity(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    activity_id: str,
+    search: Annotated[str, Form()] = "",
+    status_filter: Annotated[str, Form()] = "",
+    phase_filter: Annotated[str, Form()] = "",
+    priority_filter: Annotated[str, Form()] = "",
+    department_filter: Annotated[str, Form()] = "",
+    page: Annotated[int, Form()] = 1,
+    page_size: Annotated[int, Form()] = DEFAULT_PAGE_SIZE,
+    column_mode: Annotated[str, Form()] = "core",
+) -> RedirectResponse:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
     if user.role not in {UserRole.planner, UserRole.management}:
-        return _activities_redirect(project_id, "Only planning or management can delete activities.")
+        return _activities_redirect(
+            project_id,
+            "Only planning or management can delete activities.",
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
     activity = db.scalar(
         select(Activity).where(Activity.project_id == project_id, Activity.id == activity_id)
     )
     if activity is not None:
         db.delete(activity)
         db.commit()
-    return _activities_redirect(project_id, "Activity deleted.")
+    return _activities_redirect(
+        project_id,
+        "Activity deleted.",
+        search,
+        status_filter,
+        phase_filter,
+        priority_filter,
+        department_filter,
+        page,
+        page_size,
+        column_mode,
+    )
 
 
 @router.post("/ui/projects/{project_id}/activities/bulk-status", include_in_schema=False)
@@ -1122,27 +1655,72 @@ def ui_bulk_status_update(
     project_id: str,
     selected_ids: Annotated[list[str], Form()],
     bulk_status: Annotated[str, Form()],
+    search: Annotated[str, Form()] = "",
+    status_filter: Annotated[str, Form()] = "",
+    phase_filter: Annotated[str, Form()] = "",
+    priority_filter: Annotated[str, Form()] = "",
+    department_filter: Annotated[str, Form()] = "",
+    page: Annotated[int, Form()] = 1,
+    page_size: Annotated[int, Form()] = DEFAULT_PAGE_SIZE,
+    column_mode: Annotated[str, Form()] = "core",
 ) -> RedirectResponse:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
     if not selected_ids:
-        return _activities_redirect(project_id, "No rows selected.")
+        return _activities_redirect(
+            project_id,
+            "No rows selected.",
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
     try:
-        status_value = ActivityStatus(bulk_status)
+        status_value = _status_from_raw(bulk_status)
     except ValueError:
-        return _activities_redirect(project_id, "Invalid status selected.")
+        return _activities_redirect(
+            project_id,
+            "Invalid status selected.",
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
     rows = list(
         db.scalars(
             select(Activity).where(Activity.project_id == project_id, Activity.id.in_(selected_ids))
         ).all()
     )
+    warnings: list[str] = []
     for row in rows:
-        row.status = status_value
+        warnings.extend(_apply_status_business_rules(row, status_value, date.today()))
         row.last_modified_by = user.username
         row.last_modified_date = date.today()
     db.commit()
-    return _activities_redirect(project_id, f"Updated status for {len(rows)} activities.")
+    message = f"Updated status for {len(rows)} activities."
+    if warnings:
+        message += " Warnings: " + " | ".join(dict.fromkeys(warnings))
+    return _activities_redirect(
+        project_id,
+        message,
+        search,
+        status_filter,
+        phase_filter,
+        priority_filter,
+        department_filter,
+        page,
+        page_size,
+        column_mode,
+    )
 
 
 @router.post("/ui/projects/{project_id}/activities/bulk-delete", include_in_schema=False)
@@ -1151,14 +1729,44 @@ def ui_bulk_delete(
     db: DBSession,
     project_id: str,
     selected_ids: Annotated[list[str], Form()],
+    search: Annotated[str, Form()] = "",
+    status_filter: Annotated[str, Form()] = "",
+    phase_filter: Annotated[str, Form()] = "",
+    priority_filter: Annotated[str, Form()] = "",
+    department_filter: Annotated[str, Form()] = "",
+    page: Annotated[int, Form()] = 1,
+    page_size: Annotated[int, Form()] = DEFAULT_PAGE_SIZE,
+    column_mode: Annotated[str, Form()] = "core",
 ) -> RedirectResponse:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
     if user.role not in {UserRole.planner, UserRole.management}:
-        return _activities_redirect(project_id, "Only planning or management can delete activities.")
+        return _activities_redirect(
+            project_id,
+            "Only planning or management can delete activities.",
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
     if not selected_ids:
-        return _activities_redirect(project_id, "No rows selected.")
+        return _activities_redirect(
+            project_id,
+            "No rows selected.",
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
     rows = list(
         db.scalars(
             select(Activity).where(Activity.project_id == project_id, Activity.id.in_(selected_ids))
@@ -1167,7 +1775,18 @@ def ui_bulk_delete(
     for row in rows:
         db.delete(row)
     db.commit()
-    return _activities_redirect(project_id, f"Deleted {len(rows)} activities.")
+    return _activities_redirect(
+        project_id,
+        f"Deleted {len(rows)} activities.",
+        search,
+        status_filter,
+        phase_filter,
+        priority_filter,
+        department_filter,
+        page,
+        page_size,
+        column_mode,
+    )
 
 
 @router.post("/ui/projects/{project_id}/activities/import", include_in_schema=False)
@@ -1177,23 +1796,75 @@ async def ui_import_activities(
     project_id: str,
     file: Annotated[UploadFile, File(...)],
     merge_strategy: Annotated[str, Form()] = "merge",
+    search: Annotated[str, Form()] = "",
+    status_filter: Annotated[str, Form()] = "",
+    phase_filter: Annotated[str, Form()] = "",
+    priority_filter: Annotated[str, Form()] = "",
+    department_filter: Annotated[str, Form()] = "",
+    page: Annotated[int, Form()] = 1,
+    page_size: Annotated[int, Form()] = DEFAULT_PAGE_SIZE,
+    column_mode: Annotated[str, Form()] = "core",
 ) -> RedirectResponse:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
     if user.role not in {UserRole.planner, UserRole.management}:
-        return _activities_redirect(project_id, "Only planning or management can import activities.")
+        return _activities_redirect(
+            project_id,
+            "Only planning or management can import activities.",
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
     if not file.filename:
-        return _activities_redirect(project_id, "Please select a file to import.")
+        return _activities_redirect(
+            project_id,
+            "Please select a file to import.",
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
 
     content = await file.read()
     try:
         raw_rows = _parse_import_rows(file.filename, content)
     except ValueError as exc:
-        return _activities_redirect(project_id, str(exc))
+        return _activities_redirect(
+            project_id,
+            str(exc),
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
 
     if not raw_rows:
-        return _activities_redirect(project_id, "No rows found in uploaded file.")
+        return _activities_redirect(
+            project_id,
+            "No rows found in uploaded file.",
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
+        )
 
     normalized_rows: list[dict[str, object]] = []
     for raw_row in raw_rows:
@@ -1210,6 +1881,14 @@ async def ui_import_activities(
         return _activities_redirect(
             project_id,
             "Missing required import columns: " + ", ".join(missing_required),
+            search,
+            status_filter,
+            phase_filter,
+            priority_filter,
+            department_filter,
+            page,
+            page_size,
+            column_mode,
         )
 
     existing = list(db.scalars(select(Activity).where(Activity.project_id == project_id)).all())
@@ -1250,7 +1929,18 @@ async def ui_import_activities(
         target.last_modified_date = date.today()
 
     db.commit()
-    return _activities_redirect(project_id, f"Import complete: {created} created, {updated} updated.")
+    return _activities_redirect(
+        project_id,
+        f"Import complete: {created} created, {updated} updated.",
+        search,
+        status_filter,
+        phase_filter,
+        priority_filter,
+        department_filter,
+        page,
+        page_size,
+        column_mode,
+    )
 
 
 def _build_export_filename(prefix: str, suffix: str) -> str:
@@ -1365,13 +2055,59 @@ def ui_calendar(
     project_id: str | None = None,
     month: str | None = None,
     message: str = "",
+    phase_filter: str = "",
+    status_filter: str = "",
+    department_filter: str = "",
+    search: str = "",
+    view_mode: str = "month",
+    display_mode: str = "mixed",
+    selected_activity_id: str = "",
+    date_from: str = "",
+    date_to: str = "",
 ) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
     projects = _ensure_projects(db, user)
     active_project = _resolve_project(projects, project_id)
-    activities = list(db.scalars(select(Activity).where(Activity.project_id == active_project.id)).all())
+    activities = list(
+        db.scalars(
+            select(Activity)
+            .where(Activity.project_id == active_project.id)
+            .order_by(Activity.created_at.asc())
+        ).all()
+    )
+    normalized_phase = phase_filter.strip().lower()
+    normalized_status = status_filter.strip().lower()
+    normalized_department = department_filter.strip().lower()
+    normalized_search = search.strip().lower()
+
+    filtered: list[Activity] = []
+    for activity in activities:
+        if normalized_phase and activity.phase.strip().lower() != normalized_phase:
+            continue
+        if normalized_status and activity.status.value.lower() != normalized_status:
+            continue
+        if normalized_department and activity.resource_department.strip().lower() != normalized_department:
+            continue
+        if normalized_search:
+            haystack = " ".join(
+                [
+                    activity.activity_code,
+                    activity.activity_name,
+                    activity.phase,
+                    activity.sub_activity,
+                    activity.resource_department,
+                    activity.delay_reason,
+                ]
+            ).lower()
+            if normalized_search not in haystack:
+                continue
+        filtered.append(activity)
+
+    phase_options = sorted({activity.phase for activity in activities if activity.phase.strip()})
+    status_options = [status.value for status in ActivityStatus]
+    department_options = sorted({activity.resource_department for activity in activities if activity.resource_department.strip()})
 
     if month:
         try:
@@ -1384,11 +2120,44 @@ def ui_calendar(
         month_date = date(today.year, today.month, 1)
     next_month = date(month_date.year + int(month_date.month == 12), (month_date.month % 12) + 1, 1)
     month_end = next_month - timedelta(days=1)
-    calendar_rows = compute_calendar_buckets(activities, month_date, month_end)
-    calendar_matrix = _build_calendar_matrix(activities, month_date)
+    selected_view = view_mode if view_mode in {"month", "week", "agenda"} else "month"
+    selected_display = display_mode if display_mode in {"planned", "actual", "mixed"} else "mixed"
+
+    parsed_from = _parse_date(date_from)
+    parsed_to = _parse_date(date_to)
+    if parsed_from and parsed_to and parsed_to < parsed_from:
+        parsed_from, parsed_to = parsed_to, parsed_from
+    range_start = parsed_from or month_date
+    range_end = parsed_to or month_end
+
+    calendar_rows = compute_calendar_buckets(filtered, range_start, range_end)
+    calendar_matrix = _build_calendar_matrix(filtered, month_date, selected_display)
 
     prev_month = month_date - timedelta(days=1)
     next_month_anchor = month_end + timedelta(days=1)
+    by_code = {activity.activity_code: activity for activity in activities}
+    selected_activity = next((row for row in activities if row.id == selected_activity_id), None)
+    selected_warnings: list[str] = []
+    if selected_activity is not None:
+        selected_warnings = _collect_activity_warnings(selected_activity, by_code)
+
+    agenda_rows: list[Activity] = []
+    for activity in filtered:
+        window = _activity_window(activity, selected_display)
+        if window is None:
+            continue
+        start, end = window
+        if end < range_start or start > range_end:
+            continue
+        agenda_rows.append(activity)
+    agenda_rows.sort(key=lambda row: (_activity_window(row, selected_display) or (date.max, date.max))[0])
+
+    blocked_successors: list[Activity] = []
+    if selected_activity is not None:
+        for row in activities:
+            if selected_activity.activity_code in row.dependencies:
+                blocked_successors.append(row)
+
     return _render_planning_page(
         request,
         db,
@@ -1403,6 +2172,21 @@ def ui_calendar(
             "calendar_rows": calendar_rows,
             "calendar_matrix": calendar_matrix,
             "weekday_labels": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+            "selected_activity": selected_activity,
+            "selected_warnings": selected_warnings,
+            "blocked_successors": blocked_successors,
+            "phase_filter": phase_filter,
+            "status_filter": status_filter,
+            "department_filter": department_filter,
+            "search": search,
+            "phase_options": phase_options,
+            "status_options": status_options,
+            "department_options": department_options,
+            "view_mode": selected_view,
+            "display_mode": selected_display,
+            "date_from": range_start.isoformat(),
+            "date_to": range_end.isoformat(),
+            "agenda_rows": agenda_rows,
         },
         message=message,
     )
@@ -1415,6 +2199,14 @@ def ui_reschedule_activity(
     project_id: str,
     activity_id: str,
     target_date: Annotated[str, Form()],
+    move_scope: Annotated[str, Form()] = "planned",
+    month: Annotated[str, Form()] = "",
+    phase_filter: Annotated[str, Form()] = "",
+    status_filter: Annotated[str, Form()] = "",
+    department_filter: Annotated[str, Form()] = "",
+    search: Annotated[str, Form()] = "",
+    view_mode: Annotated[str, Form()] = "month",
+    display_mode: Annotated[str, Form()] = "mixed",
 ) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
@@ -1430,24 +2222,176 @@ def ui_reschedule_activity(
     if activity is None:
         return JSONResponse({"ok": False, "error": "Activity not found"}, status_code=404)
 
+    scope = _normalized_move_scope(move_scope)
     duration_days = _compute_activity_duration_days(activity)
-    activity.planned_start_date = target
-    activity.planned_end_date = target + timedelta(days=duration_days)
+    if scope in {"planned", "both"}:
+        activity.planned_start_date = target
+        activity.planned_end_date = target + timedelta(days=duration_days)
+    if scope in {"actual", "both"}:
+        actual_duration = max(0, (activity.actual_end_date - activity.actual_start_date).days) if (
+            activity.actual_start_date and activity.actual_end_date
+        ) else duration_days
+        activity.actual_start_date = target
+        activity.actual_end_date = target + timedelta(days=actual_duration)
+        if activity.status == ActivityStatus.not_started:
+            activity.status = ActivityStatus.in_progress
     activity.last_modified_by = user.username
     activity.last_modified_date = date.today()
     db.commit()
     if request.headers.get("x-requested-with", "").lower() != "xmlhttprequest":
-        month_param = f"{target.year}-{target.month:02d}"
+        month_param = month.strip() or f"{target.year}-{target.month:02d}"
         return RedirectResponse(
-            url=f"/ui/calendar?project_id={project_id}&month={month_param}&message=Activity rescheduled.",
+            url=(
+                "/ui/calendar?"
+                + urlencode(
+                    {
+                        "project_id": project_id,
+                        "month": month_param,
+                        "message": "Activity rescheduled.",
+                        "selected_activity_id": activity_id,
+                        "phase_filter": phase_filter,
+                        "status_filter": status_filter,
+                        "department_filter": department_filter,
+                        "search": search,
+                        "view_mode": view_mode,
+                        "display_mode": display_mode,
+                    }
+                )
+            ),
             status_code=303,
         )
     payload = {
         "ok": True,
-        "start": activity.planned_start_date.isoformat(),
-        "end": activity.planned_end_date.isoformat(),
+        "start": (activity.planned_start_date or target).isoformat(),
+        "end": (activity.planned_end_date or target).isoformat(),
     }
     return JSONResponse(payload)
+
+
+def _calendar_redirect(
+    project_id: str,
+    month: str,
+    message: str,
+    phase_filter: str,
+    status_filter: str,
+    department_filter: str,
+    search: str,
+    view_mode: str,
+    display_mode: str,
+    selected_activity_id: str = "",
+    date_from: str = "",
+    date_to: str = "",
+) -> RedirectResponse:
+    query = urlencode(
+        {
+            "project_id": project_id,
+            "month": month,
+            "message": message,
+            "phase_filter": phase_filter,
+            "status_filter": status_filter,
+            "department_filter": department_filter,
+            "search": search,
+            "view_mode": view_mode,
+            "display_mode": display_mode,
+            "selected_activity_id": selected_activity_id,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
+    )
+    return RedirectResponse(url=f"/ui/calendar?{query}", status_code=303)
+
+
+@router.post("/ui/projects/{project_id}/activities/{activity_id}/calendar-shift", include_in_schema=False)
+def ui_calendar_shift_activity(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    activity_id: str,
+    shift_days: Annotated[int, Form()] = 0,
+    move_scope: Annotated[str, Form()] = "planned",
+    set_start_date: Annotated[str, Form()] = "",
+    set_end_date: Annotated[str, Form()] = "",
+    set_actual_start_date: Annotated[str, Form()] = "",
+    set_actual_end_date: Annotated[str, Form()] = "",
+    mark_started: Annotated[str, Form()] = "",
+    mark_completed: Annotated[str, Form()] = "",
+    month: Annotated[str, Form()] = "",
+    phase_filter: Annotated[str, Form()] = "",
+    status_filter: Annotated[str, Form()] = "",
+    department_filter: Annotated[str, Form()] = "",
+    search: Annotated[str, Form()] = "",
+    view_mode: Annotated[str, Form()] = "month",
+    display_mode: Annotated[str, Form()] = "mixed",
+    date_from: Annotated[str, Form()] = "",
+    date_to: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    activity = db.scalar(select(Activity).where(Activity.project_id == project_id, Activity.id == activity_id))
+    if activity is None:
+        return _calendar_redirect(
+            project_id,
+            month,
+            "Activity not found.",
+            phase_filter,
+            status_filter,
+            department_filter,
+            search,
+            view_mode,
+            display_mode,
+            activity_id,
+            date_from,
+            date_to,
+        )
+
+    scope = _normalized_move_scope(move_scope)
+    anchor = date.today()
+    if shift_days != 0:
+        _shift_activity_dates(activity, shift_days, scope, anchor)
+
+    planned_start = _parse_date(set_start_date)
+    planned_end = _parse_date(set_end_date)
+    actual_start = _parse_date(set_actual_start_date)
+    actual_end = _parse_date(set_actual_end_date)
+    if planned_start:
+        activity.planned_start_date = planned_start
+    if planned_end:
+        activity.planned_end_date = planned_end
+    if actual_start:
+        activity.actual_start_date = actual_start
+    if actual_end:
+        activity.actual_end_date = actual_end
+    if _coerce_form_bool(mark_started):
+        _apply_status_business_rules(activity, ActivityStatus.in_progress, anchor)
+    if _coerce_form_bool(mark_completed):
+        _apply_status_business_rules(activity, ActivityStatus.completed, anchor)
+
+    warnings = _collect_activity_warnings(
+        activity,
+        {row.activity_code: row for row in db.scalars(select(Activity).where(Activity.project_id == project_id)).all()},
+    )
+    activity.last_modified_by = user.username
+    activity.last_modified_date = date.today()
+    db.commit()
+
+    message = "Calendar update applied."
+    if warnings:
+        message += " Warnings: " + " | ".join(dict.fromkeys(warnings))
+    return _calendar_redirect(
+        project_id,
+        month,
+        message,
+        phase_filter,
+        status_filter,
+        department_filter,
+        search,
+        view_mode,
+        display_mode,
+        activity_id,
+        date_from,
+        date_to,
+    )
 
 
 def _delay_optimization_redirect(project_id: str, message: str = "") -> RedirectResponse:
