@@ -53,6 +53,11 @@ templates = Jinja2Templates(
 SESSION_COOKIE_NAME = "psetw_ui_session"
 DEFAULT_PAGE_SIZE = 50
 ALLOWED_PAGE_SIZES = {25, 50, 100, 250, 1000}
+LOGIN_DEMO_USERS: dict[str, tuple[str, str, str]] = {
+    "planner": ("Planner", "planner", "planner123"),
+    "management": ("Management", "management", "management123"),
+    "technician": ("Technician", "technician", "technician123"),
+}
 ACTIVITY_EXPORT_COLUMNS: list[tuple[str, str]] = [
     ("Activity ID", "activity_code"),
     ("Activity Name", "activity_name"),
@@ -489,10 +494,40 @@ def ui_home(request: Request, db: DBSession) -> RedirectResponse:
 
 
 @router.get("/ui/login", response_class=HTMLResponse, include_in_schema=False)
-def ui_login_page(request: Request) -> HTMLResponse:
+def ui_login_page(
+    request: Request,
+    demo_user: str = "",
+    username: str = "",
+    info: str = "",
+) -> HTMLResponse:
+    prefill_username = username.strip()
+    prefill_password = ""
+    role_hint = ""
+    key = demo_user.strip().lower()
+    if key in LOGIN_DEMO_USERS:
+        role_hint, prefill_username, prefill_password = LOGIN_DEMO_USERS[key]
+
     return templates.TemplateResponse(
         "login.html",
-        {"request": request, "error": "", "title": "PS-ETW Login"},
+        {
+            "request": request,
+            "error": "",
+            "title": "Sign In",
+            "prefill_username": prefill_username,
+            "prefill_password": prefill_password,
+            "remember_me": False,
+            "role_hint": role_hint,
+            "info_message": info.strip(),
+            "demo_cards": [
+                {
+                    "label": label,
+                    "key": item_key,
+                    "username": login_username,
+                    "password": login_password,
+                }
+                for item_key, (label, login_username, login_password) in LOGIN_DEMO_USERS.items()
+            ],
+        },
     )
 
 
@@ -508,7 +543,25 @@ def ui_login_action(
     if user is None or not verify_password(password, user.password_hash):
         return templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": "Invalid credentials.", "title": "PS-ETW Login"},
+            {
+                "request": request,
+                "error": "Invalid username or password. Check credentials and try again.",
+                "title": "Sign In",
+                "prefill_username": username.strip(),
+                "prefill_password": "",
+                "remember_me": remember_me,
+                "role_hint": "",
+                "info_message": "",
+                "demo_cards": [
+                    {
+                        "label": label,
+                        "key": item_key,
+                        "username": login_username,
+                        "password": login_password,
+                    }
+                    for item_key, (label, login_username, login_password) in LOGIN_DEMO_USERS.items()
+                ],
+            },
             status_code=401,
         )
 
@@ -1124,7 +1177,7 @@ def ui_calendar(
     calendar_matrix = _build_calendar_matrix(activities, month_date)
 
     prev_month = month_date - timedelta(days=1)
-    next_month_cursor = month_end + timedelta(days=1)
+    next_month_anchor = month_end + timedelta(days=1)
     return _render_planning_page(
         request,
         db,
@@ -1133,9 +1186,9 @@ def ui_calendar(
         "/ui/calendar",
         "Calendar",
         {
-            "month_cursor": month_date,
+            "month_anchor": month_date,
             "prev_month": f"{prev_month.year}-{prev_month.month:02d}",
-            "next_month": f"{next_month_cursor.year}-{next_month_cursor.month:02d}",
+            "next_month": f"{next_month_anchor.year}-{next_month_anchor.month:02d}",
             "calendar_rows": calendar_rows,
             "calendar_matrix": calendar_matrix,
             "weekday_labels": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
@@ -1172,6 +1225,12 @@ def ui_reschedule_activity(
     activity.last_modified_by = user.username
     activity.last_modified_date = date.today()
     db.commit()
+    if request.headers.get("x-requested-with", "").lower() != "xmlhttprequest":
+        month_param = f"{target.year}-{target.month:02d}"
+        return RedirectResponse(
+            url=f"/ui/calendar?project_id={project_id}&month={month_param}&message=Activity rescheduled.",
+            status_code=303,
+        )
     payload = {
         "ok": True,
         "start": activity.planned_start_date.isoformat(),

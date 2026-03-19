@@ -310,7 +310,8 @@ def test_legacy_compat_auth_and_state_endpoints(client: TestClient) -> None:
 def test_server_rendered_ui_login_and_pages(client: TestClient) -> None:
     login_page = client.get("/ui/login")
     assert login_page.status_code == 200
-    assert "PS-ETW Login" in login_page.text
+    assert "PS-ETW Preparation Planner" in login_page.text
+    assert "Sign In" in login_page.text
 
     login = client.post(
         "/ui/login",
@@ -363,7 +364,7 @@ def test_server_rendered_ui_login_and_pages(client: TestClient) -> None:
 
     calendar_page = client.get(f"/ui/calendar?project_id={project_id}", cookies=cookies)
     assert calendar_page.status_code == 200
-    assert "Drag activity chips between days" in calendar_page.text
+    assert "Reschedule activities directly from calendar cards." in calendar_page.text
 
     intelligence_page = client.get(f"/ui/intelligence?project_id={project_id}", cookies=cookies)
     assert intelligence_page.status_code == 200
@@ -555,6 +556,7 @@ def test_ui_calendar_reschedule_and_eod_logs(client: TestClient) -> None:
         f"/ui/projects/{project_id}/activities/{activity_id}/reschedule",
         data={"target_date": "2026-03-20"},
         cookies=cookies,
+        headers={"X-Requested-With": "XMLHttpRequest"},
     )
     assert move_response.status_code == 200
     payload = move_response.json()

@@ -124,10 +124,10 @@ def _critical_path_codes(activities: list[Activity]) -> list[str]:
 
     terminal = max(finish_times, key=lambda code: finish_times[code])
     path: list[str] = []
-    cursor: str | None = terminal
-    while cursor:
-        path.append(cursor)
-        cursor = predecessor.get(cursor)
+    current_code: str | None = terminal
+    while current_code:
+        path.append(current_code)
+        current_code = predecessor.get(current_code)
     path.reverse()
     return path
 
@@ -255,11 +255,11 @@ def compute_calendar_buckets(activities: list[Activity], start: date, end: date)
         )
 
     buckets: list[CalendarBucket] = []
-    cursor = start
-    while cursor <= end:
-        rows = sorted(by_day.get(cursor, []), key=lambda item: item.activity_code.lower())
-        buckets.append(CalendarBucket(day=cursor, activities=rows))
-        cursor += timedelta(days=1)
+    current_day = start
+    while current_day <= end:
+        rows = sorted(by_day.get(current_day, []), key=lambda item: item.activity_code.lower())
+        buckets.append(CalendarBucket(day=current_day, activities=rows))
+        current_day += timedelta(days=1)
     return buckets
 
 

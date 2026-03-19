@@ -2,10 +2,10 @@
 {% block content %}
   <section class="panel">
     <h1>Calendar</h1>
-    <p class="muted">Drag activity chips between days to reschedule planned start/end dates.</p>
+    <p class="muted">Reschedule activities directly from calendar cards.</p>
     <form method="get" action="/ui/calendar" class="form-grid">
       <input type="hidden" name="project_id" value="{{ active_project.id }}" />
-      <div><label>Month</label><input type="month" name="month" value="{{ month_cursor.strftime('%Y-%m') }}" /></div>
+      <div><label>Month</label><input type="month" name="month" value="{{ month_anchor.strftime('%Y-%m') }}" /></div>
       <div><label>&nbsp;</label><button class="primary" type="submit">Go</button></div>
       <div><label>&nbsp;</label><a href="/ui/calendar?project_id={{ active_project.id }}&month={{ prev_month }}">← Prev</a></div>
       <div><label>&nbsp;</label><a href="/ui/calendar?project_id={{ active_project.id }}&month={{ next_month }}">Next →</a></div>
@@ -13,7 +13,6 @@
   </section>
 
   <section class="panel">
-    <div id="calendar-feedback" class="small muted" style="margin-bottom:8px">Drop an activity onto a day cell to move it.</div>
     <div class="calendar-board">
       {% for label in weekday_labels %}
         <div class="calendar-weekday">{{ label }}</div>
@@ -27,16 +26,19 @@
             </div>
             <div class="calendar-day-body">
               {% for activity in day.activities %}
-                <button
-                  type="button"
-                  class="calendar-chip status {{ activity.status.value|lower|replace(' ', '-') }}"
-                  draggable="true"
-                  data-activity-id="{{ activity.id }}"
-                  data-activity-code="{{ activity.activity_code }}"
-                  title="{{ activity.activity_name }} ({{ activity.status.value }})"
-                >
-                  {{ activity.activity_code }} · {{ activity.status.value }}
-                </button>
+                <article class="calendar-chip">
+                  <div class="small"><strong>{{ activity.activity_code }}</strong> · {{ activity.status.value }}</div>
+                  <div class="small muted">{{ activity.activity_name }}</div>
+                  <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/reschedule" class="calendar-move-form">
+                    <input
+                      type="date"
+                      name="target_date"
+                      value="{{ (activity.planned_start_date or day.day).isoformat() }}"
+                      required
+                    />
+                    <button class="primary" type="submit">Move</button>
+                  </form>
+                </article>
               {% endfor %}
             </div>
           </article>
@@ -44,67 +46,4 @@
       {% endfor %}
     </div>
   </section>
-
-  <script>
-    (() => {
-      const projectId = {{ active_project.id|tojson }};
-      const feedback = document.getElementById("calendar-feedback");
-      let draggedActivityId = null;
-      let draggedCode = "";
-
-      const chips = document.querySelectorAll(".calendar-chip");
-      chips.forEach((chip) => {
-        chip.addEventListener("dragstart", (event) => {
-          draggedActivityId = chip.dataset.activityId;
-          draggedCode = chip.dataset.activityCode || "";
-          if (event.dataTransfer) {
-            event.dataTransfer.setData("text/plain", draggedActivityId || "");
-            event.dataTransfer.effectAllowed = "move";
-          }
-          chip.classList.add("is-dragging");
-        });
-        chip.addEventListener("dragend", () => {
-          chip.classList.remove("is-dragging");
-        });
-      });
-
-      const cells = document.querySelectorAll(".calendar-day-cell");
-      cells.forEach((cell) => {
-        cell.addEventListener("dragover", (event) => {
-          event.preventDefault();
-          cell.classList.add("is-drop-target");
-          if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-        });
-        cell.addEventListener("dragleave", () => {
-          cell.classList.remove("is-drop-target");
-        });
-        cell.addEventListener("drop", async (event) => {
-          event.preventDefault();
-          cell.classList.remove("is-drop-target");
-          if (!draggedActivityId) return;
-          const targetDate = cell.dataset.day;
-          if (!targetDate) return;
-          if (feedback) feedback.textContent = `Moving ${draggedCode || draggedActivityId} to ${targetDate}...`;
-          const body = new URLSearchParams();
-          body.set("target_date", targetDate);
-          try {
-            const response = await fetch(`/ui/projects/${projectId}/activities/${draggedActivityId}/reschedule`, {
-              method: "POST",
-              headers: {"X-Requested-With": "XMLHttpRequest", "Content-Type": "application/x-www-form-urlencoded"},
-              body: body.toString(),
-            });
-            const payload = await response.json();
-            if (!response.ok || !payload.ok) {
-              const error = payload && payload.error ? payload.error : "Failed to reschedule activity";
-              if (feedback) feedback.textContent = error;
-              return;
-            }
-            window.location.reload();
-          } catch (_) {
-            if (feedback) feedback.textContent = "Network error while rescheduling activity.";
-          }
-        });
-      });
-    })();
-  </script>
 {% endblock %}

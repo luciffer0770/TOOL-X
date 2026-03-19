@@ -3,35 +3,61 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>PS-ETW - Login</title>
+    <title>PS-ETW | Preparation Planner | Sign In</title>
     <link rel="stylesheet" href="/ui-static/ui.css" />
   </head>
-  <body style="display:grid;place-items:center;min-height:100vh">
-    <section class="panel" style="width:min(420px,94vw)">
-      <h1>PS-ETW Login</h1>
-      <p class="muted">Python-first platform access</p>
+  <body class="login-body">
+    <main class="login-shell">
+      <section class="login-card">
+      <header class="login-header">
+        <p class="login-product">PS-ETW Preparation Planner</p>
+        <h1>Sign In</h1>
+      </header>
       {% if error %}
-        <div class="alert" style="background:#fff2f4;border-color:#f4c2cb;color:#9e2236">{{ error }}</div>
+        <div class="alert alert-error">{{ error }}</div>
       {% endif %}
-      <form method="post" action="/ui/login" class="form-grid">
-        <div>
+      {% if role_hint %}
+        <div class="alert login-fill-alert">Demo credentials loaded for {{ role_hint }}.</div>
+      {% endif %}
+      {% if info_message %}
+        <div class="alert login-info-alert">{{ info_message }}</div>
+      {% endif %}
+      <form method="post" action="/ui/login" class="login-form">
+        <div class="login-field">
           <label for="username">Username</label>
-          <input id="username" name="username" value="planner" required />
+          <input id="username" name="username" value="{{ prefill_username }}" placeholder="Enter username" required />
         </div>
-        <div>
+        <div class="login-field">
           <label for="password">Password</label>
-          <input id="password" type="password" name="password" value="planner123" required />
+          <input id="password" type="password" name="password" value="{{ prefill_password }}" placeholder="Enter password" required />
         </div>
-        <div>
-          <label><input type="checkbox" name="remember_me" value="true" /> Remember me</label>
-        </div>
-        <div>
-          <button class="primary" type="submit">Sign in</button>
+        <label class="login-remember">
+          <input type="checkbox" name="remember_me" value="true" {% if remember_me %}checked{% endif %} />
+          <span>Remember me (30 days)</span>
+        </label>
+        <div class="login-actions">
+          <button class="primary login-primary" type="submit">Sign In</button>
+          <a class="secondary-btn" href="/ui/login?demo_user=planner">Quick Demo (Planner)</a>
+          <a class="forgot-link" href="/ui/login?info=Contact+administrator+to+reset+password">Forgot password?</a>
         </div>
       </form>
-      <p class="small muted">
-        Demo users: planner/planner123, management/management123, technician/technician123
-      </p>
-    </section>
+
+      <section class="demo-users">
+        <h2>Demo Users</h2>
+        <p class="muted small">Use sample credentials for evaluation access.</p>
+        <div class="demo-list">
+          {% for card in demo_cards %}
+            <article class="demo-card demo-{{ card.key }}">
+              <div>
+                <strong>{{ card.label }}</strong>
+                <div class="small muted">username: {{ card.username }} | password: {{ card.password }}</div>
+              </div>
+              <a class="secondary-btn demo-fill" href="/ui/login?demo_user={{ card.key }}">Fill</a>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+      </section>
+    </main>
   </body>
 </html>

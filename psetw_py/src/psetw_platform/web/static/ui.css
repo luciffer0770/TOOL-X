@@ -22,6 +22,11 @@ body {
   background: var(--bg);
 }
 
+body.login-body {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #eef5ff 0%, #f7f9fd 45%, #f1f4f9 100%);
+}
+
 a {
   color: var(--primary);
   text-decoration: none;
@@ -319,18 +324,33 @@ button.danger {
 }
 
 .calendar-chip {
-  text-align: left;
+  display: grid;
+  gap: 4px;
   font-size: 11px;
   border-radius: 8px;
   border: 1px solid #c6d8f1;
   background: #eef4ff;
   color: #143052;
   padding: 6px 8px;
-  cursor: grab;
 }
 
-.calendar-chip.is-dragging {
-  opacity: 0.6;
+.calendar-move-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.calendar-move-form input {
+  height: 30px;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.calendar-move-form button {
+  width: auto;
+  min-width: 52px;
+  font-size: 11px;
+  padding: 6px 8px;
 }
 
 .data-grid-wrap {
@@ -389,6 +409,178 @@ button.danger {
   font-size: 12px;
 }
 
+.alert-error {
+  background: #fff1f3;
+  border-color: #f5c3cb;
+  color: #a52c3f;
+}
+
+.secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid #b9cef1;
+  border-radius: 10px;
+  background: #f3f8ff;
+  color: #245795;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+}
+
+.login-card {
+  width: min(560px, 94vw);
+  border: 1px solid #c4d5ec;
+  border-radius: 16px;
+  background: #f9fbff;
+  box-shadow: 0 8px 28px rgba(19, 53, 95, 0.08);
+  overflow: hidden;
+}
+
+.login-header {
+  text-align: center;
+  padding: 22px 22px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.login-header h1 {
+  margin: 0;
+  font-size: 52px;
+  line-height: 1;
+  color: #274875;
+}
+
+.login-product {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #5f7ea4;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.login-form {
+  padding: 16px 24px 12px;
+}
+
+.login-field {
+  margin-bottom: 12px;
+}
+
+.login-field label {
+  font-size: 13px;
+  color: #3b5f8a;
+}
+
+.login-field input {
+  height: 52px;
+  border-radius: 10px;
+  font-size: 22px;
+  padding: 10px 14px;
+}
+
+.login-remember {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 12px;
+  color: #6786aa;
+  font-size: 13px;
+}
+
+.login-remember input {
+  width: 16px;
+  height: 16px;
+}
+
+.login-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.login-primary {
+  min-height: 52px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ff3461 0%, #dc153f 100%);
+  border: 1px solid #d12046;
+  font-size: 34px;
+  font-weight: 700;
+}
+
+.login-primary:hover {
+  background: linear-gradient(180deg, #ff4a72 0%, #d7103a 100%);
+}
+
+.forgot-link {
+  text-align: center;
+  font-size: 13px;
+  color: #6f86a8;
+}
+
+.login-fill-alert {
+  margin: 14px 24px 0;
+  background: #eef6ff;
+  border-color: #c9dcf8;
+}
+
+.login-info-alert {
+  margin: 14px 24px 0;
+  background: #f3f8ff;
+}
+
+.demo-users {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  padding: 16px 24px 20px;
+}
+
+.demo-users h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.demo-list {
+  display: grid;
+  gap: 8px;
+}
+
+.demo-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #c7d7ec;
+  border-left-width: 3px;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 12px;
+}
+
+.demo-planner {
+  border-left-color: #ff526a;
+}
+
+.demo-management {
+  border-left-color: #4f86e5;
+}
+
+.demo-technician {
+  border-left-color: #1ba182;
+}
+
+.demo-fill {
+  min-width: 74px;
+}
+
 @media (max-width: 960px) {
   .layout {
     grid-template-columns: 1fr;
@@ -400,5 +592,22 @@ button.danger {
   }
   .sidebar a {
     margin: 0;
+  }
+  .login-header h1 {
+    font-size: 42px;
+  }
+  .login-field label {
+    font-size: 12px;
+  }
+  .login-field input {
+    font-size: 18px;
+    height: 48px;
+  }
+  .login-remember {
+    font-size: 12px;
+  }
+  .login-primary {
+    font-size: 28px;
+    min-height: 48px;
   }
 }
