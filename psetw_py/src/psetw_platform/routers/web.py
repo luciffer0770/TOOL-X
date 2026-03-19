@@ -2337,6 +2337,7 @@ def ui_calendar_shift_activity(
     set_end_date: Annotated[str, Form()] = "",
     set_actual_start_date: Annotated[str, Form()] = "",
     set_actual_end_date: Annotated[str, Form()] = "",
+    apply_dates: Annotated[str, Form()] = "",
     mark_started: Annotated[str, Form()] = "",
     mark_completed: Annotated[str, Form()] = "",
     month: Annotated[str, Form()] = "",
@@ -2374,18 +2375,19 @@ def ui_calendar_shift_activity(
     if shift_days != 0:
         _shift_activity_dates(activity, shift_days, scope, anchor)
 
-    planned_start = _parse_date(set_start_date)
-    planned_end = _parse_date(set_end_date)
-    actual_start = _parse_date(set_actual_start_date)
-    actual_end = _parse_date(set_actual_end_date)
-    if planned_start:
-        activity.planned_start_date = planned_start
-    if planned_end:
-        activity.planned_end_date = planned_end
-    if actual_start:
-        activity.actual_start_date = actual_start
-    if actual_end:
-        activity.actual_end_date = actual_end
+    if _coerce_form_bool(apply_dates):
+        planned_start = _parse_date(set_start_date)
+        planned_end = _parse_date(set_end_date)
+        actual_start = _parse_date(set_actual_start_date)
+        actual_end = _parse_date(set_actual_end_date)
+        if planned_start:
+            activity.planned_start_date = planned_start
+        if planned_end:
+            activity.planned_end_date = planned_end
+        if actual_start:
+            activity.actual_start_date = actual_start
+        if actual_end:
+            activity.actual_end_date = actual_end
     if _coerce_form_bool(mark_started):
         _apply_status_business_rules(activity, ActivityStatus.in_progress, anchor)
     if _coerce_form_bool(mark_completed):

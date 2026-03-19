@@ -577,6 +577,42 @@ def test_ui_calendar_reschedule_and_eod_logs(client: TestClient) -> None:
     assert updated[0]["planned_start_date"] == "2026-03-20"
     assert updated[0]["planned_end_date"] == "2026-03-22"
 
+    # Shift buttons must work even when date inputs are prefilled in the form.
+    shift_action = client.post(
+        f"/ui/projects/{project_id}/activities/{activity_id}/calendar-shift",
+        data={
+            "shift_days": "1",
+            "move_scope": "planned",
+            "month": "2026-03",
+            "set_start_date": "2026-03-20",
+            "set_end_date": "2026-03-22",
+        },
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert shift_action.status_code == 303
+
+    shifted = client.get(f"/api/v1/projects/{project_id}/activities", headers=headers).json()
+    assert shifted[0]["planned_start_date"] == "2026-03-21"
+    assert shifted[0]["planned_end_date"] == "2026-03-23"
+
+    apply_dates = client.post(
+        f"/ui/projects/{project_id}/activities/{activity_id}/calendar-shift",
+        data={
+            "apply_dates": "true",
+            "month": "2026-03",
+            "set_start_date": "2026-03-25",
+            "set_end_date": "2026-03-27",
+        },
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert apply_dates.status_code == 303
+
+    date_applied = client.get(f"/api/v1/projects/{project_id}/activities", headers=headers).json()
+    assert date_applied[0]["planned_start_date"] == "2026-03-25"
+    assert date_applied[0]["planned_end_date"] == "2026-03-27"
+
     create_eod = client.post(
         f"/ui/projects/{project_id}/eod-logs",
         data={

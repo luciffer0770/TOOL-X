@@ -151,7 +151,7 @@
           <div><label>Set Planned End</label><input type="date" name="set_end_date" value="{{ selected_activity.planned_end_date.isoformat() if selected_activity.planned_end_date else '' }}" /></div>
           <div><label>Set Actual Start</label><input type="date" name="set_actual_start_date" value="{{ selected_activity.actual_start_date.isoformat() if selected_activity.actual_start_date else '' }}" /></div>
           <div><label>Set Actual End</label><input type="date" name="set_actual_end_date" value="{{ selected_activity.actual_end_date.isoformat() if selected_activity.actual_end_date else '' }}" /></div>
-          <div><label>&nbsp;</label><button class="primary" type="submit">Apply Date Updates</button></div>
+          <div><label>&nbsp;</label><button class="primary" name="apply_dates" value="true" type="submit">Apply Date Updates</button></div>
           <div><label>&nbsp;</label><button class="secondary-btn" name="mark_started" value="true" type="submit">Mark Started</button></div>
           <div><label>&nbsp;</label><button class="secondary-btn" name="mark_completed" value="true" type="submit">Mark Completed</button></div>
           <div><label>&nbsp;</label><a class="secondary-btn" href="/ui/activities?project_id={{ active_project.id }}&highlight_id={{ selected_activity.id }}">Open in Activities</a></div>

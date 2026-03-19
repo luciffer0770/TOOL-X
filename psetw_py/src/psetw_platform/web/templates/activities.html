@@ -211,6 +211,18 @@
             <tr class="{% if highlight_id == activity.id %}row-highlight{% endif %}">
               <td class="sticky-col">
                 <input type="checkbox" name="selected_ids" value="{{ activity.id }}" form="bulk-form" />
+                <form id="activity-form-{{ activity.id }}" method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress">
+                  <input type="hidden" name="search" value="{{ search }}" />
+                  <input type="hidden" name="status_filter" value="{{ status_filter }}" />
+                  <input type="hidden" name="phase_filter" value="{{ phase_filter }}" />
+                  <input type="hidden" name="priority_filter" value="{{ priority_filter }}" />
+                  <input type="hidden" name="department_filter" value="{{ department_filter }}" />
+                  <input type="hidden" name="page" value="{{ page }}" />
+                  <input type="hidden" name="page_size" value="{{ page_size }}" />
+                  <input type="hidden" name="column_mode" value="{{ column_mode }}" />
+                  <input type="hidden" name="working_date" value="{{ today if today else '' }}" />
+                  <input type="hidden" name="risk_score" value="{{ activity.risk_score }}" />
+                </form>
               </td>
               <td class="sticky-col-2">
                 <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/insert-above" class="row-actions">
@@ -248,74 +260,64 @@
                 </form>
                 <a class="secondary-btn" href="/ui/calendar?project_id={{ active_project.id }}&selected_activity_id={{ activity.id }}&display_mode=mixed">Open Calendar</a>
               </td>
-              <td colspan="36">
-                <form method="post" action="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" class="inline-grid-form">
-                  <input type="hidden" name="search" value="{{ search }}" />
-                  <input type="hidden" name="status_filter" value="{{ status_filter }}" />
-                  <input type="hidden" name="phase_filter" value="{{ phase_filter }}" />
-                  <input type="hidden" name="priority_filter" value="{{ priority_filter }}" />
-                  <input type="hidden" name="department_filter" value="{{ department_filter }}" />
-                  <input type="hidden" name="page" value="{{ page }}" />
-                  <input type="hidden" name="page_size" value="{{ page_size }}" />
-                  <input type="hidden" name="column_mode" value="{{ column_mode }}" />
-                  <input type="hidden" name="working_date" value="{{ today if today else '' }}" />
-                  <input name="activity_code" value="{{ activity.activity_code }}" />
-                  <input name="activity_name" value="{{ activity.activity_name }}" />
-                  <input name="phase" value="{{ activity.phase }}" />
-                  <input name="sub_activity" value="{{ activity.sub_activity }}" />
-                  <input type="number" min="0" name="base_effort_hours" value="{{ activity.base_effort_hours }}" />
-                  <input name="required_materials" value="{{ activity.required_materials }}" />
-                  <input name="required_tools" value="{{ activity.required_tools }}" />
-                  <input name="material_ownership" value="{{ activity.material_ownership }}" />
-                  <input type="number" min="0" name="material_lead_time" value="{{ activity.material_lead_time }}" />
-                  <input name="dependencies" value="{{ activity.dependencies|join(', ') if activity.dependencies else '' }}" />
-                  <input type="date" name="planned_start_date" value="{{ activity.planned_start_date.isoformat() if activity.planned_start_date else '' }}" />
-                  <input type="date" name="planned_end_date" value="{{ activity.planned_end_date.isoformat() if activity.planned_end_date else '' }}" />
-                  <input type="number" min="0" name="planned_duration_hours" value="{{ activity.planned_duration_hours }}" />
-                  <input name="priority" value="{{ activity.priority }}" />
-                  <input name="shift_type" value="{{ activity.shift_type }}" />
-                  <input name="material_status" value="{{ activity.material_status }}" />
-                  <input name="material_supplier" value="{{ activity.material_supplier }}" />
-                  <input type="date" name="material_required_date" value="{{ activity.material_required_date.isoformat() if activity.material_required_date else '' }}" />
-                  <input type="date" name="material_received_date" value="{{ activity.material_received_date.isoformat() if activity.material_received_date else '' }}" />
-                  <input name="material_criticality" value="{{ activity.material_criticality }}" />
-                  <input type="date" name="actual_start_date" value="{{ activity.actual_start_date.isoformat() if activity.actual_start_date else '' }}" />
-                  <input type="date" name="actual_end_date" value="{{ activity.actual_end_date.isoformat() if activity.actual_end_date else '' }}" />
-                  <select name="status">
-                    <option value="Not Started" {% if activity.status.value == "Not Started" %}selected{% endif %}>Not Started</option>
-                    <option value="In Progress" {% if activity.status.value == "In Progress" %}selected{% endif %}>In Progress</option>
-                    <option value="On Hold" {% if activity.status.value in ["Blocked"] %}selected{% endif %}>On Hold</option>
-                    <option value="Delayed" {% if activity.status.value == "Delayed" %}selected{% endif %}>Delayed</option>
-                    <option value="Completed" {% if activity.status.value == "Completed" %}selected{% endif %}>Completed</option>
-                  </select>
-                  <input type="number" min="0" max="100" name="completion_percentage" value="{{ activity.completion_percentage }}" />
-                  <input name="risk_level" value="{{ activity.risk_level }}" />
-                  <input name="delay_reason" value="{{ activity.delay_reason }}" />
-                  <input name="dependency_type" value="{{ activity.dependency_type }}" />
-                  <input name="override_approved_by" value="{{ activity.override_approved_by }}" />
-                  <input type="number" min="0" name="estimated_cost" value="{{ activity.estimated_cost }}" />
-                  <input type="number" min="0" name="actual_cost" value="{{ activity.actual_cost }}" />
-                  <input name="cost_center" value="{{ activity.cost_center }}" />
-                  <input name="remarks" value="{{ activity.remarks }}" />
-                  <div class="small muted">{{ activity.last_modified_by or "-" }}</div>
-                  <div class="small muted">{{ activity.last_modified_date or "-" }}</div>
-                  <div class="small muted">
-                    {% for warning in warnings_by_id.get(activity.id, []) %}
-                      <div>{{ warning }}</div>
-                    {% else %}
-                      <span>No warnings</span>
-                    {% endfor %}
-                  </div>
-                  <div class="row-actions">
-                    <button class="primary" type="submit">Save</button>
-                    <input type="hidden" name="risk_score" value="{{ activity.risk_score }}" />
-                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Not Started" type="submit">Not Started</button>
-                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="In Progress" type="submit">In Progress</button>
-                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="On Hold" type="submit">On Hold</button>
-                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Delayed" type="submit">Delayed</button>
-                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Completed" type="submit">Completed</button>
-                  </div>
-                </form>
+              <td><input form="activity-form-{{ activity.id }}" name="activity_code" value="{{ activity.activity_code }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="activity_name" value="{{ activity.activity_name }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="phase" value="{{ activity.phase }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="sub_activity" value="{{ activity.sub_activity }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" type="number" min="0" name="base_effort_hours" value="{{ activity.base_effort_hours }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="required_materials" value="{{ activity.required_materials }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="required_tools" value="{{ activity.required_tools }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="material_ownership" value="{{ activity.material_ownership }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" type="number" min="0" name="material_lead_time" value="{{ activity.material_lead_time }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="dependencies" value="{{ activity.dependencies|join(', ') if activity.dependencies else '' }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" type="date" name="planned_start_date" value="{{ activity.planned_start_date.isoformat() if activity.planned_start_date else '' }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" type="date" name="planned_end_date" value="{{ activity.planned_end_date.isoformat() if activity.planned_end_date else '' }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" type="number" min="0" name="planned_duration_hours" value="{{ activity.planned_duration_hours }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="priority" value="{{ activity.priority }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="shift_type" value="{{ activity.shift_type }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="material_status" value="{{ activity.material_status }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="material_supplier" value="{{ activity.material_supplier }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" type="date" name="material_required_date" value="{{ activity.material_required_date.isoformat() if activity.material_required_date else '' }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" type="date" name="material_received_date" value="{{ activity.material_received_date.isoformat() if activity.material_received_date else '' }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="material_criticality" value="{{ activity.material_criticality }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" type="date" name="actual_start_date" value="{{ activity.actual_start_date.isoformat() if activity.actual_start_date else '' }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" type="date" name="actual_end_date" value="{{ activity.actual_end_date.isoformat() if activity.actual_end_date else '' }}" /></td>
+              <td>
+                <select form="activity-form-{{ activity.id }}" name="status">
+                  <option value="Not Started" {% if activity.status.value == "Not Started" %}selected{% endif %}>Not Started</option>
+                  <option value="In Progress" {% if activity.status.value == "In Progress" %}selected{% endif %}>In Progress</option>
+                  <option value="On Hold" {% if activity.status.value in ["Blocked"] %}selected{% endif %}>On Hold</option>
+                  <option value="Delayed" {% if activity.status.value == "Delayed" %}selected{% endif %}>Delayed</option>
+                  <option value="Completed" {% if activity.status.value == "Completed" %}selected{% endif %}>Completed</option>
+                </select>
+              </td>
+              <td><input form="activity-form-{{ activity.id }}" type="number" min="0" max="100" name="completion_percentage" value="{{ activity.completion_percentage }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="risk_level" value="{{ activity.risk_level }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="delay_reason" value="{{ activity.delay_reason }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="dependency_type" value="{{ activity.dependency_type }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="override_approved_by" value="{{ activity.override_approved_by }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" type="number" min="0" name="estimated_cost" value="{{ activity.estimated_cost }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" type="number" min="0" name="actual_cost" value="{{ activity.actual_cost }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="cost_center" value="{{ activity.cost_center }}" /></td>
+              <td><input form="activity-form-{{ activity.id }}" name="remarks" value="{{ activity.remarks }}" /></td>
+              <td class="small muted">{{ activity.last_modified_by or "-" }}</td>
+              <td class="small muted">{{ activity.last_modified_date or "-" }}</td>
+              <td class="small muted warning-cell">
+                {% for warning in warnings_by_id.get(activity.id, []) %}
+                  <div>{{ warning }}</div>
+                {% else %}
+                  <span>No warnings</span>
+                {% endfor %}
+              </td>
+              <td>
+                <div class="row-actions">
+                  <button class="primary" form="activity-form-{{ activity.id }}" type="submit">Save</button>
+                  <button class="secondary-btn" form="activity-form-{{ activity.id }}" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Not Started" type="submit">Not Started</button>
+                  <button class="secondary-btn" form="activity-form-{{ activity.id }}" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="In Progress" type="submit">In Progress</button>
+                  <button class="secondary-btn" form="activity-form-{{ activity.id }}" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="On Hold" type="submit">On Hold</button>
+                  <button class="secondary-btn" form="activity-form-{{ activity.id }}" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Delayed" type="submit">Delayed</button>
+                  <button class="secondary-btn" form="activity-form-{{ activity.id }}" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Completed" type="submit">Completed</button>
+                </div>
               </td>
             </tr>
           {% else %}
