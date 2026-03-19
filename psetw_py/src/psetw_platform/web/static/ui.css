@@ -403,6 +403,10 @@ th {
   white-space: nowrap;
 }
 
+.activities-grid th {
+  position: static;
+}
+
 .activities-grid td input,
 .activities-grid td select {
   min-height: 32px;
@@ -427,6 +431,8 @@ th {
 }
 
 .activities-grid thead .sticky-activity-name {
+  position: sticky;
+  left: 0;
   z-index: 4;
   background: #eaf2fe;
 }
