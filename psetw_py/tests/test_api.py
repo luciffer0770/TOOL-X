@@ -366,7 +366,7 @@ def test_server_rendered_ui_login_and_pages(client: TestClient) -> None:
 
     calendar_page = client.get(f"/ui/calendar?project_id={project_id}", cookies=cookies)
     assert calendar_page.status_code == 200
-    assert "Reschedule activities directly from calendar cards." in calendar_page.text
+    assert "Calendar Scheduling Console" in calendar_page.text
 
     delay_page = client.get(f"/ui/delay-optimization?project_id={project_id}", cookies=cookies)
     assert delay_page.status_code == 200

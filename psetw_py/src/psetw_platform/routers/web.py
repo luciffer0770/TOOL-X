@@ -727,12 +727,24 @@ def _activity_window(activity: Activity, display_mode: str) -> tuple[date, date]
     return (start, end)
 
 
-def _collect_activity_warnings(activity: Activity, by_code: dict[str, Activity], today: date | None = None) -> list[str]:
+def _collect_activity_warnings(
+    activity: Activity,
+    by_code: dict[str, Activity],
+    today: date | None = None,
+) -> list[str]:
     anchor = today or date.today()
     warnings: list[str] = []
-    if activity.planned_start_date and activity.planned_end_date and activity.planned_end_date < activity.planned_start_date:
+    if (
+        activity.planned_start_date
+        and activity.planned_end_date
+        and activity.planned_end_date < activity.planned_start_date
+    ):
         warnings.append("Planned end date is before planned start date.")
-    if activity.actual_start_date and activity.actual_end_date and activity.actual_end_date < activity.actual_start_date:
+    if (
+        activity.actual_start_date
+        and activity.actual_end_date
+        and activity.actual_end_date < activity.actual_start_date
+    ):
         warnings.append("Actual end date is before actual start date.")
     if activity.completion_percentage < 0 or activity.completion_percentage > 100:
         warnings.append("Completion percentage must be between 0 and 100.")
@@ -1334,7 +1346,11 @@ def _insert_activity_relative(
         next_ts = anchor_activity.created_at
     else:
         prev_ts = anchor_activity.created_at
-        next_ts = rows[index + 1].created_at if index + 1 < len(rows) else anchor_activity.created_at + timedelta(seconds=2)
+        next_ts = (
+            rows[index + 1].created_at
+            if index + 1 < len(rows)
+            else anchor_activity.created_at + timedelta(seconds=2)
+        )
     if next_ts <= prev_ts:
         next_ts = prev_ts + timedelta(seconds=2)
     midpoint = prev_ts + ((next_ts - prev_ts) / 2)
@@ -2107,7 +2123,13 @@ def ui_calendar(
 
     phase_options = sorted({activity.phase for activity in activities if activity.phase.strip()})
     status_options = [status.value for status in ActivityStatus]
-    department_options = sorted({activity.resource_department for activity in activities if activity.resource_department.strip()})
+    department_options = sorted(
+        {
+            activity.resource_department
+            for activity in activities
+            if activity.resource_department.strip()
+        }
+    )
 
     if month:
         try:
