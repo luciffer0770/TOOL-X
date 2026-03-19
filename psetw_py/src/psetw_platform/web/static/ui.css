@@ -527,6 +527,59 @@ th {
   font-weight: 700;
 }
 
+.project-actions-wrap {
+  display: grid;
+  gap: 10px;
+}
+
+.project-action-load {
+  display: grid;
+  grid-template-columns: minmax(320px, 2fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.project-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.project-action-buttons form {
+  margin: 0;
+}
+
+.project-action-buttons button {
+  width: auto;
+}
+
+.project-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 8px 10px;
+}
+
+.project-team-add-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 8px 10px;
+  margin-bottom: 10px;
+}
+
+.project-team-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(130px, 0.8fr) minmax(130px, 0.8fr) minmax(180px, 1fr) minmax(130px, 0.8fr) minmax(140px, 0.8fr) minmax(180px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.project-team-row-actions {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 6px;
+  align-items: center;
+}
+
 .metric-list {
   display: grid;
   gap: 8px;
@@ -768,6 +821,18 @@ body.login-body {
   .two-col {
     grid-template-columns: 1fr;
   }
+  .project-info-grid {
+    grid-template-columns: 1fr;
+  }
+  .project-team-add-grid {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+  .project-team-row {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+  .project-team-row-actions {
+    grid-template-columns: 1fr;
+  }
   .engine-upload-grid {
     grid-template-columns: repeat(2, minmax(170px, 1fr));
   }
@@ -794,6 +859,13 @@ body.login-body {
   }
   .engine-upload-grid,
   .engine-filter-grid {
+    grid-template-columns: 1fr;
+  }
+  .project-action-load {
+    grid-template-columns: 1fr;
+  }
+  .project-team-add-grid,
+  .project-team-row {
     grid-template-columns: 1fr;
   }
   .form-actions-left > button,

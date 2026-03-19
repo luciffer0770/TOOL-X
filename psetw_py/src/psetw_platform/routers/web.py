@@ -32,6 +32,7 @@ from psetw_platform.models import (
     EngineDocument,
     EodLog,
     Project,
+    ProjectTeamMember,
     User,
     UserRole,
 )
@@ -60,6 +61,7 @@ LOGIN_DEMO_USERS: dict[str, tuple[str, str, str]] = {
     "technician": ("Technician", "technician", "technician123"),
 }
 ENGINE_UPLOAD_EXTENSIONS = {".xlsx", ".xls", ".csv", ".docx"}
+PROJECT_ACCESS_LEVELS = ["Planner", "Management", "Technician", "Viewer", "Admin"]
 ACTIVITY_EXPORT_COLUMNS: list[tuple[str, str]] = [
     ("Activity ID", "activity_code"),
     ("Activity Name", "activity_name"),
@@ -201,11 +203,53 @@ def _login_redirect() -> RedirectResponse:
     return RedirectResponse(url="/ui/login", status_code=303)
 
 
+def _next_project_code(existing_codes: set[str]) -> str:
+    counter = 1
+    while True:
+        candidate = f"PRJ-{counter:04d}"
+        if candidate not in existing_codes:
+            return candidate
+        counter += 1
+
+
+def _normalized_project_code(raw: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_/-]", "-", raw.strip().upper())
+    return re.sub(r"-{2,}", "-", cleaned).strip("-")
+
+
 def _ensure_projects(db: DBSession, user: User) -> list[Project]:
-    projects = list(db.scalars(select(Project).order_by(Project.updated_at.desc())).all())
+    projects = list(
+        db.scalars(
+            select(Project).where(Project.is_archived.is_(False)).order_by(Project.updated_at.desc())
+        ).all()
+    )
+    known_codes = {
+        project.project_code.strip().upper()
+        for project in projects
+        if project.project_code.strip()
+    }
+    changed = False
+    for project in projects:
+        if not project.project_code.strip():
+            project.project_code = _next_project_code(known_codes)
+            known_codes.add(project.project_code)
+            project.updated_by = user.username
+            changed = True
+        if not project.name.strip():
+            project.name = project.project_code
+            changed = True
+    if changed:
+        db.commit()
     if projects:
         return projects
-    project = Project(name="Project 1", created_by=user.username)
+    project_code = _next_project_code(known_codes)
+    project = Project(
+        name="Project 1",
+        project_code=project_code,
+        created_by=user.username,
+        updated_by=user.username,
+        project_manager=user.display_name,
+    )
     db.add(project)
     db.commit()
     db.refresh(project)
@@ -238,6 +282,53 @@ def _base_context(
         "message": message,
         "status_values": [status.value for status in ActivityStatus],
     }
+
+
+def _project_setup_redirect(project_id: str = "", message: str = "") -> RedirectResponse:
+    payload: dict[str, str] = {}
+    if project_id:
+        payload["project_id"] = project_id
+    if message:
+        payload["message"] = message
+    query = urlencode(payload)
+    suffix = f"?{query}" if query else ""
+    return RedirectResponse(url=f"/ui/project-setup{suffix}", status_code=303)
+
+
+def _parse_non_negative_int(raw: str, fallback: int) -> int:
+    value = raw.strip()
+    if not value:
+        return fallback
+    try:
+        return max(0, int(value))
+    except ValueError:
+        return fallback
+
+
+def _looks_like_email(raw: str) -> bool:
+    if not raw.strip():
+        return True
+    return bool(re.match(r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", raw.strip()))
+
+
+def _project_readiness_issues(project: Project) -> list[str]:
+    issues: list[str] = []
+    if not project.project_code.strip():
+        issues.append("Project Code is required.")
+    if not project.name.strip():
+        issues.append("Project Name is required.")
+    if not project.customer_oem.strip():
+        issues.append("Customer / OEM is required.")
+    if project.planned_start_date and project.target_finish_date:
+        if project.target_finish_date < project.planned_start_date:
+            issues.append("Target Finish Date must be after Planned Start Date.")
+    if project.working_hours_per_day <= 0:
+        issues.append("Working Hours/Day must be greater than zero.")
+    if project.warning_threshold_days < 0 or project.critical_threshold_days < 0:
+        issues.append("Threshold values cannot be negative.")
+    if project.critical_threshold_days < project.warning_threshold_days:
+        issues.append("Critical Threshold should be greater than or equal to Warning Threshold.")
+    return issues
 
 
 def _normalize_header(value: object) -> str:
@@ -2693,26 +2784,468 @@ def ui_download_engine_document(
     return Response(content=document.content_blob, media_type=document.content_type, headers=headers)
 
 
-@router.get("/ui/settings", response_class=HTMLResponse, include_in_schema=False)
-def ui_settings(
+@router.get("/ui/project-setup", response_class=HTMLResponse, include_in_schema=False)
+def ui_project_setup(
     request: Request,
     db: DBSession,
     project_id: str | None = None,
+    message: str = "",
 ) -> Response:
     user = _get_cookie_user(request, db)
     if user is None:
         return _login_redirect()
     projects = _ensure_projects(db, user)
     active_project = _resolve_project(projects, project_id)
+    team_members = list(
+        db.scalars(
+            select(ProjectTeamMember)
+            .where(ProjectTeamMember.project_id == active_project.id)
+            .order_by(ProjectTeamMember.sort_order.asc(), ProjectTeamMember.created_at.asc())
+        ).all()
+    )
+    readiness_issues = _project_readiness_issues(active_project)
     return _render_planning_page(
         request,
         db,
         active_project.id,
-        "settings.html",
-        "/ui/settings",
-        "Settings",
-        {"today": date.today().isoformat()},
+        "project_setup.html",
+        "/ui/project-setup",
+        "Project Setup",
+        {
+            "team_members": team_members,
+            "access_levels": PROJECT_ACCESS_LEVELS,
+            "readiness_issues": readiness_issues,
+            "project_status": "Ready" if not readiness_issues else "Draft",
+        },
+        message=message,
     )
+
+
+@router.post("/ui/project-setup/new", include_in_schema=False)
+def ui_project_setup_new_project(
+    request: Request,
+    db: DBSession,
+    project_name: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if user.role not in {UserRole.planner, UserRole.management}:
+        return _project_setup_redirect(message="Only planning or management can create projects.")
+
+    projects = _ensure_projects(db, user)
+    existing_codes = {
+        project.project_code.strip().upper()
+        for project in projects
+        if project.project_code.strip()
+    }
+    new_code = _next_project_code(existing_codes)
+    project = Project(
+        name=project_name.strip() or f"Project {len(projects) + 1}",
+        project_code=new_code,
+        created_by=user.username,
+        updated_by=user.username,
+        project_manager=user.display_name,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return _project_setup_redirect(project.id, "New project created.")
+
+
+@router.post("/ui/projects/{project_id}/project-setup/save", include_in_schema=False)
+def ui_project_setup_save_project(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    project_code: Annotated[str, Form()] = "",
+    project_name: Annotated[str, Form()] = "",
+    customer_oem: Annotated[str, Form()] = "",
+    engine_type: Annotated[str, Form()] = "",
+    engine_serial_no: Annotated[str, Form()] = "",
+    trolley_code: Annotated[str, Form()] = "",
+    trolley_location: Annotated[str, Form()] = "",
+    project_manager: Annotated[str, Form()] = "",
+    planned_start_date: Annotated[str, Form()] = "",
+    target_finish_date: Annotated[str, Form()] = "",
+    contract_reference: Annotated[str, Form()] = "",
+    working_hours_per_day: Annotated[str, Form()] = "",
+    warning_threshold_days: Annotated[str, Form()] = "",
+    critical_threshold_days: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if user.role not in {UserRole.planner, UserRole.management}:
+        return _project_setup_redirect(project_id, "Only planning or management can save projects.")
+
+    project = db.scalar(select(Project).where(Project.id == project_id, Project.is_archived.is_(False)))
+    if project is None:
+        return _project_setup_redirect(message="Project not found.")
+
+    normalized_code = _normalized_project_code(project_code)
+    errors: list[str] = []
+    if not normalized_code:
+        errors.append("Project Code is required.")
+    if not project_name.strip():
+        errors.append("Project Name is required.")
+    if not customer_oem.strip():
+        errors.append("Customer / OEM is required.")
+
+    start_date = _parse_date(planned_start_date)
+    finish_date = _parse_date(target_finish_date)
+    if planned_start_date.strip() and start_date is None:
+        errors.append("Planned Start Date is invalid.")
+    if target_finish_date.strip() and finish_date is None:
+        errors.append("Target Finish Date is invalid.")
+    if start_date and finish_date and finish_date < start_date:
+        errors.append("Target Finish Date must be after Planned Start Date.")
+
+    try:
+        hours = int(working_hours_per_day.strip())
+    except ValueError:
+        hours = -1
+    if hours <= 0:
+        errors.append("Working Hours/Day must be greater than zero.")
+
+    try:
+        warning_days = int(warning_threshold_days.strip())
+    except ValueError:
+        warning_days = -1
+    try:
+        critical_days = int(critical_threshold_days.strip())
+    except ValueError:
+        critical_days = -1
+
+    if warning_days < 0:
+        errors.append("Warning Threshold must be zero or greater.")
+    if critical_days < 0:
+        errors.append("Critical Threshold must be zero or greater.")
+    if warning_days >= 0 and critical_days >= 0 and critical_days < warning_days:
+        errors.append("Critical Threshold should be greater than or equal to Warning Threshold.")
+
+    if normalized_code:
+        duplicate = db.scalar(
+            select(Project).where(
+                Project.id != project_id,
+                Project.is_archived.is_(False),
+                Project.project_code == normalized_code,
+            )
+        )
+        if duplicate is not None:
+            errors.append("Project Code already exists.")
+
+    if errors:
+        return _project_setup_redirect(project_id, "Cannot save project: " + " | ".join(dict.fromkeys(errors)))
+
+    project.project_code = normalized_code
+    project.name = project_name.strip()
+    project.customer_oem = customer_oem.strip()
+    project.engine_type = engine_type.strip()
+    project.engine_serial_no = engine_serial_no.strip()
+    project.trolley_code = trolley_code.strip()
+    project.trolley_location = trolley_location.strip()
+    project.project_manager = project_manager.strip()
+    project.planned_start_date = start_date
+    project.target_finish_date = finish_date
+    project.contract_reference = contract_reference.strip()
+    project.working_hours_per_day = hours
+    project.warning_threshold_days = warning_days
+    project.critical_threshold_days = critical_days
+    project.updated_by = user.username
+    db.commit()
+    return _project_setup_redirect(project.id, "Project information saved.")
+
+
+@router.post("/ui/projects/{project_id}/project-setup/duplicate", include_in_schema=False)
+def ui_project_setup_duplicate_project(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if user.role not in {UserRole.planner, UserRole.management}:
+        return _project_setup_redirect(project_id, "Only planning or management can duplicate projects.")
+
+    source = db.scalar(select(Project).where(Project.id == project_id, Project.is_archived.is_(False)))
+    if source is None:
+        return _project_setup_redirect(message="Project not found.")
+
+    projects = _ensure_projects(db, user)
+    existing_codes = {
+        project.project_code.strip().upper()
+        for project in projects
+        if project.project_code.strip()
+    }
+    clone = Project(
+        name=f"{source.name} Copy",
+        project_code=_next_project_code(existing_codes),
+        customer_oem=source.customer_oem,
+        engine_type=source.engine_type,
+        engine_serial_no=source.engine_serial_no,
+        trolley_code=source.trolley_code,
+        trolley_location=source.trolley_location,
+        project_manager=source.project_manager,
+        planned_start_date=source.planned_start_date,
+        target_finish_date=source.target_finish_date,
+        contract_reference=source.contract_reference,
+        working_hours_per_day=source.working_hours_per_day,
+        warning_threshold_days=source.warning_threshold_days,
+        critical_threshold_days=source.critical_threshold_days,
+        created_by=user.username,
+        updated_by=user.username,
+    )
+    db.add(clone)
+    db.flush()
+
+    members = list(
+        db.scalars(
+            select(ProjectTeamMember)
+            .where(ProjectTeamMember.project_id == source.id)
+            .order_by(ProjectTeamMember.sort_order.asc(), ProjectTeamMember.created_at.asc())
+        ).all()
+    )
+    for member in members:
+        db.add(
+            ProjectTeamMember(
+                project_id=clone.id,
+                name=member.name,
+                role=member.role,
+                department=member.department,
+                email=member.email,
+                phone=member.phone,
+                access_level=member.access_level,
+                notes=member.notes,
+                sort_order=member.sort_order,
+            )
+        )
+    db.commit()
+    db.refresh(clone)
+    return _project_setup_redirect(clone.id, "Project duplicated.")
+
+
+@router.post("/ui/projects/{project_id}/project-setup/archive", include_in_schema=False)
+def ui_project_setup_archive_project(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if user.role not in {UserRole.planner, UserRole.management}:
+        return _project_setup_redirect(project_id, "Only planning or management can archive projects.")
+
+    projects = _ensure_projects(db, user)
+    if len(projects) <= 1:
+        return _project_setup_redirect(project_id, "Cannot archive the only active project.")
+
+    project = db.scalar(select(Project).where(Project.id == project_id, Project.is_archived.is_(False)))
+    if project is None:
+        return _project_setup_redirect(message="Project not found.")
+    project.is_archived = True
+    project.updated_by = user.username
+    db.commit()
+
+    next_projects = _ensure_projects(db, user)
+    return _project_setup_redirect(next_projects[0].id, "Project archived.")
+
+
+@router.post("/ui/projects/{project_id}/team-members", include_in_schema=False)
+def ui_project_setup_add_team_member(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    name: Annotated[str, Form()] = "",
+    role: Annotated[str, Form()] = "",
+    department: Annotated[str, Form()] = "",
+    email: Annotated[str, Form()] = "",
+    phone: Annotated[str, Form()] = "",
+    access_level: Annotated[str, Form()] = "Viewer",
+    notes: Annotated[str, Form()] = "",
+    insert_after_id: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if user.role not in {UserRole.planner, UserRole.management}:
+        return _project_setup_redirect(project_id, "Only planning or management can edit team members.")
+    if not _looks_like_email(email):
+        return _project_setup_redirect(project_id, "Team member email address is invalid.")
+
+    project = db.scalar(select(Project).where(Project.id == project_id, Project.is_archived.is_(False)))
+    if project is None:
+        return _project_setup_redirect(message="Project not found.")
+
+    members = list(
+        db.scalars(
+            select(ProjectTeamMember)
+            .where(ProjectTeamMember.project_id == project_id)
+            .order_by(ProjectTeamMember.sort_order.asc(), ProjectTeamMember.created_at.asc())
+        ).all()
+    )
+    sort_order = members[-1].sort_order + 1 if members else 1
+    if insert_after_id.strip():
+        anchor = next((member for member in members if member.id == insert_after_id), None)
+        if anchor is not None:
+            for member in reversed(members):
+                if member.sort_order > anchor.sort_order:
+                    member.sort_order += 1
+            sort_order = anchor.sort_order + 1
+
+    db.add(
+        ProjectTeamMember(
+            project_id=project_id,
+            name=name.strip(),
+            role=role.strip(),
+            department=department.strip(),
+            email=email.strip(),
+            phone=phone.strip(),
+            access_level=access_level if access_level in PROJECT_ACCESS_LEVELS else "Viewer",
+            notes=notes.strip(),
+            sort_order=sort_order,
+        )
+    )
+    project.updated_by = user.username
+    db.commit()
+    return _project_setup_redirect(project_id, "Team member row added.")
+
+
+@router.post("/ui/projects/{project_id}/team-members/{member_id}/add-below", include_in_schema=False)
+def ui_project_setup_add_team_member_below(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    member_id: str,
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if user.role not in {UserRole.planner, UserRole.management}:
+        return _project_setup_redirect(project_id, "Only planning or management can edit team members.")
+
+    anchor = db.scalar(
+        select(ProjectTeamMember).where(ProjectTeamMember.project_id == project_id, ProjectTeamMember.id == member_id)
+    )
+    if anchor is None:
+        return _project_setup_redirect(project_id, "Team member row not found.")
+
+    members = list(
+        db.scalars(
+            select(ProjectTeamMember)
+            .where(ProjectTeamMember.project_id == project_id)
+            .order_by(ProjectTeamMember.sort_order.asc(), ProjectTeamMember.created_at.asc())
+        ).all()
+    )
+    for member in reversed(members):
+        if member.sort_order > anchor.sort_order:
+            member.sort_order += 1
+    db.add(
+        ProjectTeamMember(
+            project_id=project_id,
+            access_level="Viewer",
+            sort_order=anchor.sort_order + 1,
+        )
+    )
+    project = db.scalar(select(Project).where(Project.id == project_id))
+    if project is not None:
+        project.updated_by = user.username
+    db.commit()
+    return _project_setup_redirect(project_id, "Inserted team row below.")
+
+
+@router.post("/ui/projects/{project_id}/team-members/{member_id}/update", include_in_schema=False)
+def ui_project_setup_update_team_member(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    member_id: str,
+    name: Annotated[str, Form()] = "",
+    role: Annotated[str, Form()] = "",
+    department: Annotated[str, Form()] = "",
+    email: Annotated[str, Form()] = "",
+    phone: Annotated[str, Form()] = "",
+    access_level: Annotated[str, Form()] = "Viewer",
+    notes: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if user.role not in {UserRole.planner, UserRole.management}:
+        return _project_setup_redirect(project_id, "Only planning or management can edit team members.")
+    if not _looks_like_email(email):
+        return _project_setup_redirect(project_id, "Team member email address is invalid.")
+
+    member = db.scalar(
+        select(ProjectTeamMember).where(ProjectTeamMember.project_id == project_id, ProjectTeamMember.id == member_id)
+    )
+    if member is None:
+        return _project_setup_redirect(project_id, "Team member row not found.")
+
+    member.name = name.strip()
+    member.role = role.strip()
+    member.department = department.strip()
+    member.email = email.strip()
+    member.phone = phone.strip()
+    member.access_level = access_level if access_level in PROJECT_ACCESS_LEVELS else "Viewer"
+    member.notes = notes.strip()
+    project = db.scalar(select(Project).where(Project.id == project_id))
+    if project is not None:
+        project.updated_by = user.username
+    db.commit()
+    return _project_setup_redirect(project_id, "Team member updated.")
+
+
+@router.post("/ui/projects/{project_id}/team-members/{member_id}/delete", include_in_schema=False)
+def ui_project_setup_delete_team_member(
+    request: Request,
+    db: DBSession,
+    project_id: str,
+    member_id: str,
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    if user.role not in {UserRole.planner, UserRole.management}:
+        return _project_setup_redirect(project_id, "Only planning or management can edit team members.")
+
+    member = db.scalar(
+        select(ProjectTeamMember).where(ProjectTeamMember.project_id == project_id, ProjectTeamMember.id == member_id)
+    )
+    if member is None:
+        return _project_setup_redirect(project_id, "Team member row not found.")
+    db.delete(member)
+
+    ordered_members = list(
+        db.scalars(
+            select(ProjectTeamMember)
+            .where(ProjectTeamMember.project_id == project_id)
+            .order_by(ProjectTeamMember.sort_order.asc(), ProjectTeamMember.created_at.asc())
+        ).all()
+    )
+    for index, row in enumerate(ordered_members, start=1):
+        row.sort_order = index
+    project = db.scalar(select(Project).where(Project.id == project_id))
+    if project is not None:
+        project.updated_by = user.username
+    db.commit()
+    return _project_setup_redirect(project_id, "Team member deleted.")
+
+
+@router.get("/ui/settings", response_class=HTMLResponse, include_in_schema=False)
+def ui_settings_legacy_redirect(
+    request: Request,
+    db: DBSession,
+    project_id: str | None = None,
+) -> RedirectResponse:
+    user = _get_cookie_user(request, db)
+    if user is None:
+        return _login_redirect()
+    projects = _ensure_projects(db, user)
+    active_project = _resolve_project(projects, project_id)
+    return _project_setup_redirect(active_project.id)
 
 
 @router.get("/ui/anomaly-center", response_class=HTMLResponse, include_in_schema=False)

@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel panel-tight">
+    <h1>Project Setup</h1>
+    <p class="muted">Create and manage project master information used across the platform.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Project Selector &amp; Actions</h2>
+    <div class="project-actions-wrap">
+      <form method="get" action="/ui/project-setup" class="project-action-load">
+        <div>
+          <label>Existing Project</label>
+          <select name="project_id">
+            {% for project in projects %}
+              <option value="{{ project.id }}" {% if project.id == active_project.id %}selected{% endif %}>
+                {{ project.project_code or "-" }} — {{ project.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-actions-left">
+          <button class="secondary-btn" type="submit">Load Project</button>
+        </div>
+      </form>
+
+      <div class="project-action-buttons">
+        <form method="post" action="/ui/project-setup/new">
+          <input type="hidden" name="project_name" value="{{ active_project.name }} Copy Draft" />
+          <button class="secondary-btn" type="submit">New Project</button>
+        </form>
+        <button class="primary" form="project-save-form" type="submit">Save Project</button>
+        <form method="post" action="/ui/projects/{{ active_project.id }}/project-setup/duplicate">
+          <button class="secondary-btn" type="submit">Duplicate Project</button>
+        </form>
+        <form method="post" action="/ui/projects/{{ active_project.id }}/project-setup/archive">
+          <button class="danger" type="submit">Archive Project</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Project Information</h2>
+    <form id="project-save-form" method="post" action="/ui/projects/{{ active_project.id }}/project-setup/save" class="project-info-grid">
+      <div><label>Project Code</label><input name="project_code" value="{{ active_project.project_code }}" required /></div>
+      <div><label>Project Name</label><input name="project_name" value="{{ active_project.name }}" required /></div>
+      <div><label>Customer / OEM</label><input name="customer_oem" value="{{ active_project.customer_oem }}" required /></div>
+      <div><label>Engine Type</label><input name="engine_type" value="{{ active_project.engine_type }}" /></div>
+      <div><label>Engine Serial No.</label><input name="engine_serial_no" value="{{ active_project.engine_serial_no }}" /></div>
+      <div><label>Trolley Code</label><input name="trolley_code" value="{{ active_project.trolley_code }}" /></div>
+      <div><label>Trolley Location</label><input name="trolley_location" value="{{ active_project.trolley_location }}" /></div>
+      <div><label>Project Manager</label><input name="project_manager" value="{{ active_project.project_manager }}" /></div>
+      <div><label>Planned Start Date</label><input type="date" name="planned_start_date" value="{{ active_project.planned_start_date.isoformat() if active_project.planned_start_date else '' }}" /></div>
+      <div><label>Target Finish Date</label><input type="date" name="target_finish_date" value="{{ active_project.target_finish_date.isoformat() if active_project.target_finish_date else '' }}" /></div>
+      <div><label>Contract Reference</label><input name="contract_reference" value="{{ active_project.contract_reference }}" /></div>
+      <div><label>Working Hours/Day</label><input type="number" min="1" step="1" name="working_hours_per_day" value="{{ active_project.working_hours_per_day }}" /></div>
+      <div><label>Warning Threshold (days)</label><input type="number" min="0" step="1" name="warning_threshold_days" value="{{ active_project.warning_threshold_days }}" /></div>
+      <div><label>Critical Threshold (days)</label><input type="number" min="0" step="1" name="critical_threshold_days" value="{{ active_project.critical_threshold_days }}" /></div>
+      <div class="form-actions-left full-width">
+        <button class="primary" type="submit">Save Project</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Team Members</h2>
+    <p class="small muted">Add PMs, engineers, and stakeholders linked to this project.</p>
+
+    <form method="post" action="/ui/projects/{{ active_project.id }}/team-members" class="project-team-add-grid">
+      <div><label>Name</label><input name="name" placeholder="Full name" /></div>
+      <div><label>Role</label><input name="role" placeholder="Lead PM" /></div>
+      <div><label>Department</label><input name="department" placeholder="Manufacturing" /></div>
+      <div><label>Email</label><input type="email" name="email" placeholder="name@company.com" /></div>
+      <div><label>Phone</label><input name="phone" placeholder="+91..." /></div>
+      <div>
+        <label>Access Level</label>
+        <select name="access_level">
+          {% for access in access_levels %}
+            <option value="{{ access }}">{{ access }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="full-width"><label>Notes</label><input name="notes" placeholder="Responsibilities / remarks" /></div>
+      <div class="form-actions-left"><button class="secondary-btn" type="submit">Add Member</button></div>
+    </form>
+
+    <div class="data-grid-wrap">
+      <table class="data-grid">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Role</th>
+            <th>Department</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Access Level</th>
+            <th>Notes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for member in team_members %}
+            <tr>
+              <td colspan="8">
+                <form method="post" action="/ui/projects/{{ active_project.id }}/team-members/{{ member.id }}/update" class="project-team-row">
+                  <input name="name" value="{{ member.name }}" placeholder="Name" />
+                  <input name="role" value="{{ member.role }}" placeholder="Role" />
+                  <input name="department" value="{{ member.department }}" placeholder="Department" />
+                  <input type="email" name="email" value="{{ member.email }}" placeholder="Email" />
+                  <input name="phone" value="{{ member.phone }}" placeholder="Phone" />
+                  <select name="access_level">
+                    {% for access in access_levels %}
+                      <option value="{{ access }}" {% if access == member.access_level %}selected{% endif %}>{{ access }}</option>
+                    {% endfor %}
+                  </select>
+                  <input name="notes" value="{{ member.notes }}" placeholder="Notes" />
+                  <div class="project-team-row-actions">
+                    <button class="primary" type="submit">Save</button>
+                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/team-members/{{ member.id }}/add-below" type="submit">Add Row Below</button>
+                    <button class="danger" formaction="/ui/projects/{{ active_project.id }}/team-members/{{ member.id }}/delete" type="submit">Delete</button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="8">
+                <div class="empty-state">
+                  <p class="empty-state-title">No team members added yet</p>
+                  <p class="small muted">Add project members to configure ownership and access coverage.</p>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Project Summary &amp; Validation</h2>
+    <div class="kpi-grid">
+      <article class="kpi"><div class="kpi-title">Status</div><div class="kpi-value">{{ project_status }}</div></article>
+      <article class="kpi"><div class="kpi-title">Team Members</div><div class="kpi-value">{{ team_members|length }}</div></article>
+      <article class="kpi"><div class="kpi-title">Created By</div><div class="kpi-value">{{ active_project.created_by or "-" }}</div></article>
+      <article class="kpi"><div class="kpi-title">Last Updated By</div><div class="kpi-value">{{ active_project.updated_by or "-" }}</div></article>
+    </div>
+    <div class="metric-list" style="margin-top:10px">
+      {% for issue in readiness_issues %}
+        <div class="metric-row alert-error">{{ issue }}</div>
+      {% else %}
+        <div class="metric-row">All required project setup checks are currently satisfied.</div>
+      {% endfor %}
+    </div>
+    <p class="small muted" style="margin-top:8px">
+      Created: {{ active_project.created_at }} · Updated: {{ active_project.updated_at }}
+    </p>
+  </section>
+{% endblock %}

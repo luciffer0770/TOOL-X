@@ -83,7 +83,7 @@ Python-rendered UI endpoints:
 - `/ui/delay-optimization`
 - `/ui/engine-description`
 - `/ui/anomaly-center`
-- `/ui/settings`
+- `/ui/project-setup`
 
 ## Python UI Feature Parity Progress
 

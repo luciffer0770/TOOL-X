@@ -376,9 +376,9 @@ def test_server_rendered_ui_login_and_pages(client: TestClient) -> None:
     assert engine_page.status_code == 200
     assert "Engine Description" in engine_page.text
 
-    settings_page = client.get(f"/ui/settings?project_id={project_id}", cookies=cookies)
-    assert settings_page.status_code == 200
-    assert "Settings" in settings_page.text
+    project_setup_page = client.get(f"/ui/project-setup?project_id={project_id}", cookies=cookies)
+    assert project_setup_page.status_code == 200
+    assert "Project Setup" in project_setup_page.text
 
 
 def test_ui_activities_import_export_and_bulk_actions(client: TestClient) -> None:
@@ -741,3 +741,65 @@ def test_delay_panel_lists_only_delayed_status_activities(client: TestClient) ->
     assert page.status_code == 200
     assert "DL-100" in page.text
     assert "DL-200" not in page.text
+
+
+def test_ui_project_setup_create_save_and_team_members(client: TestClient) -> None:
+    login = client.post(
+        "/ui/login",
+        data={"username": "planner", "password": "planner123", "remember_me": "true"},
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+    auth_cookie = login.cookies.get("psetw_ui_session")
+    assert auth_cookie
+    cookies = {"psetw_ui_session": auth_cookie}
+
+    created = client.post("/ui/project-setup/new", data={"project_name": "Master Project"}, cookies=cookies)
+    assert created.status_code == 303
+    assert "/ui/project-setup?project_id=" in created.headers["location"]
+    project_id = created.headers["location"].split("project_id=")[1].split("&")[0]
+
+    save = client.post(
+        f"/ui/projects/{project_id}/project-setup/save",
+        data={
+            "project_code": "PS-100",
+            "project_name": "Master Project",
+            "customer_oem": "OEM-A",
+            "engine_type": "V8",
+            "engine_serial_no": "ENG-001",
+            "trolley_code": "TRL-22",
+            "trolley_location": "Bay A",
+            "project_manager": "Planner Lead",
+            "planned_start_date": "2026-04-01",
+            "target_finish_date": "2026-04-30",
+            "contract_reference": "CNTR-1",
+            "working_hours_per_day": "8",
+            "warning_threshold_days": "4",
+            "critical_threshold_days": "8",
+        },
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert save.status_code == 303
+
+    add_member = client.post(
+        f"/ui/projects/{project_id}/team-members",
+        data={
+            "name": "Alice",
+            "role": "Lead PM",
+            "department": "Planning",
+            "email": "alice@example.com",
+            "phone": "1234567",
+            "access_level": "Planner",
+            "notes": "Owner",
+        },
+        cookies=cookies,
+        follow_redirects=False,
+    )
+    assert add_member.status_code == 303
+
+    page = client.get(f"/ui/project-setup?project_id={project_id}", cookies=cookies)
+    assert page.status_code == 200
+    assert "PS-100" in page.text
+    assert "OEM-A" in page.text
+    assert "Alice" in page.text

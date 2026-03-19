@@ -37,7 +37,16 @@ class ProjectUpdate(BaseModel):
 class ProjectOut(BaseModel):
     id: str
     name: str
+    project_code: str
+    customer_oem: str
+    project_manager: str
+    planned_start_date: date | None
+    target_finish_date: date | None
+    warning_threshold_days: int
+    critical_threshold_days: int
+    is_archived: bool
     created_by: str | None
+    updated_by: str
     created_at: datetime
     updated_at: datetime
 

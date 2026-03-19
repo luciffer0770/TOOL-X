@@ -12,11 +12,22 @@ from psetw_platform.schemas import ProjectCreate, ProjectOut, ProjectUpdate
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
+def _next_project_code(existing_codes: set[str]) -> str:
+    index = 1
+    while True:
+        candidate = f"PRJ-{index:04d}"
+        if candidate not in existing_codes:
+            return candidate
+        index += 1
+
+
 @router.get("", response_model=list[ProjectOut])
 def list_projects(db: DBSession, _: CurrentUser) -> list[Project]:
     """Return all projects."""
 
-    return list(db.scalars(select(Project).order_by(Project.created_at.desc())).all())
+    return list(
+        db.scalars(select(Project).where(Project.is_archived.is_(False)).order_by(Project.created_at.desc())).all()
+    )
 
 
 @router.post(
@@ -28,7 +39,17 @@ def list_projects(db: DBSession, _: CurrentUser) -> list[Project]:
 def create_project(payload: ProjectCreate, db: DBSession, user: CurrentUser) -> Project:
     """Create a project."""
 
-    project = Project(name=payload.name.strip(), created_by=user.username)
+    existing_codes = {
+        project.project_code.strip().upper()
+        for project in db.scalars(select(Project.project_code)).all()
+        if project and project.strip()
+    }
+    project = Project(
+        name=payload.name.strip(),
+        project_code=_next_project_code(existing_codes),
+        created_by=user.username,
+        updated_by=user.username,
+    )
     db.add(project)
     db.commit()
     db.refresh(project)
@@ -40,13 +61,14 @@ def create_project(payload: ProjectCreate, db: DBSession, user: CurrentUser) -> 
     response_model=ProjectOut,
     dependencies=[Depends(require_roles(UserRole.planner, UserRole.management))],
 )
-def update_project(project_id: str, payload: ProjectUpdate, db: DBSession, _: CurrentUser) -> Project:
+def update_project(project_id: str, payload: ProjectUpdate, db: DBSession, user: CurrentUser) -> Project:
     """Rename project."""
 
     project = db.scalar(select(Project).where(Project.id == project_id))
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     project.name = payload.name.strip()
+    project.updated_by = user.username
     db.commit()
     db.refresh(project)
     return project

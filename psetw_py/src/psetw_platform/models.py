@@ -77,7 +77,22 @@ class Project(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name: Mapped[str] = mapped_column(String(200))
+    project_code: Mapped[str] = mapped_column(String(64), default="")
+    customer_oem: Mapped[str] = mapped_column(String(200), default="")
+    engine_type: Mapped[str] = mapped_column(String(200), default="")
+    engine_serial_no: Mapped[str] = mapped_column(String(200), default="")
+    trolley_code: Mapped[str] = mapped_column(String(120), default="")
+    trolley_location: Mapped[str] = mapped_column(String(200), default="")
+    project_manager: Mapped[str] = mapped_column(String(200), default="")
+    planned_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    target_finish_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    contract_reference: Mapped[str] = mapped_column(String(200), default="")
+    working_hours_per_day: Mapped[int] = mapped_column(Integer, default=8)
+    warning_threshold_days: Mapped[int] = mapped_column(Integer, default=7)
+    critical_threshold_days: Mapped[int] = mapped_column(Integer, default=14)
+    is_archived: Mapped[bool] = mapped_column(default=False)
     created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[str] = mapped_column(String(100), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
@@ -98,6 +113,9 @@ class Project(Base):
     )
     engine_documents: Mapped[list[EngineDocument]] = relationship(
         "EngineDocument", back_populates="project", cascade="all, delete-orphan"
+    )
+    team_members: Mapped[list[ProjectTeamMember]] = relationship(
+        "ProjectTeamMember", back_populates="project", cascade="all, delete-orphan"
     )
 
 
@@ -259,6 +277,27 @@ class EngineDocument(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
     project: Mapped[Project] = relationship("Project", back_populates="engine_documents")
+
+
+class ProjectTeamMember(Base):
+    """Project-specific team member and role details."""
+
+    __tablename__ = "project_team_members"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    role: Mapped[str] = mapped_column(String(120), default="")
+    department: Mapped[str] = mapped_column(String(120), default="")
+    email: Mapped[str] = mapped_column(String(200), default="")
+    phone: Mapped[str] = mapped_column(String(120), default="")
+    access_level: Mapped[str] = mapped_column(String(80), default="Viewer")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    project: Mapped[Project] = relationship("Project", back_populates="team_members")
 
 
 class AuditEvent(Base):

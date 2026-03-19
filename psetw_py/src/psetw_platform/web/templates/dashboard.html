@@ -4,7 +4,11 @@
     <div class="page-strip">
       <div>
         <h1 style="margin:0">Executive Dashboard</h1>
-        <p class="muted small">Operational status for {{ active_project.name }}</p>
+        <p class="muted small">
+          {{ active_project.project_code or "-" }} · {{ active_project.name }}
+          {% if active_project.customer_oem %} · {{ active_project.customer_oem }}{% endif %}
+          {% if active_project.project_manager %} · PM: {{ active_project.project_manager }}{% endif %}
+        </p>
       </div>
       <form method="get" action="/ui/dashboard" class="strip-filters">
         <input type="hidden" name="project_id" value="{{ active_project.id }}" />
