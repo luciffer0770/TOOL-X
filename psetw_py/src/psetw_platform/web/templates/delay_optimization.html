@@ -20,6 +20,8 @@
           <select name="activity_id">
             {% for row in delayed_rows %}
               <option value="{{ row.activity_id }}">{{ row.activity_code }} — {{ row.activity_name }}</option>
+            {% else %}
+              <option value="">No delayed activities found</option>
             {% endfor %}
           </select>
         </div>

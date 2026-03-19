@@ -309,11 +309,11 @@
                   <div class="row-actions">
                     <button class="primary" type="submit">Save</button>
                     <input type="hidden" name="risk_score" value="{{ activity.risk_score }}" />
-                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="status" value="Not Started" type="submit">Not Started</button>
-                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="status" value="In Progress" type="submit">In Progress</button>
-                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="status" value="On Hold" type="submit">On Hold</button>
-                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="status" value="Delayed" type="submit">Delayed</button>
-                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="status" value="Completed" type="submit">Completed</button>
+                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Not Started" type="submit">Not Started</button>
+                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="In Progress" type="submit">In Progress</button>
+                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="On Hold" type="submit">On Hold</button>
+                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Delayed" type="submit">Delayed</button>
+                    <button class="secondary-btn" formaction="/ui/projects/{{ active_project.id }}/activities/{{ activity.id }}/progress" name="quick_status" value="Completed" type="submit">Completed</button>
                   </div>
                 </form>
               </td>

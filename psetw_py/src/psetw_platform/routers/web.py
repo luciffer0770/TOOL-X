@@ -1478,6 +1478,7 @@ def ui_update_activity_progress(
     actual_start_date: Annotated[str, Form()] = "",
     actual_end_date: Annotated[str, Form()] = "",
     status: Annotated[str, Form()] = ActivityStatus.not_started.value,
+    quick_status: Annotated[str, Form()] = "",
     completion_percentage: Annotated[int, Form()] = 0,
     risk_level: Annotated[str, Form()] = "",
     dependency_type: Annotated[str, Form()] = "",
@@ -1568,8 +1569,9 @@ def ui_update_activity_progress(
     activity.actual_end_date = _parse_date(actual_end_date)
 
     working_anchor = _parse_date(working_date) or date.today()
+    status_input = quick_status.strip() or status
     try:
-        status_value = _status_from_raw(status)
+        status_value = _status_from_raw(status_input)
     except ValueError:
         status_value = activity.status
     status_warnings = _apply_status_business_rules(activity, status_value, working_anchor)
@@ -2438,11 +2440,11 @@ def ui_delay_optimization(
     activities = list(db.scalars(select(Activity).where(Activity.project_id == active_project.id)).all())
     risk_rows = compute_delay_risk_rows(activities)
     dependency_health = compute_dependency_health(activities)
-    delayed_rows = [row for row in risk_rows if row.delayed]
-    risk_score_rows = sorted(risk_rows, key=lambda row: row.risk_score, reverse=True)[:12]
+    delayed_rows = [row for row in risk_rows if row.status == ActivityStatus.delayed]
+    risk_score_rows = sorted(delayed_rows, key=lambda row: row.risk_score, reverse=True)[:12]
     trend_rows: list[dict[str, object]] = []
     by_phase: dict[str, dict[str, int]] = {}
-    for row in risk_rows:
+    for row in delayed_rows:
         phase = row.phase or "Unassigned"
         if phase not in by_phase:
             by_phase[phase] = {"count": 0, "delay_days": 0}
@@ -2506,9 +2508,14 @@ def ui_update_delay_root_cause(
     activity = db.scalar(select(Activity).where(Activity.project_id == project_id, Activity.id == activity_id))
     if activity is None:
         return _delay_optimization_redirect(project_id, "Selected activity not found.")
+    if activity.status != ActivityStatus.delayed:
+        return _delay_optimization_redirect(
+            project_id,
+            "Only activities currently in Delayed status can be updated from this panel.",
+        )
     if status:
         try:
-            activity.status = ActivityStatus(status)
+            activity.status = _status_from_raw(status)
         except ValueError:
             pass
     activity.completion_percentage = max(0, min(100, completion_percentage))

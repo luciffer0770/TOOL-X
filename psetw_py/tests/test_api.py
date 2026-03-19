@@ -651,3 +651,57 @@ def test_ui_engine_description_upload_and_download(client: TestClient) -> None:
     )
     assert download.status_code == 200
     assert "Engine Model,Customer,Scope,Remarks" in download.text
+
+
+def test_delay_panel_lists_only_delayed_status_activities(client: TestClient) -> None:
+    login = client.post(
+        "/ui/login",
+        data={"username": "planner", "password": "planner123", "remember_me": "true"},
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+    auth_cookie = login.cookies.get("psetw_ui_session")
+    assert auth_cookie
+    cookies = {"psetw_ui_session": auth_cookie}
+
+    headers = _auth_headers(client)
+    create_project = client.post("/api/v1/projects", json={"name": "Delay Panel Project"}, headers=headers)
+    assert create_project.status_code == 201
+    project_id = create_project.json()["id"]
+
+    delayed_create = client.post(
+        f"/api/v1/projects/{project_id}/activities",
+        json={
+            "activity_code": "DL-100",
+            "activity_name": "Delayed Row",
+            "phase": "Execution",
+            "status": "Delayed",
+            "planned_start_date": "2026-03-01",
+            "planned_end_date": "2026-03-02",
+            "completion_percentage": 10,
+            "risk_score": 70,
+        },
+        headers=headers,
+    )
+    assert delayed_create.status_code == 201
+
+    overdue_not_delayed = client.post(
+        f"/api/v1/projects/{project_id}/activities",
+        json={
+            "activity_code": "DL-200",
+            "activity_name": "Overdue but not delayed status",
+            "phase": "Execution",
+            "status": "Not Started",
+            "planned_start_date": "2026-03-01",
+            "planned_end_date": "2026-03-02",
+            "completion_percentage": 0,
+            "risk_score": 60,
+        },
+        headers=headers,
+    )
+    assert overdue_not_delayed.status_code == 201
+
+    page = client.get(f"/ui/delay-optimization?project_id={project_id}", cookies=cookies)
+    assert page.status_code == 200
+    assert "DL-100" in page.text
+    assert "DL-200" not in page.text
