@@ -308,7 +308,7 @@ def _parse_non_negative_int(raw: str, fallback: int) -> int:
 def _looks_like_email(raw: str) -> bool:
     if not raw.strip():
         return True
-    return bool(re.match(r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", raw.strip()))
+    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", raw.strip()))
 
 
 def _project_readiness_issues(project: Project) -> list[str]:
