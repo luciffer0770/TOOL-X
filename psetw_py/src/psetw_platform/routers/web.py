@@ -12,7 +12,6 @@ from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
-from xml.etree import ElementTree
 
 from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
@@ -493,11 +492,8 @@ def _extract_docx_text(content: bytes) -> str:
             xml_bytes = archive.read("word/document.xml")
     except (zipfile.BadZipFile, KeyError):
         return ""
-    root = ElementTree.fromstring(xml_bytes)
-    text_parts: list[str] = []
-    for node in root.iter():
-        if node.tag.endswith("}t") and node.text:
-            text_parts.append(node.text.strip())
+    decoded_xml = xml_bytes.decode("utf-8", errors="ignore")
+    text_parts = [match.strip() for match in re.findall(r"<w:t[^>]*>(.*?)</w:t>", decoded_xml) if match.strip()]
     return "\n".join(part for part in text_parts if part)
 
 
@@ -590,9 +586,9 @@ def _activity_delay_days(activity: Activity, today: date | None = None) -> int:
     return max(0, (anchor - activity.planned_end_date).days)
 
 
-def _build_weekly_completion(activities: list[Activity]) -> list[dict[str, object]]:
+def _build_weekly_completion(activities: list[Activity]) -> list[dict[str, int | str]]:
     anchor = date.today()
-    results: list[dict[str, object]] = []
+    results: list[dict[str, int | str]] = []
     for offset in range(5, -1, -1):
         week_start = anchor - timedelta(days=anchor.weekday()) - timedelta(days=offset * 7)
         week_end = week_start + timedelta(days=6)
@@ -607,7 +603,7 @@ def _build_weekly_completion(activities: list[Activity]) -> list[dict[str, objec
                 "completed": completed,
             }
         )
-    peak = max((row["completed"] for row in results), default=0)
+    peak = max((int(row["completed"]) for row in results), default=0)
     for row in results:
         completed = int(row["completed"])
         row["bar_pct"] = int((completed / peak) * 100) if peak > 0 else 0
@@ -630,11 +626,11 @@ def ui_login_page(
     info: str = "",
 ) -> HTMLResponse:
     prefill_username = username.strip()
-    prefill_secret: str | None = None
+    prefill_credential: str | None = None
     role_hint = ""
     key = demo_user.strip().lower()
     if key in LOGIN_DEMO_USERS:
-        role_hint, prefill_username, prefill_secret = LOGIN_DEMO_USERS[key]
+        role_hint, prefill_username, prefill_credential = LOGIN_DEMO_USERS[key]
 
     return templates.TemplateResponse(
         "login.html",
@@ -643,7 +639,7 @@ def ui_login_page(
             "error": "",
             "title": "Sign In",
             "prefill_username": prefill_username,
-            "prefill_secret": prefill_secret,
+            "prefill_credential": prefill_credential,
             "remember_me": False,
             "role_hint": role_hint,
             "info_message": info.strip(),
@@ -677,7 +673,7 @@ def ui_login_action(
                 "error": "Invalid username or password. Check credentials and try again.",
                 "title": "Sign In",
                 "prefill_username": username.strip(),
-                "prefill_secret": None,
+                "prefill_credential": None,
                 "remember_me": remember_me,
                 "role_hint": "",
                 "info_message": "",
