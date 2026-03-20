@@ -98,6 +98,66 @@ function createDefaultVisibility() {
   return defaultVisibility;
 }
 
+function sanitizeTeamMember(raw) {
+  const m = raw ?? {};
+  return {
+    id: String(m.id ?? "").trim() || `tm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: String(m.name ?? "").trim(),
+    role: String(m.role ?? "").trim(),
+    department: String(m.department ?? "").trim(),
+    email: String(m.email ?? "").trim(),
+    phone: String(m.phone ?? "").trim(),
+    accessLevel: String(m.accessLevel ?? "").trim(),
+    notes: String(m.notes ?? "").trim(),
+  };
+}
+
+function sanitizeProjectConfig(raw) {
+  const c = raw ?? {};
+  return {
+    projectCode: String(c.projectCode ?? "").trim(),
+    projectName: String(c.projectName ?? "").trim(),
+    customerOem: String(c.customerOem ?? "").trim(),
+    engineType: String(c.engineType ?? "").trim(),
+    engineSerialNo: String(c.engineSerialNo ?? "").trim(),
+    trolleyCode: String(c.trolleyCode ?? "").trim(),
+    trolleyLocation: String(c.trolleyLocation ?? "").trim(),
+    projectManager: String(c.projectManager ?? "").trim(),
+    plannedStartDate: toIsoDate(c.plannedStartDate),
+    targetFinishDate: toIsoDate(c.targetFinishDate),
+    contractReference: String(c.contractReference ?? "").trim(),
+    workingHoursPerDay: Number(c.workingHoursPerDay) || 8,
+    warningThresholdDays: Number(c.warningThresholdDays) || 14,
+    criticalThresholdDays: Number(c.criticalThresholdDays) || 7,
+  };
+}
+
+function sanitizeEngineDocument(raw) {
+  const d = raw ?? {};
+  return {
+    id: String(d.id ?? "").trim() || `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    fileName: String(d.fileName ?? "").trim(),
+    fileType: String(d.fileType ?? "").trim(),
+    fileSize: Number(d.fileSize) || 0,
+    projectId: String(d.projectId ?? "").trim(),
+    engineId: String(d.engineId ?? "").trim(),
+    customerId: String(d.customerId ?? "").trim(),
+    uploadedAt: toIsoTimestamp(d.uploadedAt),
+    fileDataBase64: String(d.fileDataBase64 ?? "").trim(),
+    summary: {
+      engineNameModel: String((d.summary ?? {}).engineNameModel ?? "").trim(),
+      programProject: String((d.summary ?? {}).programProject ?? "").trim(),
+      customer: String((d.summary ?? {}).customer ?? "").trim(),
+      requiredTools: String((d.summary ?? {}).requiredTools ?? "").trim(),
+      requiredMaterials: String((d.summary ?? {}).requiredMaterials ?? "").trim(),
+      preparationPhases: String((d.summary ?? {}).preparationPhases ?? "").trim(),
+      keyMilestones: String((d.summary ?? {}).keyMilestones ?? "").trim(),
+      dependencies: String((d.summary ?? {}).dependencies ?? "").trim(),
+      notesSummary: String((d.summary ?? {}).notesSummary ?? "").trim(),
+    },
+  };
+}
+
 function createProject(id, name, activities = [], baselines = [], actions = []) {
   const normalizedBaselines = baselines.map((baseline, index) =>
     sanitizeBaseline(baseline, `Baseline v${index + 1}`),
@@ -109,6 +169,9 @@ function createProject(id, name, activities = [], baselines = [], actions = []) 
     activities: activities.map((activity) => sanitizeActivity(activity)),
     baselines: normalizedBaselines,
     actions: normalizedActions,
+    projectConfig: {},
+    teamMembers: [],
+    engineDocuments: [],
   };
 }
 
@@ -209,7 +272,15 @@ function normalizeState(state) {
           : [];
       const rawBaselines = Array.isArray(project?.baselines) ? project.baselines : [];
       const rawActions = Array.isArray(project?.actions) ? project.actions : [];
-      normalizedProjects.push(createProject(id, name, rawActivities, rawBaselines, rawActions));
+      const p = createProject(id, name, rawActivities, rawBaselines, rawActions);
+      p.projectConfig = sanitizeProjectConfig(project?.projectConfig);
+      p.teamMembers = Array.isArray(project?.teamMembers)
+        ? project.teamMembers.map(sanitizeTeamMember)
+        : [];
+      p.engineDocuments = Array.isArray(project?.engineDocuments)
+        ? project.engineDocuments.map(sanitizeEngineDocument)
+        : [];
+      normalizedProjects.push(p);
     });
   } else if (Array.isArray(state.activities)) {
     // Migration path from older single-project state.
@@ -414,7 +485,94 @@ export function getActiveProject() {
     activities: project.activities.map((activity) => sanitizeActivity(activity)),
     baselines: (project.baselines ?? []).map((baseline, index) => sanitizeBaseline(baseline, `Baseline v${index + 1}`)),
     actions: (project.actions ?? []).map((action) => sanitizeAction(action)),
+    projectConfig: sanitizeProjectConfig(project.projectConfig),
+    teamMembers: (project.teamMembers ?? []).map(sanitizeTeamMember),
+    engineDocuments: (project.engineDocuments ?? []).map(sanitizeEngineDocument),
   };
+}
+
+export function saveProjectConfig(config) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  project.projectConfig = sanitizeProjectConfig(config);
+  saveState(state);
+}
+
+export function getTeamMembers() {
+  return getActiveProject().teamMembers;
+}
+
+export function addTeamMember(member) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  if (!project.teamMembers) project.teamMembers = [];
+  project.teamMembers.push(sanitizeTeamMember(member));
+  saveState(state);
+  return project.teamMembers[project.teamMembers.length - 1];
+}
+
+export function updateTeamMember(memberId, updates) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  const idx = (project.teamMembers ?? []).findIndex((m) => m.id === memberId);
+  if (idx === -1) return null;
+  project.teamMembers[idx] = sanitizeTeamMember({ ...project.teamMembers[idx], ...updates, id: memberId });
+  saveState(state);
+  return project.teamMembers[idx];
+}
+
+export function removeTeamMember(memberId) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  if (!project.teamMembers) return false;
+  const before = project.teamMembers.length;
+  project.teamMembers = project.teamMembers.filter((m) => m.id !== memberId);
+  if (project.teamMembers.length < before) {
+    saveState(state);
+    return true;
+  }
+  return false;
+}
+
+export function getEngineDocuments() {
+  return getActiveProject().engineDocuments;
+}
+
+export function addEngineDocument(doc) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  if (!project.engineDocuments) project.engineDocuments = [];
+  const sanitized = sanitizeEngineDocument({ ...doc, projectId: project.id });
+  project.engineDocuments.push(sanitized);
+  saveState(state);
+  return sanitized;
+}
+
+export function updateEngineDocument(docId, updates) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  const idx = (project.engineDocuments ?? []).findIndex((d) => d.id === docId);
+  if (idx === -1) return null;
+  project.engineDocuments[idx] = sanitizeEngineDocument({
+    ...project.engineDocuments[idx],
+    ...updates,
+    id: docId,
+  });
+  saveState(state);
+  return project.engineDocuments[idx];
+}
+
+export function removeEngineDocument(docId) {
+  const state = getState();
+  const project = getActiveProjectRecord(state);
+  if (!project.engineDocuments) return false;
+  const before = project.engineDocuments.length;
+  project.engineDocuments = project.engineDocuments.filter((d) => d.id !== docId);
+  if (project.engineDocuments.length < before) {
+    saveState(state);
+    return true;
+  }
+  return false;
 }
 
 export function setActiveProject(projectId) {
@@ -449,6 +607,13 @@ export function duplicateProject(projectId, projectName) {
     id,
     normalizedName,
     sourceProject.activities.map((activity) => sanitizeActivity({ ...activity })),
+  );
+  duplicatedProject.projectConfig = sanitizeProjectConfig(sourceProject?.projectConfig);
+  duplicatedProject.teamMembers = (sourceProject?.teamMembers ?? []).map((m) =>
+    sanitizeTeamMember({ ...m, id: undefined }),
+  );
+  duplicatedProject.engineDocuments = (sourceProject?.engineDocuments ?? []).map((d) =>
+    sanitizeEngineDocument({ ...d, id: undefined, projectId: id }),
   );
 
   state.projects.push(duplicatedProject);
