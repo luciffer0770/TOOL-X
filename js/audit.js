@@ -4,6 +4,13 @@
 import { escapeHtml } from "./common.js";
 
 const AUDIT_KEY = "atlas_planning_audit_v1";
+
+function severityForAction(action) {
+  const lc = String(action || "").toLowerCase();
+  if (/(delete|clear|archive|restore|override)/.test(lc)) return "critical";
+  if (/(import|bulk|export|login_fail|fail)/.test(lc)) return "warning";
+  return "info";
+}
 const MAX_ENTRIES = 200;
 
 function loadAuditLog() {
@@ -37,30 +44,51 @@ export function getAuditLog() {
 export function showAuditTrail() {
   const entries = getAuditLog();
   const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
+  overlay.className = "modal-overlay audit-trail-overlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
   overlay.innerHTML = `
-    <div class="modal-dialog" style="max-width: 520px; max-height: 80vh">
-      <h2 class="modal-title">Change History</h2>
-      <div class="audit-trail-list" style="max-height: 400px; overflow-y: auto">
-        ${entries.length ? entries.slice(0, 50).map((e) => `
-          <div class="audit-trail-item">
-            <span class="audit-trail-time">${new Date(e.at).toLocaleString()}</span>
-            <span class="audit-trail-action">${escapeHtml(e.action)}</span>
-            ${e.activityId ? `<span class="small">${escapeHtml(e.activityId)}</span>` : ""}
-          </div>
-        `).join("") : '<p class="empty-state">No changes recorded yet.</p>'}
+    <div class="modal-dialog audit-trail-modal">
+      <button type="button" class="audit-trail-close ghost" aria-label="Close">&times;</button>
+      <div class="audit-trail-modal-header">
+        <span class="audit-trail-modal-icon" aria-hidden="true">&#8987;</span>
+        <h2 class="modal-title audit-trail-modal-title">Change History</h2>
       </div>
-      <div class="modal-actions" style="margin-top: 12px">
+      <div class="audit-trail-modal-body">
+        ${entries.length
+          ? entries
+              .slice(0, 50)
+              .map((e) => {
+                const sev = severityForAction(e.action);
+                const id = e.activityId ? escapeHtml(e.activityId) : "";
+                return `<div class="audit-trail-item-compact">
+            <span class="audit-trail-time font-mono">${escapeHtml(new Date(e.at).toLocaleString())}</span>
+            <span class="audit-severity-node audit-severity-node--${sev}" aria-hidden="true"><span></span></span>
+            <span class="audit-trail-action-text">${escapeHtml(e.action)}</span>
+            ${id ? `<span class="audit-entity-tag font-mono">${id}</span>` : ""}
+          </div>`;
+              })
+              .join("")
+          : '<p class="empty-state">No changes recorded yet.</p>'}
+      </div>
+      <div class="audit-trail-modal-footer">
         <button type="button" class="modal-secondary ghost">Close</button>
+        <a href="audit-log.html" class="audit-trail-full-link">View full Audit Log &rarr;</a>
       </div>
     </div>
   `;
   document.body.appendChild(overlay);
   document.body.style.overflow = "hidden";
-  const close = () => { overlay.remove(); document.body.style.overflow = ""; };
-  overlay.querySelector(".modal-secondary").addEventListener("click", close);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
-  overlay.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  const close = () => {
+    overlay.remove();
+    document.body.style.overflow = "";
+  };
+  overlay.querySelector(".audit-trail-close")?.addEventListener("click", close);
+  overlay.querySelector(".modal-secondary")?.addEventListener("click", close);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+  overlay.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") close();
+  });
 }

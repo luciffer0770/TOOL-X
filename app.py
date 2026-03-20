@@ -400,8 +400,11 @@ def serve_static(path):
         "network",
         "project-setup",
         "engine-description",
+        "audit-log",
+        "audit",
     ):
-        return send_from_directory(BASE_DIR, f"{path}.html")
+        html_name = "audit-log.html" if path == "audit" else f"{path}.html"
+        return send_from_directory(BASE_DIR, html_name)
     return "", 404
 
 

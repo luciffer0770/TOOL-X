@@ -43,6 +43,7 @@ This branch includes significant UI/UX enhancements, Gantt chart fixes, Calendar
 ├── intelligence.html   # Delay, risk, what-if optimization
 ├── risk-register.html  # Risk register
 ├── anomaly-center.html # Anomalies, baselines, actions
+├── audit-log.html      # Full-page audit trail (search, filter, export); routes `/audit`, `/audit-log`
 ├── css/
 │   └── styles.css     # Global styles, theme variables
 ├── js/
@@ -55,6 +56,7 @@ This branch includes significant UI/UX enhancements, Gantt chart fixes, Calendar
 │   ├── gantt.js       # Gantt chart, drag/resize
 │   ├── calendar.js    # Calendar, drag, quick-add
 │   ├── dashboard.js   # KPIs, charts
+│   ├── audit-log.js   # Audit Log page UI (reads localStorage audit trail from audit.js)
 │   ├── materials.js   # Material health, charts
 │   ├── intelligence.js # Root cause, simulation
 │   ├── anomaly-center.js
@@ -193,6 +195,10 @@ Use **Quick Demo (Planner)** on the login page, or add `?dev=1` to any URL to au
 - **Anomalies:** Data-quality and logic checks (cycles, missing deps, etc.)
 - **Baselines:** Create, compare, variance export
 - **Actions:** Create, assign, track corrective actions
+
+### Audit Log (`audit-log.html`, routes `/audit` and `/audit-log`)
+- **Full-page trail** of actions recorded via `logAudit` in this browser (localStorage), with search, filters, timeline/table views, pagination, CSV export, and print-to-PDF
+- **Quick view:** Sidebar **Audit** still opens the Change History modal with a link to this page
 
 ---
 

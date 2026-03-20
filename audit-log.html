@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audit Log | ATLAS</title>
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260328" />
+  </head>
+  <body class="audit-log-page">
+    <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
+    <div class="atlas-layout page-content">
+      <aside class="app-sidebar" aria-label="Main navigation">
+        <div class="sidebar-brand">
+          <div class="sidebar-brand-kicker">PS-ETW</div>
+          <div class="sidebar-brand-title">ATLAS</div>
+          <div class="sidebar-brand-line"></div>
+        </div>
+        <nav class="nav nav-sidebar" aria-label="Primary">
+          <div class="sidebar-nav-group-label">Main</div>
+          <a data-nav href="index.html" title="Executive Dashboard">Dashboard</a>
+          <a data-nav href="project-setup.html" title="Project Setup">Project Setup</a>
+          <a data-nav href="activities.html" title="Activity Master">Activities</a>
+          <a data-nav href="calendar.html" title="Calendar">Calendar</a>
+          <div class="sidebar-nav-group-label">Planning</div>
+          <a data-nav href="gantt.html" title="Gantt &amp; Dependencies">Gantt</a>
+          <a data-nav href="network.html" title="Network Diagram">Network</a>
+          <a data-nav href="materials.html" title="Material Intelligence">Materials</a>
+          <a data-nav href="engine-description.html" title="Engine Description">Engine Desc.</a>
+          <div class="sidebar-nav-group-label">Analytics</div>
+          <a data-nav href="intelligence.html" title="Delay, Risk &amp; Optimization">Delay &amp; Risk</a>
+          <a data-nav href="risk-register.html" title="Risk Register">Risk Register</a>
+          <div class="sidebar-nav-group-label">Management</div>
+          <a data-nav href="anomaly-center.html" title="Anomaly, Baseline &amp; Actions">Anomaly Center</a>
+          <a data-nav href="audit-log.html" title="Audit Log">Audit Log</a>
+        </nav>
+      </aside>
+      <div class="atlas-main">
+        <header class="top-bar atlas-top-header audit-log-top-header">
+          <div class="title-block">
+            <h1>ATLAS – Digital Twin Engineering Preparation Platform</h1>
+            <p>Advanced Twin-based Lifecycle and Activity System – Engineering readiness intelligence</p>
+          </div>
+          <div class="header-meta">
+            <div class="session-chip">
+              <span id="user-role-badge" class="badge badge-neutral"></span>
+              <span id="user-display-name" class="small"></span>
+              <button type="button" id="logout-btn" class="ghost">Logout</button>
+            </div>
+          </div>
+        </header>
+
+        <div class="app-shell app-shell-wide audit-log-shell">
+          <div class="project-switcher-bar" role="region" aria-label="Active project">
+            <div class="project-switcher-inner">
+              <label class="project-switcher-field" for="project-select">
+                <span class="project-switcher-label">Active project</span>
+                <select id="project-select" class="project-switcher-select"></select>
+              </label>
+              <span id="project-summary" class="project-switcher-summary"></span>
+              <a href="project-setup.html" class="project-switcher-link">Manage projects</a>
+            </div>
+          </div>
+
+          <div id="audit-log-app" class="audit-log-app"></div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./js/audit-log.js?v=atlas20260328"></script>
+  </body>
+</html>

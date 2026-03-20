@@ -11,7 +11,9 @@ export function setActiveNavigation() {
   const page = location.pathname.split("/").pop() || "index.html";
   document.querySelectorAll("[data-nav]").forEach((link) => {
     const href = link.getAttribute("href") || "";
-    const isActive = href === page;
+    const isActive =
+      href === page ||
+      (href === "audit-log.html" && (page === "audit-log.html" || page === "audit"));
     link.classList.toggle("is-active", isActive);
     link.setAttribute("aria-current", isActive ? "page" : "false");
   });
