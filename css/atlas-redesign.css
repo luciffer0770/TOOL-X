@@ -540,7 +540,7 @@ button,
   transition: background 0.15s, border-color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 
-button:not(.ghost):not(.danger):not(.login-password-toggle):not(.nav-toggle):not(.nav-help-btn):not(.ed-link-btn):not(.ps-team-remove):not(.demo-user-copy):not(.modal-secondary):not(.kpi-card-link),
+button:not(.ghost):not(.danger):not(.login-password-toggle):not(.nav-toggle):not(.nav-help-btn):not(.ed-link-btn):not(.ps-team-remove):not(.demo-user-copy):not(.modal-secondary):not(.kpi-card-link):not(.audit-timeline-row),
 .modal-primary:not(.danger) {
   background: var(--color-accent);
   color: #fff;
@@ -549,7 +549,7 @@ button:not(.ghost):not(.danger):not(.login-password-toggle):not(.nav-toggle):not
   padding: 0 20px;
   box-shadow: var(--shadow-accent);
 }
-button:not(.ghost):not(.danger):not(.login-password-toggle):not(.nav-toggle):not(.nav-help-btn):not(.ed-link-btn):not(.ps-team-remove):not(.demo-user-copy):not(.modal-secondary):not(.kpi-card-link):hover,
+button:not(.ghost):not(.danger):not(.login-password-toggle):not(.nav-toggle):not(.nav-help-btn):not(.ed-link-btn):not(.ps-team-remove):not(.demo-user-copy):not(.modal-secondary):not(.kpi-card-link):not(.audit-timeline-row):hover,
 .modal-primary:not(.danger):hover {
   background: #1d4ed8;
   transform: translateY(-1px);
@@ -1867,10 +1867,27 @@ table tbody tr:hover {
 
 .audit-timeline-rows {
   position: relative;
+  padding: 12px 16px 18px;
+  background: var(--color-bg);
 }
 
 .audit-timeline-row-wrap {
-  border-bottom: 1px solid #f8fafc;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.audit-timeline-row-wrap:last-child {
+  margin-bottom: 0;
+}
+
+.audit-timeline-row-wrap:hover {
+  border-color: var(--color-border-2);
+  box-shadow: var(--shadow-md);
 }
 
 .audit-timeline-row {
@@ -1878,27 +1895,37 @@ table tbody tr:hover {
   display: flex;
   align-items: flex-start;
   gap: 0;
-  padding: 14px 20px;
+  padding: 14px 16px;
   text-align: left;
   border: none;
   background: transparent;
   cursor: pointer;
   transition: background 0.15s;
   font: inherit;
-  color: inherit;
+  font-weight: 500;
+  color: var(--color-text);
   box-sizing: border-box;
+  min-height: 0;
+  box-shadow: none;
 }
 
 .audit-timeline-row:hover {
-  background: #fafbfc;
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.audit-timeline-row.is-expanded {
+  background: rgba(241, 245, 249, 0.65);
 }
 
 .audit-tl-time {
-  width: 90px;
+  width: 86px;
   flex-shrink: 0;
   font-size: 12px;
-  color: var(--color-muted);
-  font-weight: 500;
+  color: var(--color-text-2);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+  padding-top: 2px;
 }
 
 .audit-severity-node {
@@ -1909,7 +1936,7 @@ table tbody tr:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 16px;
+  margin: 0 12px 0 4px;
   border: 2px solid transparent;
 }
 
@@ -1960,10 +1987,37 @@ table tbody tr:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin-top: 4px;
+  gap: 10px;
+  margin-top: 8px;
   font-size: 12px;
   color: var(--color-muted);
+}
+
+.audit-meta-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.audit-meta-k {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted-2);
+}
+
+.audit-meta-v {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-2);
+  font-weight: 500;
+}
+
+.audit-meta-v.is-placeholder {
+  color: var(--color-muted);
+  font-style: italic;
+  font-weight: 400;
 }
 
 .audit-dot-sep {
@@ -2042,9 +2096,11 @@ table tbody tr:hover {
 }
 
 .audit-timeline-expand {
-  padding: 16px 20px 16px 120px;
+  padding: 14px 16px 16px;
+  margin: 0 12px 12px;
   background: var(--color-bg);
-  border-top: 1px dashed var(--color-border);
+  border: 1px dashed var(--color-border);
+  border-radius: 10px;
 }
 
 @media (max-width: 720px) {
@@ -2381,8 +2437,21 @@ table tbody tr:hover {
   color: #e2e8f0;
 }
 
+[data-theme="dark"] .audit-timeline-rows {
+  background: var(--color-bg);
+}
+
+[data-theme="dark"] .audit-timeline-row-wrap {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
 [data-theme="dark"] .audit-timeline-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .audit-tl-time {
+  color: var(--color-text-2);
 }
 
 /* Dark theme bridge */

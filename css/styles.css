@@ -481,6 +481,25 @@ button.danger {
   background: linear-gradient(180deg, rgba(255, 77, 99, 0.92), rgba(217, 21, 46, 0.94));
 }
 
+/* Audit log timeline row: not a primary action button */
+button.ghost.audit-timeline-row {
+  background: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  min-height: 0 !important;
+  filter: none !important;
+  transform: none !important;
+  width: 100%;
+  text-align: left;
+  border-radius: 0;
+}
+
+button.ghost.audit-timeline-row:hover {
+  filter: none !important;
+}
+
 .hint {
   color: var(--text-dim);
   font-size: 0.82rem;

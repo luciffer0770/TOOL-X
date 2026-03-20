@@ -239,6 +239,18 @@ function formatDateShort(iso) {
   return new Date(iso).toLocaleString();
 }
 
+function displayAuditUser(user) {
+  const u = String(user || "").trim();
+  if (!u || u === "—") return { text: "Not recorded", placeholder: true };
+  return { text: u, placeholder: false };
+}
+
+function displayAuditProject(project) {
+  const p = String(project || "").trim();
+  if (!p || p === "—") return { text: "Not linked", placeholder: true };
+  return { text: p, placeholder: false };
+}
+
 function actionBadgeLabel(cat) {
   const map = {
     import: "Import/Upsert",
@@ -389,10 +401,14 @@ function renderTimeline(groups) {
 function renderTimelineRow(e) {
   const expanded = state.expandedIds.has(e.id);
   const chev = expanded ? "&#9650;" : "&#9660;";
+  const du = displayAuditUser(e.user);
+  const dp = displayAuditProject(e.project);
+  const userCls = du.placeholder ? "audit-meta-v is-placeholder" : "audit-meta-v";
+  const projCls = dp.placeholder ? "audit-meta-v is-placeholder" : "audit-meta-v";
   return `
     <div class="audit-timeline-row-wrap">
-      <button type="button" class="audit-timeline-row ${expanded ? "is-expanded" : ""}" data-expand="${escapeHtml(e.id)}" aria-expanded="${expanded}">
-        <div class="audit-tl-time font-mono">${escapeHtml(formatTime(e.at))}</div>
+      <button type="button" class="ghost audit-timeline-row ${expanded ? "is-expanded" : ""}" data-expand="${escapeHtml(e.id)}" aria-expanded="${expanded}">
+        <div class="audit-tl-time">${escapeHtml(formatTime(e.at))}</div>
         <div class="audit-tl-node audit-severity-node audit-severity-node--${escapeHtml(e.severity)}" aria-hidden="true"><span></span></div>
         <div class="audit-tl-body">
           <div class="audit-tl-line1">
@@ -401,9 +417,9 @@ function renderTimelineRow(e) {
             <span class="audit-tl-action-text">${escapeHtml(e.action)}</span>
           </div>
           <div class="audit-tl-line2">
-            <span>&#128100; <span class="font-mono">${escapeHtml(e.user)}</span></span>
+            <span class="audit-meta-item"><span class="audit-meta-k">User</span><span class="${userCls}">${escapeHtml(du.text)}</span></span>
             <span class="audit-dot-sep"></span>
-            <span>&#128193; ${escapeHtml(e.project)}</span>
+            <span class="audit-meta-item"><span class="audit-meta-k">Project</span><span class="${projCls}">${escapeHtml(dp.text)}</span></span>
             ${e.detailsText ? `<span class="audit-dot-sep"></span><span class="audit-view-details-hint">View details</span>` : ""}
           </div>
         </div>
