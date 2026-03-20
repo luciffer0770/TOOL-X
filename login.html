@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>Sign In | ATLAS</title>
-    <link rel="stylesheet" href="./css/styles.css?v=atlas20260322" />
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260323" />
   </head>
   <body class="login-page">
     <main class="login-shell">
@@ -48,41 +48,45 @@
 
         <div class="login-aside">
           <div class="login-card">
-            <h2 class="login-card-welcome">Welcome back</h2>
-            <p class="login-card-sub">Sign in to your workspace</p>
-            <div class="login-divider"></div>
+            <header class="login-card-head">
+              <h2 class="login-card-welcome">Welcome back</h2>
+              <p class="login-card-sub">Sign in to your workspace</p>
+            </header>
 
-            <form id="login-form" class="login-form" autocomplete="off">
-              <label class="login-field-label" for="username-input">Username</label>
-              <div class="login-input-wrap">
-                <span class="login-input-icon login-input-icon-user" aria-hidden="true"></span>
-                <input id="username-input" type="text" placeholder="Username" required autocomplete="off" />
+            <div class="login-card-body">
+              <div class="login-card-col login-card-col-form">
+                <div class="login-divider login-divider-tight" aria-hidden="true"></div>
+                <form id="login-form" class="login-form" autocomplete="off">
+                  <label class="login-field-label" for="username-input">Username</label>
+                  <div class="login-input-wrap">
+                    <span class="login-input-icon login-input-icon-user" aria-hidden="true"></span>
+                    <input id="username-input" type="text" placeholder="Username" required autocomplete="off" />
+                  </div>
+
+                  <label class="login-field-label" for="password-input" style="margin-top: 14px">Password</label>
+                  <div class="login-input-wrap">
+                    <span class="login-input-icon login-input-icon-lock" aria-hidden="true"></span>
+                    <input id="password-input" type="password" placeholder="Enter password" required autocomplete="off" />
+                    <button type="button" id="password-toggle" class="login-password-toggle" aria-label="Show password">
+                      <span class="password-toggle-icon" aria-hidden="true">👁</span>
+                    </button>
+                  </div>
+
+                  <label class="field login-field login-remember" style="margin-top: 14px; flex-direction: row; align-items: center; gap: 10px">
+                    <input type="checkbox" id="remember-me" />
+                    <span style="font-size: 13px; color: var(--color-text-2, #475569)">Remember me (30 days)</span>
+                  </label>
+
+                  <button type="submit" class="login-submit-btn login-submit-primary">Sign In</button>
+                  <button type="button" id="quick-demo-btn">Quick Demo (Planner)</button>
+                </form>
+                <p class="hint login-hint" id="login-hint"></p>
               </div>
 
-              <label class="login-field-label" for="password-input" style="margin-top: 16px">Password</label>
-              <div class="login-input-wrap">
-                <span class="login-input-icon login-input-icon-lock" aria-hidden="true"></span>
-                <input id="password-input" type="password" placeholder="Enter password" required autocomplete="off" />
-                <button type="button" id="password-toggle" class="login-password-toggle" aria-label="Show password">
-                  <span class="password-toggle-icon" aria-hidden="true">👁</span>
-                </button>
-              </div>
-
-              <label class="field login-field login-remember" style="margin-top: 16px; flex-direction: row; align-items: center; gap: 10px">
-                <input type="checkbox" id="remember-me" />
-                <span style="font-size: 13px; color: var(--color-text-2, #475569)">Remember me (30 days)</span>
-              </label>
-
-              <button type="submit" class="login-submit-btn login-submit-primary">Sign In</button>
-              <button type="button" id="quick-demo-btn">Quick Demo (Planner)</button>
-            </form>
-
-            <p class="hint login-hint" id="login-hint"></p>
-
-            <div class="login-demo-divider"><span>Demo Users</span></div>
-
-            <div class="login-demo-box">
-              <ul id="demo-user-list" class="demo-user-list">
+              <div class="login-card-col login-card-col-demos">
+                <h3 class="login-demo-title">Demo users</h3>
+                <p class="login-demo-lead">Click a card to autofill, or use Copy.</p>
+                <ul id="demo-user-list" class="demo-user-list">
                 <li
                   class="demo-user-item role-planner"
                   data-username="planner"
@@ -126,6 +130,7 @@
                   </button>
                 </li>
               </ul>
+              </div>
             </div>
 
             <p class="login-footer-copy">© 2026 ATLAS Platform — PS-ETW</p>

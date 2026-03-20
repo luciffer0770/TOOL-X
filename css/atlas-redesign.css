@@ -769,18 +769,21 @@ table tbody tr:hover {
   display: flex;
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
+  align-items: stretch;
 }
 
 .login-page .login-hero {
-  flex: 1.5;
+  flex: 0.9 1 42%;
   min-width: 0;
+  max-width: 52%;
   position: relative;
   overflow: hidden;
   background: linear-gradient(145deg, #0f2444 0%, #1e3a5f 50%, #1d4ed8 100%);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 48px;
+  padding: clamp(28px, 4vh, 44px) clamp(32px, 4vw, 56px);
   color: #fff;
 }
 
@@ -863,7 +866,7 @@ table tbody tr:hover {
 }
 
 .login-page .login-hero-features {
-  margin-top: 40px;
+  margin-top: clamp(20px, 3vh, 32px);
   list-style: none;
   padding: 0;
 }
@@ -871,7 +874,7 @@ table tbody tr:hover {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.75);
 }
@@ -890,9 +893,9 @@ table tbody tr:hover {
 
 .login-page .login-hero-badge {
   position: absolute;
-  bottom: 32px;
-  left: 48px;
-  right: 48px;
+  bottom: clamp(20px, 3vh, 32px);
+  left: clamp(32px, 4vw, 56px);
+  right: clamp(32px, 4vw, 56px);
   z-index: 1;
   display: inline-block;
   width: fit-content;
@@ -905,23 +908,80 @@ table tbody tr:hover {
 }
 
 .login-page .login-aside {
-  flex: 1;
-  min-width: 320px;
+  flex: 1.15 1 58%;
+  min-width: min(420px, 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 48px 40px;
+  padding: clamp(20px, 3vh, 36px) clamp(28px, 4vw, 64px);
   background: var(--color-bg);
 }
 
 .login-page .login-card {
   width: 100%;
-  max-width: 400px;
+  max-width: min(960px, calc(100vw - 48px));
   background: var(--color-surface);
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-lg);
-  padding: 40px;
+  padding: clamp(24px, 3vh, 32px) clamp(28px, 3.5vw, 44px) clamp(20px, 2.5vh, 28px);
+}
+
+.login-page .login-card-head {
+  margin-bottom: 4px;
+}
+
+.login-page .login-card-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (min-width: 880px) {
+  .login-page .login-card-body {
+    grid-template-columns: 1fr 1fr;
+    gap: 28px 40px;
+  }
+  .login-page .login-card-col-demos {
+    padding-left: 36px;
+    margin-left: 4px;
+    border-left: 1px solid var(--color-border);
+  }
+}
+
+.login-page .login-demo-title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+
+.login-page .login-demo-lead {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--color-muted);
+  line-height: 1.45;
+}
+
+.login-page .demo-user-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (min-width: 1100px) {
+  .login-page .demo-user-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
 }
 
 .login-page .login-card-welcome {
@@ -943,6 +1003,10 @@ table tbody tr:hover {
   margin: 24px 0;
 }
 
+.login-page .login-divider-tight {
+  margin: 12px 0 16px;
+}
+
 .login-page .login-field-label {
   display: block;
   font-size: 11px;
@@ -961,7 +1025,7 @@ table tbody tr:hover {
 .login-page .login-submit-btn.login-submit-primary {
   width: 100%;
   height: 46px;
-  margin-top: 8px;
+  margin-top: 6px;
   background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
   border: none;
   color: #fff;
@@ -979,7 +1043,7 @@ table tbody tr:hover {
 .login-page #quick-demo-btn {
   display: block;
   width: 100%;
-  margin-top: 16px;
+  margin-top: 12px;
   background: none;
   border: none;
   color: var(--color-accent);
@@ -1020,11 +1084,28 @@ table tbody tr:hover {
 }
 
 .login-page .demo-user-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   border-left-width: 3px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   transition: background 0.15s, box-shadow 0.15s;
+}
+
+@media (min-width: 1100px) {
+  .login-page .demo-user-item {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+    text-align: left;
+    padding: 12px;
+  }
+  .login-page .demo-user-item .demo-user-copy {
+    justify-self: stretch;
+    width: 100%;
+  }
 }
 .login-page .demo-user-item.role-planner {
   border-left-color: #ef4444;
@@ -1069,9 +1150,17 @@ table tbody tr:hover {
   color: var(--color-muted);
 }
 
+.login-page .login-hint {
+  margin-top: 10px;
+  margin-bottom: 0;
+  min-height: 1.25em;
+}
+
 .login-page .login-footer-copy {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
   font-size: 12px;
   color: var(--color-muted-2);
 }
