@@ -428,19 +428,21 @@ function openCustomizeKpis(metrics, role) {
   overlay.className = "modal-overlay";
   overlay.setAttribute("role", "dialog");
   overlay.innerHTML = `
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-kpi-customize">
       <h2 class="modal-title">Customize KPIs</h2>
-      <p class="small" style="margin:0 0 12px">Check to show, uncheck to hide.</p>
-      <ul id="kpi-customize-list" style="list-style:none;padding:0;max-height:280px;overflow-y:auto;margin:0 0 16px">
+      <p class="kpi-customize-lead">Check to show, uncheck to hide.</p>
+      <ul id="kpi-customize-list" class="kpi-customize-list">
         ${cards.map((c) => `
-          <li style="padding:8px 12px;border:1px solid var(--border-soft);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:8px" data-kpi-id="${escapeHtml(c.id)}">
-            <input type="checkbox" ${config.hidden.includes(c.id) ? "" : "checked"} data-kpi-visible />
-            <span>${escapeHtml(c.title)}</span>
+          <li class="kpi-customize-item" data-kpi-id="${escapeHtml(c.id)}">
+            <label class="kpi-customize-label">
+              <input type="checkbox" ${config.hidden.includes(c.id) ? "" : "checked"} data-kpi-visible />
+              <span class="kpi-customize-title">${escapeHtml(c.title)}</span>
+            </label>
           </li>
         `).join("")}
       </ul>
       <div class="modal-actions">
-        <button type="button" class="modal-secondary ghost">Cancel</button>
+        <button type="button" class="modal-secondary ghost kpi-customize-cancel">Cancel</button>
         <button type="button" class="modal-primary">Save</button>
       </div>
     </div>
