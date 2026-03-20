@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Engine Description | ATLAS</title>
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260320" />
+  </head>
+  <body>
+    <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="title-block">
+          <h1>ATLAS – Engine Description</h1>
+          <p>Store and inspect engine requirement documents</p>
+        </div>
+        <div class="header-meta">
+          <div class="session-chip">
+            <span id="user-role-badge" class="badge badge-neutral"></span>
+            <span id="user-display-name" class="small"></span>
+            <button type="button" id="logout-btn" class="ghost">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="nav">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="calendar.html">Calendar</a>
+        <a data-nav href="network.html">Network Diagram</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+        <a data-nav href="risk-register.html">Risk Register</a>
+        <a data-nav href="anomaly-center.html">Anomaly, Baseline & Actions</a>
+        <a data-nav href="project-setup.html">Project Setup</a>
+        <a data-nav href="engine-description.html">Engine Description</a>
+      </nav>
+
+      <section class="panel">
+        <div class="panel-body project-toolbar">
+          <label class="field project-select-field">Active Project <select id="project-select"></select></label>
+          <div class="row-actions">
+            <button id="project-add-btn" data-role-hide="technician">New Project</button>
+            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate</button>
+            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
+            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export</button>
+            <label class="ghost label-as-button" data-role-hide="technician">Import <input id="project-import-input" type="file" accept=".json" hidden /></label>
+          </div>
+          <div id="project-summary" class="small"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Upload Requirements</h2>
+          <span class="panel-subtitle">Excel, Word, or CSV – associate to project / engine / customer</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="field import-drop-zone" id="engine-upload-drop-zone">
+              Drag & drop or click to upload (.xlsx, .xls, .csv, .docx)
+              <input id="engine-upload-input" type="file" accept=".xlsx,.xls,.csv,.docx" multiple />
+            </label>
+            <label class="field">
+              Associate to Engine
+              <input id="engine-associate-engine" type="text" placeholder="Engine ID or serial" />
+            </label>
+            <label class="field">
+              Associate to Customer
+              <input id="engine-associate-customer" type="text" placeholder="Customer name" />
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Uploaded Documents</h2>
+          <span class="panel-subtitle" id="engine-docs-summary"></span>
+          <div class="row-actions">
+            <label class="field" style="margin:0">
+              Search
+              <input id="engine-docs-search" type="search" placeholder="File name, engine, customer..." />
+            </label>
+            <label class="field" style="margin:0">
+              File type
+              <select id="engine-docs-filter-type">
+                <option value="">All</option>
+                <option value=".xlsx">Excel</option>
+                <option value=".csv">CSV</option>
+                <option value=".docx">Word</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>File</th>
+                  <th>Project</th>
+                  <th>Engine</th>
+                  <th>Customer</th>
+                  <th>Uploaded</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="engine-docs-list"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="engine-detail-panel" hidden>
+        <div class="panel-header">
+          <h2>Document Summary</h2>
+          <span class="panel-subtitle" id="engine-detail-filename"></span>
+          <div class="row-actions">
+            <button id="engine-detail-save-btn" class="ghost">Save Summary</button>
+            <button id="engine-detail-close-btn" class="ghost">Close</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="engine-summary-grid">
+            <label class="field">
+              Engine name / model
+              <input id="summary-engineNameModel" type="text" placeholder="Parsed or manual" />
+            </label>
+            <label class="field">
+              Program / project
+              <input id="summary-programProject" type="text" placeholder="Parsed or manual" />
+            </label>
+            <label class="field">
+              Customer
+              <input id="summary-customer" type="text" placeholder="Parsed or manual" />
+            </label>
+            <label class="field">
+              Required tools
+              <input id="summary-requiredTools" type="text" placeholder="Comma-separated" />
+            </label>
+            <label class="field">
+              Required materials
+              <input id="summary-requiredMaterials" type="text" placeholder="Comma-separated" />
+            </label>
+            <label class="field">
+              Preparation phases
+              <input id="summary-preparationPhases" type="text" placeholder="Phases" />
+            </label>
+            <label class="field">
+              Key milestones
+              <input id="summary-keyMilestones" type="text" placeholder="Milestones" />
+            </label>
+            <label class="field">
+              Dependencies
+              <input id="summary-dependencies" type="text" placeholder="Dependencies" />
+            </label>
+            <label class="field engine-summary-notes">
+              Notes / requirements summary
+              <textarea id="summary-notesSummary" placeholder="Free-form notes" rows="4"></textarea>
+            </label>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+    <script type="module" src="./js/engine-description.js?v=atlas20260320"></script>
+  </body>
+</html>
