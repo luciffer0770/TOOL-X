@@ -87,6 +87,14 @@ a {
   padding: var(--spacing-sm) 0;
 }
 
+/* .top-bar padding above zeros out horizontal space — restore gap from fixed sidebar */
+.top-bar.atlas-top-header {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  padding-right: clamp(16px, 2.5vw, 48px);
+  padding-left: clamp(28px, 4vw, 72px);
+}
+
 .title-block {
   flex: 1 1 auto;
   min-width: 0;

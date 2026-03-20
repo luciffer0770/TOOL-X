@@ -254,7 +254,9 @@ body {
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   box-shadow: var(--shadow-sm);
+  /* Horizontal padding may be overridden by .top-bar in styles.css — see .top-bar.atlas-top-header */
   padding: 14px clamp(16px, 2.5vw, 48px);
+  padding-left: clamp(28px, 4vw, 72px);
   margin-bottom: 0 !important;
   display: flex;
   flex-wrap: wrap;
