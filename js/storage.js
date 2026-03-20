@@ -253,7 +253,6 @@ function emitSaveStatus(status, detail = {}) {
   }
 }
 
-const SAVE_DEBOUNCE_MS = 400;
 let _saveDebounceTimer = null;
 let _pendingPayload = null;
 
