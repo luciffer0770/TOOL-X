@@ -2539,3 +2539,119 @@ body.login-page::after {
     left: auto;
   }
 }
+
+/* Project Setup page */
+.project-setup-section .panel-header {
+  border-bottom: 2px solid var(--accent);
+}
+
+.project-setup-hint-icon {
+  margin-right: 4px;
+  opacity: 0.9;
+}
+
+.project-info-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 960px;
+}
+
+.project-info-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 1fr;
+  gap: 12px;
+  align-items: center;
+  min-height: 40px;
+}
+
+.project-info-label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.project-info-input-wrap {
+  min-width: 0;
+}
+
+.project-info-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: rgba(200, 225, 255, 0.35);
+  font-size: 0.88rem;
+}
+
+.project-info-input:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
+  background: rgba(200, 225, 255, 0.5);
+}
+
+.project-info-desc {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.project-info-desc .info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--border-soft);
+  color: var(--text-dim);
+  font-style: normal;
+  font-size: 0.7rem;
+  margin-right: 4px;
+}
+
+@media (max-width: 900px) {
+  .project-info-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .project-info-desc {
+    grid-column: 1 / -1;
+  }
+}
+
+.team-members-table input,
+.team-members-table select {
+  min-width: 100px;
+  padding: 6px 8px;
+  font-size: 0.82rem;
+}
+
+.team-members-table .cell-actions button {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+}
+
+.team-members-table .empty-cell {
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 16px;
+}
+
+/* Engine Description page */
+.engine-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.engine-summary-notes {
+  grid-column: 1 / -1;
+}
+
+.engine-doc-row {
+  cursor: pointer;
+}
+
+.engine-doc-row:hover {
+  background: rgba(47, 143, 255, 0.06);
+}

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Setup | ATLAS</title>
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260320" />
+  </head>
+  <body>
+    <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="title-block">
+          <h1>ATLAS – Project Setup & Configuration</h1>
+          <p>Onboard and configure projects – changes update all sheets automatically</p>
+        </div>
+        <div class="header-meta">
+          <div class="session-chip">
+            <span id="user-role-badge" class="badge badge-neutral"></span>
+            <span id="user-display-name" class="small"></span>
+            <button type="button" id="logout-btn" class="ghost">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="nav">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="calendar.html">Calendar</a>
+        <a data-nav href="network.html">Network Diagram</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+        <a data-nav href="risk-register.html">Risk Register</a>
+        <a data-nav href="anomaly-center.html">Anomaly, Baseline & Actions</a>
+        <a data-nav href="project-setup.html">Project Setup</a>
+        <a data-nav href="engine-description.html">Engine Description</a>
+      </nav>
+
+      <section class="panel">
+        <div class="panel-body project-toolbar">
+          <label class="field project-select-field">Active Project <select id="project-select"></select></label>
+          <div class="row-actions">
+            <button id="project-add-btn" data-role-hide="technician">New Project</button>
+            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate</button>
+            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
+            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export</button>
+            <label class="ghost label-as-button" data-role-hide="technician">Import <input id="project-import-input" type="file" accept=".json" hidden /></label>
+          </div>
+          <div id="project-summary" class="small"></div>
+        </div>
+      </section>
+
+      <section class="panel project-setup-section">
+        <div class="panel-header project-setup-header">
+          <h2>Project Information</h2>
+          <span class="panel-subtitle">
+            <span class="project-setup-hint-icon" aria-hidden="true">✎</span>
+            Edit the blue cells below. Changes update all sheets automatically.
+          </span>
+        </div>
+        <div class="panel-body">
+          <div class="project-info-table">
+            <div class="project-info-row">
+              <div class="project-info-label">Project Code</div>
+              <div class="project-info-input-wrap">
+                <input id="config-projectCode" type="text" placeholder="e.g. PRJ-0001" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Unique identifier for this project</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Project Name</div>
+              <div class="project-info-input-wrap">
+                <input id="config-projectName" type="text" placeholder="Full descriptive name" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Full descriptive name</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Customer / OEM</div>
+              <div class="project-info-input-wrap">
+                <input id="config-customerOem" type="text" placeholder="Customer or OEM name" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Customer or OEM name</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Engine Type</div>
+              <div class="project-info-input-wrap">
+                <input id="config-engineType" type="text" placeholder="Engine model / family" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Engine model / family</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Engine Serial No.</div>
+              <div class="project-info-input-wrap">
+                <input id="config-engineSerialNo" type="text" placeholder="Physical engine serial number" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Physical engine serial number</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Trolley Code</div>
+              <div class="project-info-input-wrap">
+                <input id="config-trolleyCode" type="text" placeholder="Trolley identifier" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Trolley identifier in the workshop</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Trolley Location</div>
+              <div class="project-info-input-wrap">
+                <input id="config-trolleyLocation" type="text" placeholder="Bay and line" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Physical bay and line</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Project Manager</div>
+              <div class="project-info-input-wrap">
+                <input id="config-projectManager" type="text" placeholder="Responsible PM name" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Responsible PM name</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Planned Start Date</div>
+              <div class="project-info-input-wrap">
+                <input id="config-plannedStartDate" type="date" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Contractual or planned start</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Target Finish Date</div>
+              <div class="project-info-input-wrap">
+                <input id="config-targetFinishDate" type="date" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Contractual delivery deadline</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Contract Reference</div>
+              <div class="project-info-input-wrap">
+                <input id="config-contractReference" type="text" placeholder="Contract or PO number" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Contract or PO number</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Working Hours/Day</div>
+              <div class="project-info-input-wrap">
+                <input id="config-workingHoursPerDay" type="number" min="1" max="24" step="0.5" value="8" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Standard working hours per day</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Warning Threshold (days)</div>
+              <div class="project-info-input-wrap">
+                <input id="config-warningThresholdDays" type="number" min="0" step="1" value="14" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Days before deadline to show amber warning</em></div>
+            </div>
+            <div class="project-info-row">
+              <div class="project-info-label">Critical Threshold (days)</div>
+              <div class="project-info-input-wrap">
+                <input id="config-criticalThresholdDays" type="number" min="0" step="1" value="7" class="project-info-input" />
+              </div>
+              <div class="project-info-desc"><span class="info-icon" aria-hidden="true">i</span> <em>Days before deadline to show red alert</em></div>
+            </div>
+          </div>
+          <div class="row-actions" style="margin-top: 16px">
+            <button id="project-config-save-btn">Save Project Configuration</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel project-setup-section">
+        <div class="panel-header project-setup-header">
+          <h2>Team Members</h2>
+          <span class="panel-subtitle">Add all PMs and engineers working on this project.</span>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table class="team-members-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Department</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Access Level</th>
+                  <th>Notes</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="team-members-body"></tbody>
+            </table>
+          </div>
+          <div class="row-actions" style="margin-top: 12px">
+            <button id="team-member-add-btn" data-role-hide="technician">Add Team Member</button>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="./js/project-setup.js?v=atlas20260320"></script>
+  </body>
+</html>
