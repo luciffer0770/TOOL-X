@@ -1,253 +1,266 @@
 # ATLAS – Digital Twin Engineering Preparation Platform
 
-**Advanced Twin-based Lifecycle and Activity System** – Enterprise-class planning and decision intelligence for industrial preparation and build-up lifecycle control.
+**Advanced Twin-based Lifecycle and Activity System (PS-ETW)** – Multi-project planning, activity control, delay/risk intelligence, and engineering-readiness workflows. The app is a **multi-page** front end (vanilla ES modules) backed by **Flask + SQLite** when the Python server is running, with a **localStorage / IndexedDB** fallback when served as static files only.
 
 ---
 
-## Branch: `cursor/project-management-modules-0589`
+## Branch: `cursor/user-interface-improvements-7cd7`
 
-This branch includes significant UI/UX enhancements, Gantt chart fixes, Calendar feature improvements, Activity Master refinements, storage/backend updates, and quality-of-life improvements. See [Changes on This Branch](#changes-on-this-branch) for details.
-
----
-
-## Tech Stack
-
-| Layer    | Technology                                      |
-|----------|--------------------------------------------------|
-| Frontend | HTML, CSS, Vanilla JavaScript (ES6 modules)      |
-| Backend  | Python Flask, SQLite                            |
-| Charts   | Chart.js                                        |
-| Import   | SheetJS (xlsx)                                  |
-| PWA      | Service Worker, IndexedDB fallback               |
-| Testing  | Playwright (Chromium)                           |
+This branch focuses on **organization-grade UI/UX**: sidebar shell, design tokens (`atlas-redesign.css`), login and dashboard polish, **Project Setup** as the **project management hub** (full CRUD) vs a **compact project switcher** on other sheets, **Engine Description** uploads with optional server blob storage, **global search** in the top header, text-based shell controls (shortcuts, theme, alerts, audit), **Audit Log** full page, and related README/documentation updates.
 
 ---
 
-## Project Structure
+## How the application fits together
+
+```mermaid
+flowchart LR
+  subgraph client [Browser]
+    HTML[HTML pages]
+    JS[ES modules]
+    LS[(localStorage)]
+    IDB[(IndexedDB fallback)]
+  end
+  subgraph server [Flask optional]
+    API["/api/state, /api/auth/*, /api/engine-docs, backup/restore"]
+    DB[(SQLite atlas_data.db)]
+  end
+  HTML --> JS
+  JS --> LS
+  JS --> IDB
+  JS -->|"fetch if /api/health OK"| API
+  API --> DB
+```
+
+1. **`stateReady()`** (`storage.js`) probes `/api/health`. If the backend responds, state is loaded with **`GET /api/state`** and saves use **`PUT /api/state`**. Otherwise the same JSON document lives in **localStorage** (with IndexedDB assist from `idb.js` when needed).
+2. **`initPage()`** (`page-init.js`) waits for state, runs **`access-shell.js`** (auth + role gates), **`initShell()`** (shortcuts, theme, global search, alerts, audit button, SW registration), and **`initializeProjectToolbar()`** (switcher or full hub).
+3. **Per-page scripts** (e.g. `dashboard.js`, `activities.js`) render UI from **`getActiveProject()`** / **`getActivities()`** and subscribe to **`industrial_planning_state_changed`** when the shared state updates.
+4. **Audit trail** for change events uses **`logAudit()`** → `audit.js` → **`localStorage` key `atlas_planning_audit_v1`** (cap ~200 entries). The **Audit Log page** reads this; it is separate from SQLite state.
+
+---
+
+## Tech stack
+
+| Layer        | Technology |
+|-------------|------------|
+| UI          | HTML5, CSS3, **ES modules** (no React/Vue) |
+| Design      | `css/styles.css` imports **`css/atlas-redesign.css`** (tokens, sidebar, cards, login split, audit page, dark theme) |
+| Typography  | **DM Sans**, **IBM Plex Mono** (via redesign stylesheet) |
+| Backend     | Python **Flask**, **SQLite** (`atlas_data.db`) |
+| Charts      | **Chart.js** (dashboard, materials, intelligence, etc.) |
+| Spreadsheets| **SheetJS (xlsx)** on CDN – Activity import; Engine Description parsing |
+| Word        | **Mammoth** on CDN – `.docx` text extraction for Engine Description |
+| PWA         | **`sw.js`** service worker; offline cache list in-repo |
+| Tests       | **Playwright** – `npm run test:browser` (expects static server, default `http://127.0.0.1:8080`) |
+
+---
+
+## Project structure
 
 ```
-├── app.py              # Flask backend, REST API, SQLite storage
-├── start.sh             # Codespace startup script
-├── requirements.txt     # Python: Flask, flask-cors
-├── package.json        # Node: Playwright for browser tests
-├── sw.js               # Service Worker for offline caching
-├── index.html          # Executive Dashboard
-├── login.html          # Role-based login
-├── project-setup.html  # PS-ETW – project onboarding, team roster, workspace prefs
-├── engine-description.html # Engine requirement documents, parse summaries, manual overrides
-├── activities.html     # Activity Master (CRUD, import/export)
-├── gantt.html          # Gantt Chart & Dependencies
-├── calendar.html       # Calendar view
-├── network.html        # Dependency network
-├── materials.html      # Material intelligence
-├── intelligence.html   # Delay, risk, what-if optimization
-├── risk-register.html  # Risk register
-├── anomaly-center.html # Anomalies, baselines, actions
-├── audit-log.html      # Full-page audit trail (search, filter, export); routes `/audit`, `/audit-log`
+├── app.py                 # Flask: state, auth sessions, backup/restore, engine-docs blobs
+├── start.sh               # Optional Codespace / local startup
+├── requirements.txt       # flask, flask-cors
+├── package.json           # Playwright devDependency
+├── atlas_data.db          # Created at runtime (SQLite)
+├── sw.js                  # Service worker cache manifest
+│
+├── index.html             # Executive dashboard
+├── login.html
+├── project-setup.html     # PS-ETW hub + full project toolbar (mode: full)
+├── engine-description.html
+├── activities.html
+├── calendar.html
+├── gantt.html
+├── network.html
+├── materials.html
+├── intelligence.html
+├── risk-register.html
+├── anomaly-center.html
+├── audit-log.html         # Also served as /audit and /audit-log (see Flask routes)
+│
 ├── css/
-│   └── styles.css     # Global styles, theme variables
+│   ├── styles.css         # Global rules; @imports atlas-redesign.css first
+│   └── atlas-redesign.css # Design system, layout, login, audit, components
+│
 ├── js/
-│   ├── common.js      # Utils, modals, toasts, escapeHtml
-│   ├── storage.js     # State, API/localStorage, CRUD
-│   ├── auth.js        # Login, roles, permissions
-│   ├── schema.js      # Activity columns, sanitization
-│   ├── analytics.js   # Metrics, risk, critical path
-│   ├── activities.js  # Activity Master logic
-│   ├── gantt.js       # Gantt chart, drag/resize
-│   ├── calendar.js    # Calendar, drag, quick-add
-│   ├── dashboard.js   # KPIs, charts
-│   ├── audit-log.js   # Audit Log page UI (reads localStorage audit trail from audit.js)
-│   ├── materials.js   # Material health, charts
-│   ├── intelligence.js # Root cause, simulation
-│   ├── anomaly-center.js
-│   ├── risk-register.js
+│   ├── page-init.js       # stateReady → auth → shell → project toolbar
+│   ├── access-shell.js    # Role gating, session chip, logout
+│   ├── auth.js            # Login, roles, permissions, optional API token session
+│   ├── storage.js         # Single source of truth: projects, activities, settings, setup, engine docs metadata
+│   ├── schema.js          # Column schema, sanitizeActivity, IDs
+│   ├── analytics.js       # Metrics, risk, critical path, blocked, delay/risk rows
+│   ├── common.js          # escapeHtml, modals, toasts, setActiveNavigation, keyboard help
+│   ├── shell.js           # Nav toggle, sidebar tools, wires global search / theme / alerts / audit modal
+│   ├── theme.js           # Light/dark toggle
+│   ├── global-search.js   # Search slot in top header
+│   ├── alerts.js          # Alert dropdown from analytics-derived events
+│   ├── shortcuts.js       # Ctrl+/ and activity shortcuts delegation
+│   ├── undo.js            # Undo/redo stack for Activity Master
+│   ├── audit.js           # logAudit, getAuditLog, Change History modal
+│   ├── audit-log.js       # Full Audit Log page
+│   ├── project-toolbar.js # mode: "switcher" | "full" (Project Setup only)
+│   ├── project-setup.js   # PS-ETW form, team, prefs
+│   ├── engine-description.js
+│   ├── engine-doc-parse.js
+│   ├── dashboard.js
+│   ├── activities.js
+│   ├── gantt.js
+│   ├── calendar.js
 │   ├── network.js
-│   ├── undo.js        # Undo/redo stack
-│   ├── audit.js       # Change history
-│   └── ...
-└── tests/             # Playwright browser tests
+│   ├── materials.js
+│   ├── intelligence.js
+│   ├── risk-register.js
+│   ├── anomaly-center.js
+│   ├── onboarding.js      # Guided tour (Driver.js-style overlays)
+│   ├── login.js
+│   ├── comments.js
+│   ├── templates.js
+│   └── idb.js             # IndexedDB fallback for large state
+│
+├── scripts/
+│   └── apply-sidebar-layout.py   # One-off HTML layout helper (sidebar migration)
+│
+└── tests/
+    ├── run-browser-test.js       # Main Playwright smoke test
+    ├── login-flow-test.js
+    ├── add-activity-test.js
+    ├── quick-demo-test.js
+    └── …                         # Diagnostics / headful helpers
 ```
+
+---
+
+## Data model (application state)
+
+The document stored under SQLite key **`industrial_planning_intelligence_state_v1`** (or localStorage equivalent) is roughly:
+
+| Field | Purpose |
+|-------|---------|
+| `projects` | Array of projects; each has `id`, `name`, `activities[]`, `baselines[]`, `actions[]`, **`setup`** (PS-ETW fields), **`engineDocuments[]`** (metadata + parse summary; file bytes may live in SQLite via API) |
+| `activeProjectId` | Currently selected project |
+| `settings` | e.g. column visibility, default editor name |
+
+**Project IDs** follow `PRJ-0001` style; activities use **`ACT-`…** IDs from schema rules. **`logAudit()`** does not mutate this document; it appends to a separate audit list in localStorage.
 
 ---
 
 ## Run
 
-### With Python Backend (recommended)
-
-```bash
-./start.sh
-```
-
-Or:
+### With Python backend (recommended)
 
 ```bash
 pip install -r requirements.txt
 python app.py
 ```
 
-Open the forwarded port URL (e.g. `https://your-codespace-5000.app.github.dev`). Data is stored in SQLite (`atlas_data.db`).
+Default port **5000** (`PORT` env overrides). Open the app URL; data persists in **`atlas_data.db`**.
 
-### Static-only (no backend)
+### Static-only (no API)
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Open `http://localhost:8080/`. Data uses `localStorage` and IndexedDB fallback.
+Use **`http://127.0.0.1:8080/login.html`**. State stays in the browser; auth uses the same demo users from **`auth.js`** (no server sessions).
 
-### Quick Demo
+### Quick demo / dev login
 
-Use **Quick Demo (Planner)** on the login page, or add `?dev=1` to any URL to auto-login as planner.
-
----
-
-## Pages and Features
-
-### Login (`login.html`)
-- Role-based sign-in (Planner, Management, Technician)
-- Demo credentials and Quick Demo
-- Session with optional "Remember me"
-
-### Project Setup (`project-setup.html`, PS-ETW)
-- Per-project configuration: code, customer/OEM, engine identity, trolley, PM, dates, contract, working hours, warning/critical thresholds
-- Team roster (name, role, department, contact, access level, notes)
-- Workspace preferences: default editor for activity audit trail (replaces the old Activity Master default-editor field)
-
-### Engine Description (`engine-description.html`)
-- Upload Excel (.xlsx, .xls), CSV, or Word (.docx) requirement documents per active project
-- Optional server storage of originals when using the Python backend with API login (download/delete supported)
-- Heuristic parsing into summary panels; partial parses still store the file and allow full manual override of summary fields
-- Search and filter by parse status
-
-### Executive Dashboard (`index.html`)
-- **KPIs:** Total activities, delayed, high-risk, completion, cost variance
-- **Charts:** Phase completion, risk distribution
-- **Critical path** and dependency chain
-- **Blocked activities** list
-- **Priority risks** table
-- **Alert Center**
-- Role-specific views
-- Snapshot date and time range filters
-
-### Activity Master (`activities.html`)
-- Full activity CRUD in data grid
-- **Sticky columns:** Activity ID and Activity Name stay visible while scrolling
-- **Search:** Activity ID, name, phase, comments
-- **Pagination:** Configurable page size (10/25/50/100)
-- **Bulk actions:** Multi-select, bulk status edit, bulk delete
-- **Import:** Excel (merge by ID or replace), JSON
-- **Export:** CSV, Excel, JSON, PDF (via Print)
-- **Templates:** Save/load activity presets
-- **Comments:** Per-activity notes
-- **Saved filter presets**
-- **Column visibility** toggle
-- **Undo/Redo** (Ctrl+Z / Ctrl+Y)
-
-### Gantt Chart (`gantt.html`)
-- **Timeline view** with daily date ticks (Day Month format)
-- **Drag bars** to move activities between dates
-- **Resize handle** on right edge to adjust end date
-- **Snap-to-day:** Bars snap to day boundaries during drag/resize
-- **Critical path** highlight
-- **Delayed** activities highlighted in red
-- **Today marker** (vertical red line)
-- Phase/Status filters, sort modes (start, risk, delay, completion)
-- Zoom (day/week/month), Reset Timeline, Go to Today
-- **Dependency lines** (SVG) between bars
-- **Dependency Risk Register** table below
-
-### Calendar (`calendar.html`)
-- **Month view** of activities by planned dates
-- **Today column** highlight
-- **Activity count badge** per day
-- **Drag to reschedule:** Drag activity to a different day
-- **Quick-add:** Double-click empty day to add activity
-- **Keyboard navigation:** Arrow keys between activities, Escape to clear
-- **Density toggle:** Compact / Normal / Expanded
-- **Detail panel:** Right-side details when an activity is selected
-- **Status colors:** Completed (green), Delayed (red), In Progress (yellow), Not Started (gray)
-
-### Network Diagram (`network.html`)
-- List of activities and their dependencies
-- Links to Activity Master
-- Blocked activities highlighted
-
-### Materials (`materials.html`)
-- KPIs: Ownership counts, pending critical, late materials, avg lead time
-- Pie/bar charts
-- Filterable table
-- CSV export
-
-### Intelligence (`intelligence.html`)
-- Risk KPIs (critical, high, medium, low)
-- Root cause capture for delayed activities
-- Blocked activities list
-- Delay/Risk table with actions
-- **What-if simulation:** Manpower boost, lead-time reduction, overtime
-- Scenario presets and impact table
-
-### Risk Register (`risk-register.html`)
-- High-risk activities (score ≥ 40 or High/Critical)
-- Filter by risk level
-- Inline mitigation notes
-
-### Anomaly Center (`anomaly-center.html`)
-- **Anomalies:** Data-quality and logic checks (cycles, missing deps, etc.)
-- **Baselines:** Create, compare, variance export
-- **Actions:** Create, assign, track corrective actions
-
-### Audit Log (`audit-log.html`, routes `/audit` and `/audit-log`)
-- **Full-page trail** of actions recorded via `logAudit` in this browser (localStorage), with search, filters, timeline/table views, pagination, CSV export, and print-to-PDF
-- **Quick view:** Sidebar **Audit** still opens the Change History modal with a link to this page
+- **Quick Demo (Planner)** on the login page, or  
+- Append **`?dev=1`** to a URL to auto-login as planner (development convenience).
 
 ---
 
-## Roles and Permissions
+## Pages and navigation
 
-| Role        | Capabilities                                                                 |
-|-------------|-------------------------------------------------------------------------------|
-| **Planner** | Full access: projects, activities, import/export, optimization, baselines     |
-| **Management** | Same as Planner                                                           |
-| **Technician** | Activities, execution fields only (status, completion, dates, remarks)   |
+All authenticated pages share:
 
----
+- **Left sidebar** (`aside.app-sidebar`): groups **Main**, **Planning**, **Analytics**, **Management** (includes **Anomaly Center** and **Audit Log**).
+- **Top bar** (`header.atlas-top-header`): title, optional dashboard filters, **session chip**, and injected **global search** + **alerts** bell.
+- **Project strip**: on most pages, **active project** dropdown + summary + **Manage projects** → `project-setup.html`. **Project Setup** uses the **full** toolbar (create, duplicate, rename, delete, import/export JSON, backup/restore when API available).
 
-## Keyboard Shortcuts
+| Page | File | Highlights |
+|------|------|------------|
+| Login | `login.html` | Split hero + card; demo users; remember me |
+| Dashboard | `index.html` | KPIs, charts, critical path, blocked, risks, alert center, customize KPIs modal |
+| Project Setup | `project-setup.html` | PS-ETW metadata, team roster, workspace prefs; **full** project admin |
+| Engine Description | `engine-description.html` | Upload/parsed summaries; server blob upload when logged in via API |
+| Activity Master | `activities.html` | Grid, import/export, bulk actions, comments, undo |
+| Calendar | `calendar.html` | Month view, drag reschedule, density, detail panel |
+| Gantt | `gantt.html` | Drag/resize bars, dependencies SVG, filters |
+| Network | `network.html` | Dependency graph/list view |
+| Materials | `materials.html` | Material KPIs and charts |
+| Delay & Risk | `intelligence.html` | Root cause, simulation, risk tables |
+| Risk Register | `risk-register.html` | High-risk activity focus |
+| Anomaly Center | `anomaly-center.html` | Data quality, baselines, actions |
+| Audit Log | `audit-log.html` | Full audit UI (filters, timeline/table, CSV, print/PDF) |
 
-| Shortcut      | Action                         |
-|---------------|--------------------------------|
-| Ctrl+K        | Focus search (Activity Master) |
-| Ctrl+Shift+K  | Global cross-page search       |
-| Ctrl+N        | Add activity                   |
-| Ctrl+E        | Export CSV                     |
-| Ctrl+Z        | Undo                           |
-| Ctrl+Y        | Redo                           |
-| Ctrl+/        | Show shortcuts help            |
-| Escape        | Close modal / cancel           |
+### Pretty URLs (Flask)
 
----
-
-## API Endpoints
-
-| Method | Endpoint        | Description                    |
-|--------|-----------------|--------------------------------|
-| GET    | /api/health     | Health check                   |
-| GET    | /api/state      | Full application state         |
-| PUT    | /api/state      | Save state                     |
-| POST   | /api/auth/login | Login                          |
-| GET    | /api/auth/me    | Current user (Bearer token)    |
-| POST   | /api/auth/logout| Logout                         |
-| GET    | /api/backup     | Download SQLite backup         |
-| POST   | /api/restore    | Restore from .db backup        |
-| POST   | /api/engine-docs | Upload requirement file (multipart, Bearer auth) |
-| GET    | /api/engine-docs/{id} | Download stored file        |
-| DELETE | /api/engine-docs/{id} | Remove stored file blob     |
+If the file exists under the repo root, Flask serves it. Additionally, extensionless paths map to `.html`, e.g. **`/activities`** → `activities.html`. **`/audit`** maps to **`audit-log.html`**.
 
 ---
 
-## Mandatory Import Columns
+## Global shell features (`shell.js` + friends)
 
-Excel/CSV import requires:
+- **Shortcuts** – opens keyboard help (`common.js` / `shortcuts.js`).
+- **Alerts** – live list from delay/risk/blocked heuristics (`alerts.js`).
+- **Theme** – light/dark (`theme.js`, `[data-theme="dark"]` tokens).
+- **Audit** – quick **Change History** modal (`audit.js`); link through to **Audit Log** page.
+- **Menu** (mobile) – toggles `app-sidebar.is-open`.
+- **Service worker** – registered from `/sw.js`.
+
+---
+
+## API endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api` | API info + endpoint list |
+| GET | `/api/health` | `{ "status": "ok" }` – used to detect backend |
+| GET | `/api/state` | Full JSON state document |
+| PUT/POST | `/api/state` | Replace state (JSON body) |
+| POST | `/api/auth/login` | Body: `username`, `password`, `rememberMe` → `token`, `user` |
+| GET/POST | `/api/auth/me` | Validate Bearer token |
+| POST | `/api/auth/logout` | Invalidate session token |
+| GET | `/api/backup` | Download SQLite file |
+| POST | `/api/restore` | Upload `.db` (validated; backs up current DB first) |
+| POST | `/api/engine-docs` | Multipart upload (Bearer auth, `project_id`, `file`) → blob row |
+| GET | `/api/engine-docs/<id>` | Download attachment |
+| DELETE | `/api/engine-docs/<id>` | Delete blob |
+
+**Engine docs** require `Authorization: Bearer <token>` from login.
+
+---
+
+## Roles and permissions
+
+| Role | Capabilities |
+|------|----------------|
+| **Planner** | Full project and activity control, import/export, optimization, baselines |
+| **Management** | Same as Planner |
+| **Technician** | Execution-oriented fields on activities (status, completion, dates, remarks); structure changes restricted |
+
+Helpers live in **`auth.js`** (e.g. `canModifyActivityStructure`, `canManageProjects`).
+
+---
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+K | Focus Activity Master search (when on that page) |
+| Ctrl+Shift+K | Global cross-page search |
+| Ctrl+N | Add activity (contextual) |
+| Ctrl+E | Export CSV (contextual) |
+| Ctrl+Z / Ctrl+Y | Undo / redo (Activity Master) |
+| Ctrl+/ | Shortcut help |
+| Escape | Close modal |
+
+---
+
+## Mandatory import columns (Activity Master)
+
+Excel/CSV import expects (at minimum) the columns defined in **`schema.js`** / UI copy, including:
 
 - Activity ID, Phase, Activity Name, Sub Activity  
 - Base Effort Hours, Required Materials, Required Tools  
@@ -255,13 +268,24 @@ Excel/CSV import requires:
 
 ---
 
-## Demo Credentials
+## Custom events
 
-| Role        | Username    | Password     |
-|-------------|-------------|--------------|
-| Planner     | planner     | planner123   |
-| Management  | management  | management123|
-| Technician  | technician  | technician123|
+| Event | When |
+|-------|------|
+| `industrial_planning_state_changed` | After persisted state updates (many pages listen to refresh) |
+| `industrial_planning_save_status` | Save pipeline status for UI (`storage.js`) |
+
+---
+
+## Demo credentials
+
+| Role | Username | Password |
+|------|----------|----------|
+| Planner | `planner` | `planner123` |
+| Management | `management` | `management123` |
+| Technician | `technician` | `technician123` |
+
+SQLite seeds the same users server-side on first run (`app.py`).
 
 ---
 
@@ -269,62 +293,36 @@ Excel/CSV import requires:
 
 ```bash
 npm install
+# Serve static tree on port 8080 in another terminal:
+python3 -m http.server 8080
 npm run test:browser
 ```
 
-Uses Playwright to run login, add-activity, storage, and diagnostic tests.
+`tests/run-browser-test.js` covers login, demo users, quick navigation to dashboard / activities / gantt. Other files under `tests/` are focused flows or diagnostics.
 
 ---
 
-## Changes on This Branch
+## Changes on this branch (summary)
 
-### Gantt Chart
-- **Bar position:** Uses planned dates only so bars stay where moved
-- **Drag/resize:** Snap to day boundaries
-- **Date parsing:** Local date handling to avoid timezone shifts
-- **Date serialization:** Uses local date parts for correct save
-
-### Calendar
-- Today column highlight
-- Activity count badge per day
-- Drag to reschedule activities
-- Quick-add on double-click empty day
-- Keyboard navigation (arrows, Escape)
-- Density toggle (compact/expanded)
-- Right-side activity detail panel
-- Status colors (completed, delayed, in progress)
-
-### Activity Master
-- Sticky Activity Name column
-- Search includes comments
-- Pagination with page size selector
-- Last-saved indicator with save status
-
-### Storage
-- Retry logic for backend saves (3 attempts)
-- Save status events (saving / saved / error)
-- Reduced toast noise on normal saves
-- **Debounced saves:** State writes are debounced (~450ms) to reduce write frequency on rapid edits
-
-### Backend
-- `datetime.utcnow()` replaced with `datetime.now(timezone.utc)` for Python 3.12 compatibility
-- **Backup before restore:** Current database is saved as `atlas_data_pre_restore_backup.db` before any restore
-
-### Activity Master (additional)
-- **Dependency validation:** Warns when adding dependencies that create cycles or reference missing activity IDs
-- **Duplicate button** per row to copy activity + dependencies
-
-### Quality of Life
-- **Loading indicators** for import, backup, and restore operations
-- **tmp_index.html** removed
-- `_memoryCache` used as source of truth during debounce window for consistent reads
-
-### Schema
-- `activityName` column order adjusted after `activityId`
+- **Layout & design system**: Fixed **sidebar + main** shell, **`atlas-redesign.css`** tokens, typography, panels, login split layout, calendar/dashboard spacing improvements.
+- **Project UX**: **Project Setup** = only place for **create / duplicate / rename / delete / import / export** projects (+ backup/restore when API exists). Other pages: **compact switcher** + link to hub.
+- **Industry-style chrome**: Sidebar/header actions use **text labels** (not emoji-only); **global search** moved to the **top header**.
+- **Engine pipeline**: **Engine Description** page, **`engine-doc-parse.js`**, Flask **`atlas_engine_blobs`** + **`/api/engine-docs`**.
+- **Audit**: **`audit-log.html`** + **`audit-log.js`**; **Change History** modal restyled with link to full log; **`/audit`** route.
+- **Navigation / README**: **Audit Log** in sidebar; documentation aligned with the real stack and branch.
 
 ---
 
-## License & Repository
+## Cross-cutting implementation notes
+
+- **Debounced saves** (~450 ms) in `storage.js` reduce write churn; **`_memoryCache`** holds pending writes coherently.
+- **Activity Master**: dependency cycle / missing-ID warnings; row actions with accessible labels; sticky ID/name columns.
+- **Gantt / Calendar**: date handling favors **local calendar dates** where relevant to avoid TZ drift (see inline comments in those modules).
+- **Python**: timezone-aware datetimes for sessions and DB timestamps.
+
+---
+
+## License & repository
 
 Repository: **TOOL-X**  
-Branch: **cursor/project-management-modules-0589**
+Current documentation branch: **`cursor/user-interface-improvements-7cd7`**
