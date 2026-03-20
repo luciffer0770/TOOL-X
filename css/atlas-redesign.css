@@ -1004,15 +1004,7 @@ table tbody tr:hover {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-@media (min-width: 1100px) {
-  .login-page .demo-user-list {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-  }
+  gap: 12px;
 }
 
 .login-page .login-card-welcome {
@@ -1048,9 +1040,34 @@ table tbody tr:hover {
   margin-bottom: 6px;
 }
 
+.login-page .login-input-wrap {
+  position: relative;
+}
+
 .login-page .login-input-wrap input {
   height: 44px;
-  padding-left: 42px;
+  padding-left: 2.875rem;
+  padding-right: 1rem;
+  box-sizing: border-box;
+}
+
+.login-page .login-input-wrap:has(.login-password-toggle) input {
+  padding-right: 2.75rem;
+}
+
+.login-page .login-input-icon {
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+.login-page .login-password-toggle {
+  right: 10px;
+  padding: 6px 8px;
+  z-index: 1;
 }
 
 .login-page .login-submit-btn.login-submit-primary {
@@ -1118,25 +1135,12 @@ table tbody tr:hover {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 10px 12px;
+  gap: 12px 14px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   border-left-width: 3px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   transition: background 0.15s, box-shadow 0.15s;
-}
-
-@media (min-width: 1100px) {
-  .login-page .demo-user-item {
-    grid-template-columns: 1fr;
-    justify-items: stretch;
-    text-align: left;
-    padding: 12px;
-  }
-  .login-page .demo-user-item .demo-user-copy {
-    justify-self: stretch;
-    width: 100%;
-  }
 }
 .login-page .demo-user-item.role-planner {
   border-left-color: #ef4444;
