@@ -383,7 +383,7 @@ async function initialize() {
   const user = initializeAccessShell({});
   if (!user) return;
   initShell();
-  initializeProjectToolbar({ onProjectChange: render, onStateChange: render });
+  initializeProjectToolbar({ mode: "switcher", onProjectChange: render });
   setActiveNavigation();
 
   const toggleEl = document.getElementById("network-critical-path-toggle");

@@ -184,6 +184,7 @@ function initialize() {
 
   initPage({
     requireAuth: true,
+    projectToolbarMode: "full",
     onReady(user) {
       currentUser = user;
       if (!currentUser) return;

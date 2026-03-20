@@ -475,7 +475,7 @@ async function initialize() {
   const currentUser = initializeAccessShell();
   if (!currentUser) return;
   wireEvents();
-  initializeProjectToolbar({ onProjectChange: renderForActiveProject });
+  initializeProjectToolbar({ mode: "switcher", onProjectChange: renderForActiveProject });
   const unsubscribe = subscribeToStateChanges(renderForActiveProject);
   window.addEventListener(
     "pagehide",

@@ -54,17 +54,17 @@ export function initShell() {
   } catch (_) {}
   const nav = document.querySelector(".nav");
   const helpBtn = document.createElement("button");
-  helpBtn.className = "ghost nav-help-btn";
+  helpBtn.className = "ghost sidebar-tool-btn nav-help-btn";
   helpBtn.type = "button";
-  helpBtn.textContent = "?";
+  helpBtn.innerHTML = "<span class=\"sidebar-tool-label\">Shortcuts</span><span class=\"sidebar-tool-hint\">Ctrl+/</span>";
   helpBtn.title = "Keyboard shortcuts (Ctrl+/)";
   helpBtn.setAttribute("aria-label", "Show keyboard shortcuts");
   nav?.appendChild(helpBtn);
 
   const notifBtn = document.createElement("button");
-  notifBtn.className = "ghost";
+  notifBtn.className = "ghost sidebar-tool-btn";
   notifBtn.type = "button";
-  notifBtn.textContent = "📜";
+  notifBtn.innerHTML = "<span class=\"sidebar-tool-label\">Alerts</span><span class=\"sidebar-tool-hint\">History</span>";
   notifBtn.title = "Notification history";
   notifBtn.setAttribute("aria-label", "Notification history");
   nav?.appendChild(notifBtn);
@@ -72,17 +72,18 @@ export function initShell() {
 
   const themeBtn = document.createElement("button");
   themeBtn.id = "theme-toggle-btn";
-  themeBtn.className = "ghost";
+  themeBtn.className = "ghost sidebar-tool-btn";
   themeBtn.type = "button";
-  themeBtn.title = "Toggle theme";
+  themeBtn.innerHTML = "<span class=\"sidebar-tool-label theme-toggle-label\">Theme</span>";
+  themeBtn.title = "Toggle light / dark theme";
   nav?.appendChild(themeBtn);
   try { initThemeToggle(); } catch (e) { console.warn("[shell] theme init:", e); }
   try { initAlertsBell(); } catch (e) { console.warn("[shell] alerts init:", e); }
 
   const auditBtn = document.createElement("button");
-  auditBtn.className = "ghost";
+  auditBtn.className = "ghost sidebar-tool-btn";
   auditBtn.type = "button";
-  auditBtn.textContent = "📋";
+  auditBtn.innerHTML = "<span class=\"sidebar-tool-label\">Audit</span><span class=\"sidebar-tool-hint\">Changes</span>";
   auditBtn.title = "Change history";
   auditBtn.setAttribute("aria-label", "Change history");
   nav?.appendChild(auditBtn);
@@ -92,7 +93,7 @@ export function initShell() {
   navToggle.className = "ghost nav-toggle";
   navToggle.type = "button";
   navToggle.setAttribute("aria-label", "Toggle navigation");
-  navToggle.innerHTML = "☰";
+  navToggle.innerHTML = "<span class=\"nav-toggle-label\">Menu</span>";
   nav?.parentElement?.insertBefore(navToggle, nav);
 
   navToggle?.addEventListener("click", () => {

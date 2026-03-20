@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>ATLAS – Digital Twin Engineering Preparation Platform</title>
-    <link rel="stylesheet" href="./css/styles.css?v=atlas20260321" />
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260322" />
   </head>
   <body>
     <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
@@ -66,26 +66,16 @@
       </header>
 
       <div class="app-shell app-shell-wide">
-      <section class="panel">
-        <div class="panel-body project-toolbar">
-          <label class="field project-select-field"
-            >Active Project
-            <select id="project-select"></select>
+            <div class="programme-switcher-bar" role="region" aria-label="Active programme">
+        <div class="programme-switcher-inner">
+          <label class="programme-switcher-field" for="project-select">
+            <span class="programme-switcher-label">Active programme</span>
+            <select id="project-select" class="programme-switcher-select"></select>
           </label>
-          <div class="row-actions">
-            <button id="project-add-btn" data-role-hide="technician">New Project</button>
-            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate</button>
-            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
-            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
-            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export Project</button>
-            <label class="ghost label-as-button" data-role-hide="technician">
-              Import Project
-              <input id="project-import-input" type="file" accept=".json" hidden />
-            </label>
-          </div>
-          <div id="project-summary" class="small"></div>
+          <span id="project-summary" class="programme-switcher-summary"></span>
+          <a href="project-setup.html" class="programme-switcher-link">Manage programmes</a>
         </div>
-      </section>
+      </div>
 
       <section class="panel">
         <div class="panel-header">

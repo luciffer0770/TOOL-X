@@ -301,7 +301,7 @@ async function initialize() {
   const user = initializeAccessShell({});
   if (!user) return;
   initShell();
-  initializeProjectToolbar({ onProjectChange: render });
+  initializeProjectToolbar({ mode: "switcher", onProjectChange: render });
   subscribeToStateChanges(render);
   setActiveNavigation();
   wireKeyboard();

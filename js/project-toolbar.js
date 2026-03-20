@@ -23,312 +23,348 @@ async function hasBackend() {
 
 const PROJECT_NAME_MAX_LENGTH = 120;
 
-export function initializeProjectToolbar({ onProjectChange } = {}) {
+/**
+ * @param {object} opts
+ * @param {() => void} [opts.onProjectChange]
+ * @param {"full" | "switcher"} [opts.mode] full = Project Setup hub only; switcher = active programme + link
+ */
+export function initializeProjectToolbar({ onProjectChange, mode = "switcher" } = {}) {
   let attempts = 0;
-  const maxAttempts = 6;
+  const maxAttempts = 8;
+  let projectFilterText = "";
+
   async function tryInit() {
     attempts++;
     const select = document.querySelector("#project-select");
+    const summary = document.querySelector("#project-summary");
+    const currentUser = getCurrentUser();
+    const canManage = canManageProjects(currentUser);
+    const isFull = mode === "full";
+
     const addButton = document.querySelector("#project-add-btn");
     const duplicateButton = document.querySelector("#project-duplicate-btn");
     const renameButton = document.querySelector("#project-rename-btn");
     const deleteButton = document.querySelector("#project-delete-btn");
     const exportButton = document.querySelector("#project-export-btn");
     const importInput = document.querySelector("#project-import-input");
-    const summary = document.querySelector("#project-summary");
     const rowActions = document.querySelector(".project-toolbar .row-actions");
-    const currentUser = getCurrentUser();
-    const canManage = canManageProjects(currentUser);
 
-    if (!select || !addButton || !duplicateButton || !renameButton || !deleteButton || !summary) {
+    if (!select) {
       if (attempts < maxAttempts) {
-        // try again shortly
         setTimeout(tryInit, 200);
         return;
       }
-      // Still missing elements — log for diagnostics and return gracefully
-      try {
-        console.warn("[project-toolbar] initialization aborted - missing DOM elements", {
-          select: !!select,
-          addButton: !!addButton,
-          duplicateButton: !!duplicateButton,
-          renameButton: !!renameButton,
-          deleteButton: !!deleteButton,
-          summary: !!summary,
-        });
-      } catch (_) {}
+      console.warn("[project-toolbar] no #project-select");
       return;
     }
 
-  const runChangeHandler = () => {
-    if (typeof onProjectChange === "function") {
-      onProjectChange();
-      return;
+    if (isFull) {
+      if (!addButton || !duplicateButton || !renameButton || !deleteButton || !summary) {
+        if (attempts < maxAttempts) {
+          setTimeout(tryInit, 200);
+          return;
+        }
+        console.warn("[project-toolbar] full mode missing controls");
+        return;
+      }
     }
-    window.location.reload();
-  };
 
-  const render = () => {
-    const projects = getProjects();
-    const activeProject = getActiveProject();
-    select.innerHTML = projects
-      .map(
-        (project) =>
-          `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)} (${project.activityCount} activities)</option>`,
-      )
-      .join("");
-    select.value = activeProject.id;
-    deleteButton.disabled = !canManage || projects.length <= 1;
-    addButton.hidden = !canManage;
-    duplicateButton.hidden = !canManage;
-    renameButton.hidden = !canManage;
-    deleteButton.hidden = !canManage;
-    summary.textContent = `${projects.length} projects tracked | Active: ${activeProject.name} | ${activeProject.activities.length} activities`;
-  };
+    const runChangeHandler = () => {
+      if (typeof onProjectChange === "function") {
+        onProjectChange();
+        return;
+      }
+      window.location.reload();
+    };
 
-  select.addEventListener("change", () => {
-    const changed = setActiveProject(select.value);
-    if (!changed) {
-      notify("Unable to switch project.", "error");
+    const render = () => {
+      const projects = getProjects();
+      const activeProject = getActiveProject();
+      const q = projectFilterText.trim().toLowerCase();
+      const filtered = projects.filter(
+        (p) =>
+          p.id === activeProject.id ||
+          !q ||
+          String(p.name || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(p.id || "")
+            .toLowerCase()
+            .includes(q),
+      );
+
+      select.innerHTML = filtered
+        .map(
+          (project) =>
+            `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)} (${project.activityCount} activities)</option>`,
+        )
+        .join("");
+      select.value = activeProject.id;
+
+      if (isFull) {
+        deleteButton.disabled = !canManage || projects.length <= 1;
+        addButton.hidden = !canManage;
+        duplicateButton.hidden = !canManage;
+        renameButton.hidden = !canManage;
+        deleteButton.hidden = !canManage;
+        summary.textContent = `${projects.length} programmes · Active: ${activeProject.name} · ${activeProject.activities.length} activities`;
+      } else if (summary) {
+        summary.textContent = `${projects.length} programmes · ${activeProject.activities.length} activities in view`;
+      }
+    };
+
+    select.addEventListener("change", () => {
+      const changed = setActiveProject(select.value);
+      if (!changed) {
+        notify("Unable to switch programme.", "error");
+        render();
+        return;
+      }
+      notify("Active programme updated.", "success");
       render();
-      return;
-    }
-    notify("Active project switched.", "success");
-    render();
-    runChangeHandler();
-  });
-
-  addButton.addEventListener("click", async () => {
-    if (!canManage) return;
-    const projects = getProjects();
-    const result = await showModal({
-      title: "New Project",
-      body: "Enter a name for the new project.",
-      fields: [
-        {
-          id: "name",
-          label: "Project name",
-          placeholder: `Project ${projects.length + 1}`,
-          value: `Project ${projects.length + 1}`,
-          required: true,
-          maxLength: PROJECT_NAME_MAX_LENGTH,
-        },
-      ],
-      primaryLabel: "Create",
-      secondaryLabel: "Cancel",
+      runChangeHandler();
     });
-    if (!result) return;
-    const name = (result.name || "").trim();
-    if (!name) {
-      notify("Project name cannot be empty.", "warning");
-      return;
-    }
-    if (name.length > PROJECT_NAME_MAX_LENGTH) {
-      notify("Project name is too long.", "warning");
-      return;
-    }
-    const created = addProject(name);
-    notify(`Created project "${created.name}".`, "success");
-    render();
-    runChangeHandler();
-  });
 
-  duplicateButton.addEventListener("click", async () => {
-    if (!canManage) return;
-    const activeProject = getActiveProject();
-    const result = await showModal({
-      title: "Duplicate Project",
-      body: `Create a copy of "${activeProject.name}" with all activities, baselines, and actions.`,
-      fields: [
-        {
-          id: "name",
-          label: "Project name",
-          placeholder: `${activeProject.name} Copy`,
-          value: `${activeProject.name} Copy`,
-          required: true,
-          maxLength: PROJECT_NAME_MAX_LENGTH,
-        },
-      ],
-      primaryLabel: "Duplicate",
-      secondaryLabel: "Cancel",
-    });
-    if (!result) return;
-    const name = (result.name || "").trim() || `${activeProject.name} Copy`;
-    const duplicated = duplicateProject(activeProject.id, name);
-    if (!duplicated) {
-      notify("Unable to duplicate project.", "error");
-      return;
-    }
-    notify(`Created duplicate template "${duplicated.name}".`, "success");
-    render();
-    runChangeHandler();
-  });
+    if (isFull) {
+      const filterInput = document.querySelector("#project-list-filter");
+      filterInput?.addEventListener("input", () => {
+        projectFilterText = filterInput.value || "";
+        render();
+      });
 
-  renameButton.addEventListener("click", async () => {
-    if (!canManage) return;
-    const activeProject = getActiveProject();
-    const result = await showModal({
-      title: "Rename Project",
-      body: "Enter the new name for this project.",
-      fields: [
-        {
-          id: "name",
-          label: "Project name",
-          value: activeProject.name,
-          required: true,
-          maxLength: PROJECT_NAME_MAX_LENGTH,
-        },
-      ],
-      primaryLabel: "Rename",
-      secondaryLabel: "Cancel",
-    });
-    if (!result) return;
-    const name = (result.name || "").trim();
-    if (!name) {
-      notify("Project name cannot be empty.", "warning");
-      return;
-    }
-    const renamed = renameProject(activeProject.id, name);
-    if (!renamed) {
-      notify("Unable to rename project.", "error");
-      return;
-    }
-    notify(`Renamed to "${renamed.name}".`, "success");
-    render();
-    runChangeHandler();
-  });
-
-  deleteButton.addEventListener("click", async () => {
-    if (!canManage) return;
-    const activeProject = getActiveProject();
-    const result = await showModal({
-      title: "Delete Project",
-      body: `Permanently delete "${activeProject.name}"? This removes all activities, baselines, and actions. Type the project name below to confirm.`,
-      fields: [
-        {
-          id: "confirm",
-          label: "Type project name to confirm",
-          placeholder: activeProject.name,
-          required: true,
-        },
-      ],
-      primaryLabel: "Delete",
-      secondaryLabel: "Cancel",
-      danger: true,
-    });
-    if (!result || result.confirm !== activeProject.name) {
-      if (result) notify("Project name did not match. Deletion cancelled.", "warning");
-      return;
-    }
-    const deleteResult = deleteProject(activeProject.id);
-    if (!deleteResult.deleted) {
-      notify(deleteResult.reason || "Project could not be deleted.", "warning");
-      return;
-    }
-    notify("Project deleted.", "warning");
-    render();
-    runChangeHandler();
-  });
-
-  exportButton?.addEventListener("click", () => {
-    if (!canManage) return;
-    const json = exportFullProject();
-    const activeProject = getActiveProject();
-    const filename = `project_${activeProject.name.replace(/[^a-z0-9]/gi, "_")}_${new Date().toISOString().slice(0, 10)}.json`;
-    triggerDownload(filename, json, "application/json;charset=utf-8;");
-    notify("Project exported.", "success");
-  });
-
-  importInput?.addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !canManage) return;
-    try {
-      const text = await file.text();
-      const result = importProjectFromJson(text);
-      if (result.success) {
-        notify(`Imported project "${result.project.name}".`, "success");
+      addButton.addEventListener("click", async () => {
+        if (!canManage) return;
+        const projects = getProjects();
+        const result = await showModal({
+          title: "New programme",
+          body: "Programmes are created here so every sheet stays focused on delivery. Enter a display name.",
+          fields: [
+            {
+              id: "name",
+              label: "Programme name",
+              placeholder: `Programme ${projects.length + 1}`,
+              value: `Programme ${projects.length + 1}`,
+              required: true,
+              maxLength: PROJECT_NAME_MAX_LENGTH,
+            },
+          ],
+          primaryLabel: "Create",
+          secondaryLabel: "Cancel",
+        });
+        if (!result) return;
+        const name = (result.name || "").trim();
+        if (!name) {
+          notify("Name cannot be empty.", "warning");
+          return;
+        }
+        if (name.length > PROJECT_NAME_MAX_LENGTH) {
+          notify("Name is too long.", "warning");
+          return;
+        }
+        const created = addProject(name);
+        notify(`Created "${created.name}".`, "success");
         render();
         runChangeHandler();
-      } else {
-        notify(`Import failed: ${result.error}`, "error");
-      }
-    } catch (err) {
-      notify(`Import failed: ${err.message}`, "error");
-    }
-    e.target.value = "";
-  });
-
-  if (rowActions && canManage) {
-    const backendAvailable = await hasBackend();
-    if (backendAvailable) {
-      const backupBtn = document.createElement("button");
-      backupBtn.className = "ghost";
-      backupBtn.type = "button";
-      backupBtn.textContent = "Backup DB";
-      backupBtn.title = "Download full database backup";
-      backupBtn.addEventListener("click", async () => {
-        const hideLoading = showLoading("Preparing backup...");
-        try {
-          const r = await fetch("/api/backup");
-          if (!r.ok) throw new Error("Backup failed");
-          const blob = await r.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `atlas_backup_${new Date().toISOString().slice(0, 10)}.db`;
-          a.click();
-          URL.revokeObjectURL(url);
-          notify("Database backup downloaded.", "success");
-        } catch (e) {
-          notify("Backup failed: " + (e.message || "Unknown error"), "error");
-        } finally {
-          hideLoading();
-        }
       });
-      rowActions.appendChild(backupBtn);
 
-      const restoreLabel = document.createElement("label");
-      restoreLabel.className = "ghost label-as-button";
-      restoreLabel.innerHTML = "Restore DB <input id=\"project-restore-input\" type=\"file\" accept=\".db\" hidden />";
-      const restoreInput = restoreLabel.querySelector("input");
-      restoreInput?.addEventListener("change", async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+      duplicateButton.addEventListener("click", async () => {
+        if (!canManage) return;
+        const active = getActiveProject();
         const result = await showModal({
-          title: "Restore Database",
-          body: "This will replace all data with the backup. Continue?",
-          primaryLabel: "Restore",
+          title: "Duplicate programme",
+          body: `Copy "${active.name}" including activities, baselines, and actions.`,
+          fields: [
+            {
+              id: "name",
+              label: "New programme name",
+              placeholder: `${active.name} Copy`,
+              value: `${active.name} Copy`,
+              required: true,
+              maxLength: PROJECT_NAME_MAX_LENGTH,
+            },
+          ],
+          primaryLabel: "Duplicate",
+          secondaryLabel: "Cancel",
+        });
+        if (!result) return;
+        const name = (result.name || "").trim() || `${active.name} Copy`;
+        const duplicated = duplicateProject(active.id, name);
+        if (!duplicated) {
+          notify("Unable to duplicate.", "error");
+          return;
+        }
+        notify(`Created "${duplicated.name}".`, "success");
+        render();
+        runChangeHandler();
+      });
+
+      renameButton.addEventListener("click", async () => {
+        if (!canManage) return;
+        const active = getActiveProject();
+        const result = await showModal({
+          title: "Rename programme",
+          body: "Updates the name everywhere this programme appears.",
+          fields: [
+            {
+              id: "name",
+              label: "Programme name",
+              value: active.name,
+              required: true,
+              maxLength: PROJECT_NAME_MAX_LENGTH,
+            },
+          ],
+          primaryLabel: "Rename",
+          secondaryLabel: "Cancel",
+        });
+        if (!result) return;
+        const name = (result.name || "").trim();
+        if (!name) {
+          notify("Name cannot be empty.", "warning");
+          return;
+        }
+        const renamed = renameProject(active.id, name);
+        if (!renamed) {
+          notify("Unable to rename.", "error");
+          return;
+        }
+        notify(`Renamed to "${renamed.name}".`, "success");
+        render();
+        runChangeHandler();
+      });
+
+      deleteButton.addEventListener("click", async () => {
+        if (!canManage) return;
+        const active = getActiveProject();
+        const result = await showModal({
+          title: "Delete programme",
+          body: `Permanently delete "${active.name}"? Type the programme name to confirm.`,
+          fields: [
+            {
+              id: "confirm",
+              label: "Type programme name to confirm",
+              placeholder: active.name,
+              required: true,
+            },
+          ],
+          primaryLabel: "Delete",
           secondaryLabel: "Cancel",
           danger: true,
         });
-        if (!result) {
-          e.target.value = "";
+        if (!result || result.confirm !== active.name) {
+          if (result) notify("Name did not match. Cancelled.", "warning");
           return;
         }
-        const hideLoading = showLoading("Restoring...");
+        const deleteResult = deleteProject(active.id);
+        if (!deleteResult.deleted) {
+          notify(deleteResult.reason || "Could not delete.", "warning");
+          return;
+        }
+        notify("Programme deleted.", "warning");
+        render();
+        runChangeHandler();
+      });
+
+      exportButton?.addEventListener("click", () => {
+        if (!canManage) return;
+        const json = exportFullProject();
+        const active = getActiveProject();
+        const filename = `project_${active.name.replace(/[^a-z0-9]/gi, "_")}_${new Date().toISOString().slice(0, 10)}.json`;
+        triggerDownload(filename, json, "application/json;charset=utf-8;");
+        notify("Programme exported.", "success");
+      });
+
+      importInput?.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file || !canManage) return;
         try {
-          const form = new FormData();
-          form.append("file", file);
-          const r = await fetch("/api/restore", { method: "POST", body: form });
-          const data = await r.json();
-          if (data?.ok) {
-            notify("Database restored. Reloading...", "success");
-            setTimeout(() => location.reload(), 800);
+          const text = await file.text();
+          const result = importProjectFromJson(text);
+          if (result.success) {
+            notify(`Imported "${result.project.name}".`, "success");
+            render();
+            runChangeHandler();
           } else {
-            notify("Restore failed: " + (data?.error || "Unknown"), "error");
+            notify(`Import failed: ${result.error}`, "error");
           }
         } catch (err) {
-          notify("Restore failed: " + err.message, "error");
-        } finally {
-          hideLoading();
-          e.target.value = "";
+          notify(`Import failed: ${err.message}`, "error");
         }
+        e.target.value = "";
       });
-      rowActions.appendChild(restoreLabel);
+
+      if (rowActions && canManage) {
+        const backendAvailable = await hasBackend();
+        if (backendAvailable) {
+          const backupBtn = document.createElement("button");
+          backupBtn.className = "ghost";
+          backupBtn.type = "button";
+          backupBtn.textContent = "Backup database";
+          backupBtn.title = "Download SQLite backup";
+          backupBtn.addEventListener("click", async () => {
+            const hideLoading = showLoading("Preparing backup...");
+            try {
+              const r = await fetch("/api/backup");
+              if (!r.ok) throw new Error("Backup failed");
+              const blob = await r.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `atlas_backup_${new Date().toISOString().slice(0, 10)}.db`;
+              a.click();
+              URL.revokeObjectURL(url);
+              notify("Backup downloaded.", "success");
+            } catch (e) {
+              notify("Backup failed: " + (e.message || "Unknown"), "error");
+            } finally {
+              hideLoading();
+            }
+          });
+          rowActions.appendChild(backupBtn);
+
+          const restoreLabel = document.createElement("label");
+          restoreLabel.className = "ghost label-as-button";
+          restoreLabel.innerHTML = 'Restore database <input id="project-restore-input" type="file" accept=".db" hidden />';
+          const restoreInput = restoreLabel.querySelector("input");
+          restoreInput?.addEventListener("change", async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const result = await showModal({
+              title: "Restore database",
+              body: "Replace all data with this backup?",
+              primaryLabel: "Restore",
+              secondaryLabel: "Cancel",
+              danger: true,
+            });
+            if (!result) {
+              e.target.value = "";
+              return;
+            }
+            const hideLoading = showLoading("Restoring...");
+            try {
+              const form = new FormData();
+              form.append("file", file);
+              const r = await fetch("/api/restore", { method: "POST", body: form });
+              const data = await r.json();
+              if (data?.ok) {
+                notify("Restored. Reloading…", "success");
+                setTimeout(() => location.reload(), 800);
+              } else {
+                notify("Restore failed: " + (data?.error || "Unknown"), "error");
+              }
+            } catch (err) {
+              notify("Restore failed: " + err.message, "error");
+            } finally {
+              hideLoading();
+              e.target.value = "";
+            }
+          });
+          rowActions.appendChild(restoreLabel);
+        }
+      }
     }
+
+    render();
   }
 
-  render();
-  }
   tryInit();
 }

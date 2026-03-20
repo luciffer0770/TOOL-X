@@ -36,14 +36,19 @@ export function initThemeToggle() {
   setTheme(current);
   const btn = document.querySelector("#theme-toggle-btn");
   if (btn) {
-    const label = current === "dark" ? "Switch to light" : "Switch to dark";
-    btn.setAttribute("aria-label", label);
-    btn.textContent = current === "dark" ? "☀️" : "🌙";
-    btn.title = label;
+    const aria = current === "dark" ? "Switch to light" : "Switch to dark";
+    btn.setAttribute("aria-label", aria);
+    btn.title = aria;
+    const labEl = btn.querySelector(".theme-toggle-label");
+    if (labEl) labEl.textContent = current === "dark" ? "Light mode" : "Dark mode";
+    else btn.textContent = current === "dark" ? "Light" : "Dark";
     btn.addEventListener("click", () => {
       const next = toggleTheme();
-      btn.textContent = next === "dark" ? "☀️" : "🌙";
+      const lab = btn.querySelector(".theme-toggle-label");
+      if (lab) lab.textContent = next === "dark" ? "Light mode" : "Dark mode";
+      else btn.textContent = next === "dark" ? "Light" : "Dark";
       btn.setAttribute("aria-label", next === "dark" ? "Switch to light" : "Switch to dark");
+      btn.title = next === "dark" ? "Switch to light" : "Switch to dark";
     });
   }
   if (typeof window !== "undefined" && window.matchMedia) {

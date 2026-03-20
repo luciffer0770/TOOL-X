@@ -80,8 +80,8 @@ export function initAlertsBell() {
   wrap.id = "alerts-bell-wrap";
   wrap.className = "alerts-bell-wrap";
   wrap.innerHTML = `
-    <button id="alerts-bell-btn" class="ghost" type="button" aria-label="Alerts" title="Alerts">
-      🔔
+    <button id="alerts-bell-btn" class="ghost alerts-bell-btn" type="button" aria-label="Open alerts" title="Live alerts">
+      <span class="alerts-bell-text">Alerts</span>
       <span id="alerts-badge" class="alerts-badge"></span>
     </button>
     <div id="alerts-dropdown" class="alerts-dropdown" hidden></div>

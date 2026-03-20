@@ -1,6 +1,6 @@
 /**
  * Global search – cross-page search for activities.
- * Ctrl+Shift+K to open. Searches activityId, activityName, phase, materials, etc.
+ * Ctrl+Shift+K to focus. Mounted in top header (not sidebar) for contrast on dark nav.
  */
 import { escapeHtml } from "./common.js";
 import { getActivities } from "./storage.js";
@@ -52,10 +52,26 @@ function buildSearchResultsHtml(results, query) {
     .join("");
 }
 
+function mountHost() {
+  const header = document.querySelector(".atlas-top-header") || document.querySelector(".top-bar");
+  const meta = header?.querySelector(".header-meta");
+  if (!header || !meta) return null;
+  let host = header.querySelector(".header-global-search");
+  if (!host) {
+    host = document.createElement("div");
+    host.className = "header-global-search";
+    header.insertBefore(host, meta);
+  }
+  return host;
+}
+
 export function initGlobalSearch() {
-  const nav = document.querySelector(".nav");
-  if (!nav) return;
   if (document.querySelector("#global-search-input")) return;
+
+  const host = mountHost();
+  const fallbackNav = document.querySelector(".nav");
+  const parent = host || fallbackNav;
+  if (!parent) return;
 
   const searchWrap = document.createElement("div");
   searchWrap.className = "global-search-wrap";
@@ -63,7 +79,11 @@ export function initGlobalSearch() {
     <input type="search" id="global-search-input" placeholder="Search activities (Ctrl+Shift+K)" class="global-search-input" autocomplete="off" />
     <div id="global-search-results" class="global-search-results" hidden></div>
   `;
-  nav.insertBefore(searchWrap, nav.firstChild);
+  if (host) {
+    host.appendChild(searchWrap);
+  } else {
+    fallbackNav.insertBefore(searchWrap, fallbackNav.firstChild);
+  }
 
   const input = searchWrap.querySelector("#global-search-input");
   const resultsEl = searchWrap.querySelector("#global-search-results");

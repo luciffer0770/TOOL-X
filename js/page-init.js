@@ -13,6 +13,7 @@ import { subscribeToStateChanges, stateReady } from "./storage.js";
  *     onReady(user) { ... },          // required
  *     onProjectChange() { ... },      // optional
  *     onStateChange() { ... },        // optional
+ *     projectToolbarMode: "switcher", // "full" only on Project Setup hub
  *   });
  *
  * - Waits for state (backend API or localStorage) before proceeding
@@ -27,6 +28,7 @@ export async function initPage(options) {
     onReady,
     onProjectChange,
     onStateChange,
+    projectToolbarMode = "switcher",
   } = options || {};
 
   if (typeof onReady !== "function") {
@@ -43,11 +45,10 @@ export async function initPage(options) {
 
   try { initShell(); } catch (e) { console.error("[initPage] shell:", e); }
 
-  const toolbarOptions = {};
+  const toolbarOptions = { mode: projectToolbarMode };
   if (typeof onProjectChange === "function") toolbarOptions.onProjectChange = onProjectChange;
   try {
-    if (Object.keys(toolbarOptions).length) initializeProjectToolbar(toolbarOptions);
-    else initializeProjectToolbar();
+    initializeProjectToolbar(toolbarOptions);
   } catch (e) { console.error("[initPage] toolbar:", e); }
 
   // State change subscription (optional)

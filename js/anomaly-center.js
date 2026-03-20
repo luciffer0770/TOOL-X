@@ -672,7 +672,7 @@ async function initialize() {
   }
 
   wireEvents();
-  initializeProjectToolbar({ onProjectChange: renderAll });
+  initializeProjectToolbar({ mode: "switcher", onProjectChange: renderAll });
   const unsubscribe = subscribeToStateChanges(renderAll);
   window.addEventListener(
     "pagehide",

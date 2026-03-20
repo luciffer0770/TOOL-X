@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project Setup (PS-ETW) | ATLAS</title>
-    <link rel="stylesheet" href="./css/styles.css?v=atlas20260321" />
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260322" />
   </head>
   <body>
     <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
@@ -59,24 +59,42 @@
         </div>
       </section>
 
-      <section class="panel">
-        <div class="panel-body project-toolbar">
-          <label class="field project-select-field"
-            >Active Project
-            <select id="project-select"></select>
+      <section class="panel programme-hub-panel">
+        <div class="panel-header programme-hub-header">
+          <div>
+            <h2>Programme hub</h2>
+            <span class="panel-subtitle">Create, import, export, rename, and remove programmes here only. Every other page switches the active programme and links back here for administration.</span>
+          </div>
+        </div>
+        <div class="panel-body project-toolbar project-toolbar-full">
+          <div class="programme-hub-controls" data-role-hide="technician">
+            <label class="field programme-filter-field">
+              <span class="programme-filter-label">Filter programmes</span>
+              <input
+                type="search"
+                id="project-list-filter"
+                class="programme-filter-input"
+                placeholder="Search by name or ID…"
+                autocomplete="off"
+              />
+            </label>
+          </div>
+          <label class="field project-select-field programme-select-field">
+            <span class="programme-select-label">Active programme</span>
+            <select id="project-select" class="programme-switcher-select programme-hub-select"></select>
           </label>
-          <div class="row-actions">
-            <button id="project-add-btn" data-role-hide="technician">New Project</button>
-            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate</button>
-            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
-            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
-            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export Project</button>
+          <div class="row-actions programme-hub-actions">
+            <button type="button" id="project-add-btn" data-role-hide="technician">New programme</button>
+            <button type="button" id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate</button>
+            <button type="button" id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
+            <button type="button" id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+            <button type="button" id="project-export-btn" class="ghost" data-role-hide="technician">Export JSON</button>
             <label class="ghost label-as-button" data-role-hide="technician">
-              Import Project
+              Import JSON
               <input id="project-import-input" type="file" accept=".json" hidden />
             </label>
           </div>
-          <div id="project-summary" class="small"></div>
+          <div id="project-summary" class="programme-hub-summary small"></div>
         </div>
       </section>
 
