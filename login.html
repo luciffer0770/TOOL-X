@@ -83,9 +83,25 @@
           const session = { username: user.username, displayName: user.displayName || user.username, role: user.role || 'planner', loginAt: new Date().toISOString(), expiresAt, rememberMe: !!remember };
           try { localStorage.setItem(AUTH_KEY, JSON.stringify(session)); } catch (e) { console.warn('localStorage set failed', e); }
         }
-        function goHome() { window.location.href = location.origin + '/index.html'; }
-        const formEl = document.querySelector('#login-form');
-        const quickDemo = document.getElementById('quick-demo-btn');
+        function getSession() {
+          try {
+            var raw = localStorage.getItem(AUTH_KEY);
+            if (!raw) return null;
+            var s = JSON.parse(raw);
+            if (s && s.username && s.role && (!s.expiresAt || Date.now() < s.expiresAt)) return s;
+            localStorage.removeItem(AUTH_KEY);
+            return null;
+          } catch (e) { return null; }
+        }
+        function goHome() { window.location.href = (location.origin || location.protocol + '//' + location.host) + '/index.html'; }
+        function showHint(msg, isError) {
+          var el = document.getElementById('login-hint');
+          if (el) { el.textContent = msg; el.style.color = isError ? '#c00' : ''; }
+        }
+        var session = getSession();
+        if (session) { goHome(); return; }
+        var formEl = document.querySelector('#login-form');
+        var quickDemo = document.getElementById('quick-demo-btn');
         if (formEl) {
           formEl.addEventListener('submit', function (ev) {
             ev.preventDefault();
@@ -96,8 +112,10 @@
               if (u && creds[u] === p) {
                 setSession({ username: u, displayName: u.charAt(0).toUpperCase() + u.slice(1), role: u }, document.getElementById('remember-me')?.checked);
                 goHome();
+              } else {
+                showHint('Invalid credentials. Use demo users below or check username/password.', true);
               }
-            } catch (e) { console.error('login error', e); }
+            } catch (e) { console.error('login error', e); showHint('Login error. Try again.', true); }
           });
         }
         if (quickDemo) {

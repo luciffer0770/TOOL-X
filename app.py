@@ -271,7 +271,7 @@ def serve_static(path):
     full = BASE_DIR / path
     if full.is_file():
         return send_from_directory(BASE_DIR, path)
-    if path in ("activities", "gantt", "materials", "intelligence", "anomaly-center", "login", "calendar", "risk-register", "network"):
+    if path in ("activities", "gantt", "materials", "intelligence", "anomaly-center", "login", "calendar", "risk-register", "network", "project-setup", "engine-description"):
         return send_from_directory(BASE_DIR, f"{path}.html")
     return "", 404
 
