@@ -71,9 +71,11 @@ a {
 }
 
 .app-shell {
-  max-width: 1500px;
-  margin: 0 auto;
-  padding: 24px 24px 40px;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 24px clamp(16px, 2.5vw, 48px) 40px;
+  box-sizing: border-box;
 }
 
 .top-bar {
@@ -633,15 +635,35 @@ td.col-sub-activity textarea {
 }
 
 .cell-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, auto));
+  gap: 4px 6px;
+  align-items: center;
+  justify-content: start;
+  max-width: 220px;
 }
 
 .cell-actions button {
   padding: 4px 8px;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   white-space: nowrap;
+  line-height: 1.2;
+}
+
+.cell-actions .cell-act-comments {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.cell-act-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--accent, #2563eb);
 }
 
 .project-toolbar {
@@ -1198,6 +1220,22 @@ th.sortable.sort-desc::after {
   z-index: 5;
   background: inherit;
   box-shadow: 2px 0 4px rgba(0,0,0,0.06);
+}
+
+/* Tight row # / checkbox columns on activity grid */
+#activities-table-wrap tbody td.col-sticky:first-child {
+  width: 38px;
+  max-width: 44px;
+  text-align: center;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+#activities-table-wrap tbody td.col-sticky:nth-child(2) {
+  width: 44px;
+  max-width: 52px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 tbody tr:nth-child(even) .col-sticky {
@@ -2068,11 +2106,13 @@ body.login-page::after {
 .calendar-panel-body {
   display: flex;
   gap: var(--spacing-lg);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  width: 100%;
 }
 
 .calendar-main {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -2086,8 +2126,9 @@ body.login-page::after {
 }
 
 .calendar-detail {
-  width: 280px;
-  flex-shrink: 0;
+  flex: 0 0 clamp(260px, 24vw, 340px);
+  width: clamp(260px, 24vw, 340px);
+  max-width: 100%;
   background: var(--bg-panel-elev);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
@@ -2209,9 +2250,16 @@ body.login-page::after {
 @media (max-width: 900px) {
   .calendar-panel-body {
     flex-direction: column;
+    flex-wrap: wrap;
+  }
+  .calendar-main {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
   }
   .calendar-detail {
     width: 100%;
+    flex: none;
   }
 }
 
@@ -2502,7 +2550,8 @@ body.login-page::after {
 }
 
 .app-shell-wide {
-  max-width: 1680px;
+  max-width: none;
+  width: 100%;
 }
 
 .top-bar-elevated {

@@ -254,7 +254,7 @@ body {
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   box-shadow: var(--shadow-sm);
-  padding: 12px 24px;
+  padding: 14px clamp(16px, 2.5vw, 48px);
   margin-bottom: 0 !important;
   display: flex;
   flex-wrap: wrap;
@@ -265,6 +265,25 @@ body {
 .atlas-top-header .title-block {
   flex: 1 1 220px;
   min-width: 0;
+}
+
+.atlas-top-header .title-block h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 1.35vw, 1.32rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+.atlas-top-header .title-block p {
+  margin: 5px 0 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-muted);
+  line-height: 1.45;
+  max-width: min(60ch, 100%);
 }
 
 .header-global-search {
@@ -323,17 +342,18 @@ body {
 .programme-switcher-inner {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px 20px;
+  align-items: center;
+  gap: 10px 20px;
 }
 
 .programme-switcher-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  flex: 1 1 260px;
-  min-width: 200px;
-  max-width: 480px;
+  gap: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 280px;
+  width: 100%;
 }
 
 .programme-switcher-label {
@@ -352,8 +372,9 @@ body {
 .programme-switcher-summary {
   font-size: 13px;
   color: var(--color-muted);
-  flex: 1 1 200px;
+  flex: 1 1 180px;
   line-height: 1.4;
+  min-width: 0;
 }
 
 .programme-switcher-link {
@@ -409,7 +430,7 @@ body {
 }
 
 .programme-select-field {
-  max-width: 520px;
+  max-width: 360px;
 }
 
 .programme-select-label {
@@ -458,9 +479,11 @@ body {
 .app-shell,
 .app-shell-wide {
   max-width: none;
+  width: 100%;
   margin: 0;
-  padding: 24px 32px 40px;
+  padding: 24px clamp(16px, 2.5vw, 48px) 40px;
   flex: 1;
+  box-sizing: border-box;
 }
 
 /* Mobile sidebar */
@@ -612,13 +635,21 @@ textarea:focus {
 .panel-header h3 {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1.125rem;
+  letter-spacing: -0.02em;
   color: var(--color-text);
+  margin: 0;
+}
+
+.panel-header {
+  gap: 10px 16px;
 }
 
 .panel-subtitle {
   color: var(--color-muted);
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 /* ========== Tables ========== */

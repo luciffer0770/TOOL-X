@@ -369,14 +369,14 @@ function renderTable() {
         <td class="col-sticky">${orderMap.get(row.activityId) ?? "-"}</td>
         <td>
           <div class="cell-actions">
-            <button class="ghost" data-comments="${escapeHtml(row.activityId)}" title="Comments">💬 ${(row.comments || []).length}</button>
+            <button type="button" class="ghost cell-act-comments" data-comments="${escapeHtml(row.activityId)}" title="Comments">Comments<span class="cell-act-badge">${(row.comments || []).length}</span></button>
             ${
               canModifyActivityStructure(currentUser)
-                ? `<button class="ghost" data-insert-above="${escapeHtml(row.activityId)}">Insert Above</button>
-                   <button class="ghost" data-insert-below="${escapeHtml(row.activityId)}">Insert Below</button>
-                   <button class="ghost" data-duplicate="${escapeHtml(row.activityId)}" title="Copy activity + dependencies">Duplicate</button>
-                   <button class="danger" data-delete="${escapeHtml(row.activityId)}">Delete</button>`
-                : `<span class="small">Status / delay updates only</span>`
+                ? `<button type="button" class="ghost" data-insert-above="${escapeHtml(row.activityId)}" title="Insert row above">Above</button>
+                   <button type="button" class="ghost" data-insert-below="${escapeHtml(row.activityId)}" title="Insert row below">Below</button>
+                   <button type="button" class="ghost" data-duplicate="${escapeHtml(row.activityId)}" title="Duplicate activity + dependencies">Dup</button>
+                   <button type="button" class="danger" data-delete="${escapeHtml(row.activityId)}">Del</button>`
+                : `<span class="small">Execution only</span>`
             }
           </div>
         </td>
