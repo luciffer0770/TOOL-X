@@ -83,10 +83,10 @@ body {
   animation: pageFadeIn 220ms ease forwards;
 }
 
-/* Scrollbar */
+/* Scrollbar — default; activity grid overrides with larger hit targets */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -482,6 +482,7 @@ body {
   margin: 0;
   padding: 24px clamp(16px, 2.5vw, 48px) 40px;
   flex: 1;
+  min-height: 0;
   box-sizing: border-box;
 }
 
