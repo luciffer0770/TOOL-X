@@ -1,22 +1,8 @@
+@import url("atlas-redesign.css");
+
 :root {
   color-scheme: light;
-  --bg: #dce2ef;
-  --bg-panel: #f6f9fe;
-  --bg-panel-elev: #eef3fb;
-  --border: #bfd0ea;
-  --border-soft: #ccd9ec;
-  --text: #243f66;
-  --text-dim: #5f779c;
-  --accent: #2f8fff;
-  --accent-strong: #62b0ff;
-  --good: #1db89c;
-  --warn: #2f8fff;
-  --high: #ff4d63;
-  --critical: #d9152e;
-  --radius: 10px;
-  --radius-sm: 8px;
-  --radius-lg: 12px;
-  --shadow: 0 8px 26px rgba(22, 58, 110, 0.12);
+  /* Colour tokens: see atlas-redesign.css */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 12px;
@@ -1258,25 +1244,16 @@ thead th.col-sticky {
     align-items: center;
     justify-content: center;
   }
-  .nav:not(.is-open) {
+  .nav:not(.nav-sidebar):not(.is-open) {
     max-height: 0;
     overflow: hidden;
     padding: 0;
     margin: 0;
     border: 0;
   }
-  .nav.is-open {
+  .nav:not(.nav-sidebar).is-open {
     max-height: 500px;
   }
-}
-
-/* Dark mode variables (optional) */
-[data-theme="dark"] {
-  --bg: #1a2332;
-  --bg-panel: #243447;
-  --text: #e8eef5;
-  --text-dim: #8fa3bf;
-  --border: #3d5266;
 }
 
 .import-drop-zone.drag-over {
@@ -1872,31 +1849,10 @@ body.login-page::after {
   }
 }
 
-/* Dark mode */
-[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #1a1d26;
-  --bg-panel: #23262f;
-  --bg-panel-elev: #2a2e3a;
-  --border: #3d4354;
-  --border-soft: #353946;
-  --text: #e4e8f0;
-  --text-dim: #8b94a8;
-  --accent: #5b9cf5;
-  --accent-strong: #7eb5ff;
-  --good: #34d399;
-  --warn: #5b9cf5;
-  --high: #f87171;
-  --critical: #ef4444;
-  --shadow: 0 8px 26px rgba(0, 0, 0, 0.4);
-}
-
+/* Dark mode — component tweaks (tokens in atlas-redesign.css) */
 [data-theme="dark"] body,
 [data-theme="dark"] html {
-  background:
-    linear-gradient(132deg, rgba(60, 70, 90, 0.6) 0%, transparent 42%),
-    linear-gradient(146deg, rgba(40, 50, 70, 0.5) 16%, transparent 48%),
-    #1a1d26;
+  background: var(--color-bg) !important;
 }
 
 [data-theme="dark"] .panel {

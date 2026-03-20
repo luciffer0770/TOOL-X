@@ -97,6 +97,7 @@ export function initShell() {
 
   navToggle?.addEventListener("click", () => {
     nav?.classList.toggle("is-open");
+    document.querySelector(".app-sidebar")?.classList.toggle("is-open");
   });
 
   helpBtn?.addEventListener("click", showKeyboardShortcuts);

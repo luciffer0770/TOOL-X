@@ -4,12 +4,37 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project Setup (PS-ETW) | ATLAS</title>
-    <link rel="stylesheet" href="./css/styles.css?v=atlas20260320" />
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260321" />
   </head>
   <body>
     <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
-    <div class="app-shell app-shell-wide">
-      <header class="top-bar top-bar-elevated">
+    <div class="atlas-layout page-content">
+      <aside class="app-sidebar" aria-label="Main navigation">
+        <div class="sidebar-brand">
+          <div class="sidebar-brand-kicker">PS-ETW</div>
+          <div class="sidebar-brand-title">ATLAS</div>
+          <div class="sidebar-brand-line"></div>
+        </div>
+        <nav class="nav nav-sidebar" aria-label="Primary">
+          <div class="sidebar-nav-group-label">Main</div>
+          <a data-nav href="index.html" title="Executive Dashboard">Dashboard</a>
+          <a data-nav href="project-setup.html" title="Project Setup">Project Setup</a>
+          <a data-nav href="activities.html" title="Activity Master">Activities</a>
+          <a data-nav href="calendar.html" title="Calendar">Calendar</a>
+          <div class="sidebar-nav-group-label">Planning</div>
+          <a data-nav href="gantt.html" title="Gantt &amp; Dependencies">Gantt</a>
+          <a data-nav href="network.html" title="Network Diagram">Network</a>
+          <a data-nav href="materials.html" title="Material Intelligence">Materials</a>
+          <a data-nav href="engine-description.html" title="Engine Description">Engine Desc.</a>
+          <div class="sidebar-nav-group-label">Analytics</div>
+          <a data-nav href="intelligence.html" title="Delay, Risk &amp; Optimization">Delay &amp; Risk</a>
+          <a data-nav href="risk-register.html" title="Risk Register">Risk Register</a>
+          <div class="sidebar-nav-group-label">Management</div>
+          <a data-nav href="anomaly-center.html" title="Anomaly, Baseline &amp; Actions">Anomaly Center</a>
+        </nav>
+      </aside>
+      <div class="atlas-main">
+      <header class="top-bar top-bar-elevated atlas-top-header">
         <div class="title-block">
           <h1>ATLAS – Digital Twin Engineering Preparation Platform</h1>
           <p>Advanced Twin-based Lifecycle and Activity System – Engineering readiness intelligence</p>
@@ -23,20 +48,7 @@
         </div>
       </header>
 
-      <nav class="nav nav-primary" aria-label="Primary">
-        <a data-nav href="index.html">Executive Dashboard</a>
-        <a data-nav href="project-setup.html">Project Setup</a>
-        <a data-nav href="activities.html">Activity Master</a>
-        <a data-nav href="gantt.html">Gantt & Dependencies</a>
-        <a data-nav href="calendar.html">Calendar</a>
-        <a data-nav href="network.html">Network Diagram</a>
-        <a data-nav href="materials.html">Material Intelligence</a>
-        <a data-nav href="engine-description.html">Engine Description</a>
-        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
-        <a data-nav href="risk-register.html">Risk Register</a>
-        <a data-nav href="anomaly-center.html">Anomaly, Baseline & Actions</a>
-      </nav>
-
+      <div class="app-shell app-shell-wide">
       <section class="panel panel-hero ps-etw-hero">
         <div class="panel-body">
           <h2 class="ps-etw-title">PS-ETW · Project Setup &amp; Configuration</h2>
@@ -214,6 +226,8 @@
           </div>
         </div>
       </section>
+    </div>
+    </div>
     </div>
 
     <script type="module" src="./js/project-setup.js?v=atlas20260320"></script>
