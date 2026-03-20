@@ -585,7 +585,7 @@ button.danger:hover {
 }
 
 /* ========== Inputs ========== */
-input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.login-field-input),
 select,
 textarea {
   font-family: var(--font-body);
@@ -597,7 +597,7 @@ textarea {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.login-field-input),
 select {
   min-height: 42px;
   padding: 0 14px;
@@ -1044,19 +1044,19 @@ table tbody tr:hover {
   position: relative;
 }
 
-.login-page .login-input-wrap input {
+.login-page .login-input-wrap input.login-field-input {
   height: 44px;
-  padding-left: 2.875rem;
+  padding-left: 3.5rem;
   padding-right: 1rem;
   box-sizing: border-box;
 }
 
-.login-page .login-input-wrap:has(.login-password-toggle) input {
-  padding-right: 2.75rem;
+.login-page .login-input-wrap:has(.login-password-toggle) input.login-field-input {
+  padding-right: 3rem;
 }
 
 .login-page .login-input-icon {
-  left: 14px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
   width: 14px;
@@ -1065,8 +1065,8 @@ table tbody tr:hover {
 }
 
 .login-page .login-password-toggle {
-  right: 10px;
-  padding: 6px 8px;
+  right: 12px;
+  padding: 6px 10px;
   z-index: 1;
 }
 
