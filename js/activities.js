@@ -16,7 +16,13 @@ import {
 import { debounce, escapeHtml, notify, setActiveNavigation, setupBeforeUnload, showLoading, showModal, statusClass, toCsv, triggerDownload } from "./common.js";
 import { initPage } from "./page-init.js";
 import { canUndo, getUndoDescription, pushUndoSnapshot, undo, canRedo, redo, getRedoDescription } from "./undo.js";
-import { canEditActivityField, canImportExportData, canManageProjects, canModifyActivityStructure } from "./auth.js";
+import {
+  canEditActivityField,
+  canImportExportData,
+  canManageProjects,
+  canModifyActivityStructure,
+  getCurrentUser,
+} from "./auth.js";
 import {
   addActivity,
   bulkUpdateActivities,
@@ -32,7 +38,6 @@ import {
   saveColumnVisibility,
   saveFilterPreset,
   deleteFilterPreset,
-  setDefaultEditor,
   subscribeToStateChanges,
   updateActivity,
   upsertActivities,
@@ -107,7 +112,6 @@ const dom = {
   pagePrevBtn: document.querySelector("#page-prev-btn"),
   pageNextBtn: document.querySelector("#page-next-btn"),
   stats: document.querySelector("#activity-grid-stats"),
-  defaultEditorInput: document.querySelector("#default-editor"),
   lastSavedIndicator: document.querySelector("#last-saved-indicator"),
   undoBtn: document.querySelector("#undo-btn"),
   redoBtn: document.querySelector("#redo-btn"),
@@ -137,6 +141,12 @@ const uiState = {
 
 let currentUser = null;
 
+function getActivityEditorName() {
+  const user = currentUser || getCurrentUser();
+  if (user?.role === "technician") return user.displayName || user.username || "Technician";
+  return getDefaultEditor();
+}
+
 function getInputValue(id) {
   const node = document.querySelector(`#${id}`);
   return node ? node.value : "";
@@ -161,7 +171,7 @@ function buildManualActivityDraft() {
     materialStatus: getInputValue("materialStatus"),
     priority: getInputValue("priority"),
     remarks: getInputValue("remarks"),
-    lastModifiedBy: dom.defaultEditorInput?.value || "Planner",
+    lastModifiedBy: getActivityEditorName(),
     lastModifiedDate: new Date().toISOString().slice(0, 10),
   };
 }
@@ -616,14 +626,6 @@ function applyRoleRestrictions() {
     }
   });
 
-  if (dom.defaultEditorInput) {
-    if (!canModify) {
-      dom.defaultEditorInput.value = currentUser.displayName || currentUser.username;
-      dom.defaultEditorInput.readOnly = true;
-    } else {
-      dom.defaultEditorInput.readOnly = false;
-    }
-  }
 }
 
 function refreshFromStorage() {
@@ -658,7 +660,7 @@ function dependencyReplace(raw, fromId, toId) {
 }
 
 function handleCellUpdate(activityId, field, value) {
-  const editor = dom.defaultEditorInput.value || "Planner";
+  const editor = getActivityEditorName();
   if (field === "activityId") {
     const newId = String(value || "").trim();
     if (!newId || newId === activityId) return;
@@ -926,7 +928,7 @@ async function importSpreadsheet() {
 
   pushUndoSnapshot(`Import ${rows.length} rows (${mergeStrategy})`);
 
-  const editor = dom.defaultEditorInput?.value || "Planner";
+  const editor = getActivityEditorName();
   const mappedActivities = rows.map((row) => ({
     ...mapRowToActivity(row),
     lastModifiedBy: editor,
@@ -1059,7 +1061,7 @@ function wireEvents() {
     }
     addActivity({
       ...createEmptyActivity(),
-      lastModifiedBy: dom.defaultEditorInput.value || "Planner",
+      lastModifiedBy: getActivityEditorName(),
       lastModifiedDate: new Date().toISOString().slice(0, 10),
     });
     notify("Added editable blank activity row.", "success");
@@ -1375,7 +1377,7 @@ function wireEvents() {
         resourceDepartment: referenceActivity.resourceDepartment,
         materialOwnership: referenceActivity.materialOwnership,
         materialStatus: referenceActivity.materialStatus,
-        lastModifiedBy: dom.defaultEditorInput.value || "Planner",
+        lastModifiedBy: getActivityEditorName(),
         lastModifiedDate: new Date().toISOString().slice(0, 10),
       });
       notify(
@@ -1454,11 +1456,6 @@ function wireEvents() {
     if (!row?.dataset.id) return;
     handleCellUpdate(row.dataset.id, field, target.value);
     uiState.hasUnsavedEdits = false;
-  });
-
-  dom.defaultEditorInput?.addEventListener("change", (event) => {
-    setDefaultEditor(event.target.value || "Planner");
-    notify("Default editor updated.", "success");
   });
 
   dom.bulkEditBtn?.addEventListener("click", async () => {
@@ -1576,7 +1573,6 @@ function initialize() {
     onReady(user) {
       currentUser = user;
       if (!currentUser) return;
-      if (dom.defaultEditorInput) dom.defaultEditorInput.value = getDefaultEditor();
       if (dom.mandatoryHint) dom.mandatoryHint.textContent = `Mandatory import columns: ${IMPORT_REQUIRED_LABELS.join(", ")}`;
       dom.columnDropdownToggle.setAttribute("aria-expanded", "false");
       dom.columnDropdownToggle.textContent = "Select Visible Columns ▼";

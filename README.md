@@ -33,6 +33,8 @@ This branch includes significant UI/UX enhancements, Gantt chart fixes, Calendar
 ├── sw.js               # Service Worker for offline caching
 ├── index.html          # Executive Dashboard
 ├── login.html          # Role-based login
+├── project-setup.html  # PS-ETW – project onboarding, team roster, workspace prefs
+├── engine-description.html # Engine requirement documents, parse summaries, manual overrides
 ├── activities.html     # Activity Master (CRUD, import/export)
 ├── gantt.html          # Gantt Chart & Dependencies
 ├── calendar.html       # Calendar view
@@ -103,6 +105,17 @@ Use **Quick Demo (Planner)** on the login page, or add `?dev=1` to any URL to au
 - Role-based sign-in (Planner, Management, Technician)
 - Demo credentials and Quick Demo
 - Session with optional "Remember me"
+
+### Project Setup (`project-setup.html`, PS-ETW)
+- Per-project configuration: code, customer/OEM, engine identity, trolley, PM, dates, contract, working hours, warning/critical thresholds
+- Team roster (name, role, department, contact, access level, notes)
+- Workspace preferences: default editor for activity audit trail (replaces the old Activity Master default-editor field)
+
+### Engine Description (`engine-description.html`)
+- Upload Excel (.xlsx, .xls), CSV, or Word (.docx) requirement documents per active project
+- Optional server storage of originals when using the Python backend with API login (download/delete supported)
+- Heuristic parsing into summary panels; partial parses still store the file and allow full manual override of summary fields
+- Search and filter by parse status
 
 ### Executive Dashboard (`index.html`)
 - **KPIs:** Total activities, delayed, high-risk, completion, cost variance
@@ -220,6 +233,9 @@ Use **Quick Demo (Planner)** on the login page, or add `?dev=1` to any URL to au
 | POST   | /api/auth/logout| Logout                         |
 | GET    | /api/backup     | Download SQLite backup         |
 | POST   | /api/restore    | Restore from .db backup        |
+| POST   | /api/engine-docs | Upload requirement file (multipart, Bearer auth) |
+| GET    | /api/engine-docs/{id} | Download stored file        |
+| DELETE | /api/engine-docs/{id} | Remove stored file blob     |
 
 ---
 

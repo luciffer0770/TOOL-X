@@ -124,6 +124,13 @@ export function getCurrentUser() {
   return readSession();
 }
 
+/** For API calls that require backend session (e.g. file upload). */
+export function getAuthBearerHeaders() {
+  const session = readSession();
+  if (!session?.token) return {};
+  return { Authorization: `Bearer ${session.token}` };
+}
+
 export async function login(username, password, rememberMe = false) {
   const normalizedUsername = String(username ?? "").trim().toLowerCase();
   const pw = String(password ?? "");

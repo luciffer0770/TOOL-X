@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Engine Description | ATLAS</title>
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260320" />
+  </head>
+  <body>
+    <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
+    <div class="app-shell app-shell-wide">
+      <header class="top-bar top-bar-elevated">
+        <div class="title-block">
+          <h1>ATLAS – Digital Twin Engineering Preparation Platform</h1>
+          <p>Engine requirement documents, parsed summaries, and manual refinement</p>
+        </div>
+        <div class="header-meta">
+          <div class="session-chip">
+            <span id="user-role-badge" class="badge badge-neutral"></span>
+            <span id="user-display-name" class="small"></span>
+            <button type="button" id="logout-btn" class="ghost">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="nav nav-primary" aria-label="Primary">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="project-setup.html">Project Setup</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="calendar.html">Calendar</a>
+        <a data-nav href="network.html">Network Diagram</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="engine-description.html">Engine Description</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+        <a data-nav href="risk-register.html">Risk Register</a>
+        <a data-nav href="anomaly-center.html">Anomaly, Baseline & Actions</a>
+      </nav>
+
+      <section class="panel">
+        <div class="panel-body project-toolbar">
+          <label class="field project-select-field"
+            >Active Project
+            <select id="project-select"></select>
+          </label>
+          <div class="row-actions">
+            <button id="project-add-btn" data-role-hide="technician">New Project</button>
+            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate</button>
+            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
+            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export Project</button>
+            <label class="ghost label-as-button" data-role-hide="technician">
+              Import Project
+              <input id="project-import-input" type="file" accept=".json" hidden />
+            </label>
+          </div>
+          <div id="project-summary" class="small"></div>
+        </div>
+      </section>
+
+      <section class="panel ed-hero">
+        <div class="panel-header">
+          <h2>Engine description library</h2>
+          <span class="panel-subtitle">Upload Excel, CSV, or Word requirements. Parsing is best-effort; files are always kept and summaries can be edited.</span>
+        </div>
+        <div class="panel-body">
+          <div class="ed-upload-zone" id="ed-drop-zone" data-role-hide="technician">
+            <label class="ed-upload-label">
+              <input type="file" id="ed-file-input" accept=".xlsx,.xls,.csv,.docx" multiple hidden />
+              <span class="ed-upload-title">Drop files here or click to upload</span>
+              <span class="ed-upload-meta">.xlsx · .xls · .csv · .docx · up to 50 MB (server mode)</span>
+            </label>
+            <p id="ed-backend-hint" class="hint"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Documents</h2>
+          <div class="row-actions ed-toolbar">
+            <input type="search" id="ed-search" class="global-search-input ed-search" placeholder="Search file name or summary…" />
+            <label class="field field-inline"
+              >Parse status
+              <select id="ed-filter-status">
+                <option value="">All</option>
+                <option value="ok">OK</option>
+                <option value="partial">Partial</option>
+                <option value="failed">Failed / manual</option>
+                <option value="none">Not parsed</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>File</th>
+                  <th>Uploaded</th>
+                  <th>Parse</th>
+                  <th>Customer / engine (tags)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="ed-doc-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="ed-detail-panel" hidden>
+        <div class="panel-header">
+          <h2 id="ed-detail-title">Requirement summary</h2>
+          <span class="panel-subtitle" id="ed-detail-sub"></span>
+        </div>
+        <div class="panel-body">
+          <div class="ed-detail-actions row-actions">
+            <button type="button" id="ed-download-btn" class="ghost">Download file</button>
+            <button type="button" id="ed-save-manual-btn" class="btn-primary-wide" data-role-hide="technician">Save manual overrides</button>
+            <button type="button" id="ed-delete-btn" class="danger" data-role-hide="technician">Remove document</button>
+          </div>
+          <p id="ed-parse-note" class="hint ed-parse-banner" hidden></p>
+          <div class="ed-summary-grid" id="ed-summary-fields"></div>
+        </div>
+      </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+    <script type="module" src="./js/engine-description.js?v=atlas20260320"></script>
+  </body>
+</html>

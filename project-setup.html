@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Setup (PS-ETW) | ATLAS</title>
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260320" />
+  </head>
+  <body>
+    <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
+    <div class="app-shell app-shell-wide">
+      <header class="top-bar top-bar-elevated">
+        <div class="title-block">
+          <h1>ATLAS – Digital Twin Engineering Preparation Platform</h1>
+          <p>Advanced Twin-based Lifecycle and Activity System – Engineering readiness intelligence</p>
+        </div>
+        <div class="header-meta">
+          <div class="session-chip">
+            <span id="user-role-badge" class="badge badge-neutral"></span>
+            <span id="user-display-name" class="small"></span>
+            <button type="button" id="logout-btn" class="ghost">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="nav nav-primary" aria-label="Primary">
+        <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="project-setup.html">Project Setup</a>
+        <a data-nav href="activities.html">Activity Master</a>
+        <a data-nav href="gantt.html">Gantt & Dependencies</a>
+        <a data-nav href="calendar.html">Calendar</a>
+        <a data-nav href="network.html">Network Diagram</a>
+        <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="engine-description.html">Engine Description</a>
+        <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
+        <a data-nav href="risk-register.html">Risk Register</a>
+        <a data-nav href="anomaly-center.html">Anomaly, Baseline & Actions</a>
+      </nav>
+
+      <section class="panel panel-hero ps-etw-hero">
+        <div class="panel-body">
+          <h2 class="ps-etw-title">PS-ETW · Project Setup &amp; Configuration</h2>
+          <p class="ps-etw-lead">
+            Central onboarding for every programme in this shared system. Configure project metadata, thresholds, and team
+            roster; manage workspace defaults that apply across Activity Master and exports.
+          </p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-body project-toolbar">
+          <label class="field project-select-field"
+            >Active Project
+            <select id="project-select"></select>
+          </label>
+          <div class="row-actions">
+            <button id="project-add-btn" data-role-hide="technician">New Project</button>
+            <button id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate</button>
+            <button id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
+            <button id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
+            <button id="project-export-btn" class="ghost" data-role-hide="technician">Export Project</button>
+            <label class="ghost label-as-button" data-role-hide="technician">
+              Import Project
+              <input id="project-import-input" type="file" accept=".json" hidden />
+            </label>
+          </div>
+          <div id="project-summary" class="small"></div>
+        </div>
+      </section>
+
+      <section class="panel ps-etw-section" id="project-info-section">
+        <header class="ps-section-head">
+          <h3 class="ps-section-title">Project information</h3>
+          <p class="ps-section-hint">
+            Edit the highlighted fields below. Values are stored per project and shared across dashboards, Gantt, and
+            intelligence views.
+          </p>
+        </header>
+        <div class="panel-body">
+          <div class="ps-form-note" data-role-hide="technician">
+            <span class="ps-form-note-icon" aria-hidden="true">✎</span>
+            <span>Blue-highlighted inputs are the primary editable cells for this programme record.</span>
+          </div>
+          <div class="ps-field-grid" id="project-setup-fields">
+            <label class="field ps-field-label"
+              >Project name
+              <span class="ps-field-help">Full descriptive name (also used in the project picker)</span>
+              <input type="text" id="ps-project-name" class="ps-input-primary" data-ps="name" autocomplete="organization" />
+            </label>
+            <label class="field ps-field-label"
+              >Project code
+              <span class="ps-field-help">Unique identifier for this project</span>
+              <input type="text" id="ps-project-code" class="ps-input-primary" data-ps="projectCode" />
+            </label>
+            <label class="field ps-field-label"
+              >Customer / OEM
+              <span class="ps-field-help">Customer or OEM name</span>
+              <input type="text" id="ps-customer" class="ps-input-primary" data-ps="customerOem" />
+            </label>
+            <label class="field ps-field-label"
+              >Engine type
+              <span class="ps-field-help">Engine model / family</span>
+              <input type="text" id="ps-engine-type" class="ps-input-primary" data-ps="engineType" />
+            </label>
+            <label class="field ps-field-label"
+              >Engine serial no.
+              <span class="ps-field-help">Physical engine serial number</span>
+              <input type="text" id="ps-engine-serial" class="ps-input-primary" data-ps="engineSerialNo" />
+            </label>
+            <label class="field ps-field-label"
+              >Trolley code
+              <span class="ps-field-help">Trolley identifier in the workshop</span>
+              <input type="text" id="ps-trolley-code" class="ps-input-primary" data-ps="trolleyCode" />
+            </label>
+            <label class="field ps-field-label"
+              >Trolley location
+              <span class="ps-field-help">Physical bay and line</span>
+              <input type="text" id="ps-trolley-loc" class="ps-input-primary" data-ps="trolleyLocation" />
+            </label>
+            <label class="field ps-field-label"
+              >Project manager
+              <span class="ps-field-help">Responsible PM name</span>
+              <input type="text" id="ps-pm" class="ps-input-primary" data-ps="projectManager" />
+            </label>
+            <label class="field ps-field-label"
+              >Planned start date
+              <span class="ps-field-help">Contractual or planned start</span>
+              <input type="date" id="ps-start" class="ps-input-primary" data-ps="plannedStartDate" />
+            </label>
+            <label class="field ps-field-label"
+              >Target finish date
+              <span class="ps-field-help">Contractual delivery deadline</span>
+              <input type="date" id="ps-finish" class="ps-input-primary" data-ps="targetFinishDate" />
+            </label>
+            <label class="field ps-field-label"
+              >Contract reference
+              <span class="ps-field-help">Contract or PO number</span>
+              <input type="text" id="ps-contract" class="ps-input-primary" data-ps="contractReference" />
+            </label>
+            <label class="field ps-field-label"
+              >Working hours / day
+              <span class="ps-field-help">Standard working hours per day</span>
+              <input type="number" id="ps-hours" class="ps-input-primary" data-ps="workingHoursPerDay" min="1" max="24" step="0.5" />
+            </label>
+            <label class="field ps-field-label"
+              >Warning threshold (days)
+              <span class="ps-field-help">Days before deadline to show amber warning</span>
+              <input type="number" id="ps-warn" class="ps-input-primary" data-ps="warningThresholdDays" min="0" step="1" />
+            </label>
+            <label class="field ps-field-label"
+              >Critical threshold (days)
+              <span class="ps-field-help">Days before deadline to show red alert</span>
+              <input type="number" id="ps-crit" class="ps-input-primary" data-ps="criticalThresholdDays" min="0" step="1" />
+            </label>
+          </div>
+          <div class="row-actions ps-save-row" data-role-hide="technician">
+            <button type="button" id="ps-save-btn" class="btn-primary-wide">Save project setup</button>
+            <span id="ps-save-status" class="small text-muted" role="status"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel ps-etw-section" id="team-section">
+        <header class="ps-section-head">
+          <h3 class="ps-section-title">Team members</h3>
+          <p class="ps-section-hint">Add all PMs and engineers working on this project. Used for accountability and exports.</p>
+        </header>
+        <div class="panel-body">
+          <div class="table-wrap ps-team-wrap">
+            <table class="ps-team-table" id="ps-team-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Department</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Access level</th>
+                  <th>Notes</th>
+                  <th data-role-hide="technician"></th>
+                </tr>
+              </thead>
+              <tbody id="ps-team-body"></tbody>
+            </table>
+          </div>
+          <div class="row-actions" data-role-hide="technician">
+            <button type="button" id="ps-team-add" class="ghost">Add team member</button>
+            <button type="button" id="ps-team-save" class="btn-primary-wide">Save team roster</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel ps-etw-section" id="workspace-prefs-section">
+        <header class="ps-section-head">
+          <h3 class="ps-section-title">Workspace preferences</h3>
+          <p class="ps-section-hint">
+            Replaces scattered “settings” on Activity Master. Column visibility remains on the Activity Master page for
+            grid ergonomics.
+          </p>
+        </header>
+        <div class="panel-body">
+          <div class="form-grid" style="max-width: 520px">
+            <label class="field"
+              >Default editor (activity audit trail)
+              <input type="text" id="ps-default-editor" placeholder="Planner or lead engineer name" data-role-editable />
+            </label>
+          </div>
+          <p class="hint">
+            Configure visible columns in
+            <a href="activities.html">Activity Master → Column visibility</a>.
+          </p>
+          <div class="row-actions" data-role-hide="technician">
+            <button type="button" id="ps-prefs-save" class="ghost">Save preferences</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="./js/project-setup.js?v=atlas20260320"></script>
+  </body>
+</html>

@@ -8,6 +8,7 @@ import os
 import secrets
 import sqlite3
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_file, send_from_directory
@@ -73,6 +74,24 @@ def init_db():
     conn.close()
 
 
+def ensure_engine_blobs_table():
+    conn = get_conn()
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS atlas_engine_blobs (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            filename TEXT,
+            mime TEXT,
+            data BLOB,
+            created_at TEXT
+        );
+        """
+    )
+    conn.commit()
+    conn.close()
+
+
 def load_state():
     try:
         conn = get_conn()
@@ -118,14 +137,112 @@ def verify_token(token):
 
 try:
     init_db()
+    ensure_engine_blobs_table()
 except Exception as e:
     print(f"[ATLAS] DB init warning: {e}")
 
 
 # --- API ---
+def bearer_token():
+    auth = request.headers.get("Authorization") or ""
+    if auth.startswith("Bearer "):
+        return auth[7:].strip()
+    return (request.args.get("token") or "").strip()
+
+
 @app.route("/api")
 def api_info():
-    return jsonify({"message": "ATLAS API", "endpoints": ["/api/health", "/api/state", "/api/auth/login", "/api/auth/me", "/api/backup", "/api/restore"]})
+    return jsonify(
+        {
+            "message": "ATLAS API",
+            "endpoints": [
+                "/api/health",
+                "/api/state",
+                "/api/auth/login",
+                "/api/auth/me",
+                "/api/backup",
+                "/api/restore",
+                "/api/engine-docs",
+            ],
+        }
+    )
+
+
+@app.route("/api/engine-docs", methods=["POST"])
+def engine_docs_upload():
+    user = verify_token(bearer_token())
+    if not user:
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    project_id = (request.form.get("project_id") or "").strip()
+    if not project_id or ".." in project_id or "/" in project_id or "\\" in project_id:
+        return jsonify({"ok": False, "error": "Invalid project"}), 400
+    if "file" not in request.files:
+        return jsonify({"ok": False, "error": "No file"}), 400
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"ok": False, "error": "Empty filename"}), 400
+    raw = f.read()
+    max_bytes = 50 * 1024 * 1024
+    if len(raw) > max_bytes:
+        return jsonify({"ok": False, "error": "File too large (max 50MB)"}), 400
+    doc_id = secrets.token_urlsafe(18)
+    now = datetime.now(timezone.utc).isoformat()
+    mime = (f.mimetype or "application/octet-stream")[:120]
+    filename = f.filename[:240]
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO atlas_engine_blobs (id, project_id, filename, mime, data, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (doc_id, project_id[:64], filename, mime, raw, now),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify(
+        {
+            "ok": True,
+            "id": doc_id,
+            "fileName": f.filename,
+            "mimeType": mime,
+            "size": len(raw),
+        }
+    )
+
+
+@app.route("/api/engine-docs/<doc_id>", methods=["GET"])
+def engine_docs_download(doc_id):
+    user = verify_token(bearer_token())
+    if not user:
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    doc_id = (doc_id or "").strip()
+    if not doc_id:
+        return "", 404
+    conn = get_conn()
+    row = conn.execute("SELECT filename, mime, data FROM atlas_engine_blobs WHERE id = ?", (doc_id,)).fetchone()
+    conn.close()
+    if not row:
+        return "", 404
+    filename, mime, data = row
+    return send_file(
+        BytesIO(data),
+        mimetype=mime or "application/octet-stream",
+        as_attachment=True,
+        download_name=filename or "document",
+    )
+
+
+@app.route("/api/engine-docs/<doc_id>", methods=["DELETE"])
+def engine_docs_delete(doc_id):
+    user = verify_token(bearer_token())
+    if not user:
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    doc_id = (doc_id or "").strip()
+    if not doc_id:
+        return jsonify({"ok": False}), 400
+    conn = get_conn()
+    conn.execute("DELETE FROM atlas_engine_blobs WHERE id = ?", (doc_id,))
+    conn.commit()
+    deleted = conn.execute("SELECT changes()").fetchone()[0] > 0
+    conn.close()
+    return jsonify({"ok": True, "deleted": deleted})
 
 
 @app.route("/api/health")
@@ -271,7 +388,19 @@ def serve_static(path):
     full = BASE_DIR / path
     if full.is_file():
         return send_from_directory(BASE_DIR, path)
-    if path in ("activities", "gantt", "materials", "intelligence", "anomaly-center", "login", "calendar", "risk-register", "network"):
+    if path in (
+        "activities",
+        "gantt",
+        "materials",
+        "intelligence",
+        "anomaly-center",
+        "login",
+        "calendar",
+        "risk-register",
+        "network",
+        "project-setup",
+        "engine-description",
+    ):
         return send_from_directory(BASE_DIR, f"{path}.html")
     return "", 404
 

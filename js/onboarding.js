@@ -16,7 +16,7 @@ export function resetOnboarding() {
 }
 
 const STEPS = [
-  { id: "welcome", target: ".title-block", title: "Welcome to ATLAS", body: "This quick tour walks through the main areas: navigation, projects, KPIs, activity management, imports/exports, Gantt, and more. Click Next to continue or Skip to exit anytime.", position: "bottom" },
+  { id: "welcome", target: ".title-block", title: "Welcome to ATLAS", body: "This tour covers navigation, Project Setup (PS-ETW), the project toolbar, KPIs, Activity Master, imports/exports, Gantt, and more. Click Next to continue or Skip to exit anytime.", position: "bottom" },
   { id: "nav", target: ".nav", title: "Top Navigation", body: "Primary navigation: switch between the Executive Dashboard, Activity Master, Gantt, Material Intelligence, Delay & Risk, and Anomaly Center. Use these to move between high-level views.", position: "bottom" },
   { id: "project", target: ".project-toolbar", title: "Project Controls", body: "Active Project controls let you create new projects, duplicate templates, rename, delete, export or import an entire project. The Active Project drives the datasets shown across pages.", position: "bottom" },
   { id: "kpi", target: "#kpi-grid", title: "KPIs Overview", body: "KPI cards show live portfolio metrics. Click a KPI card to jump into the Activity Master filtered to the relevant set (e.g. Delayed activities). Use these for quick situational awareness.", position: "top" },

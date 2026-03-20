@@ -23,13 +23,15 @@
         </div>
       </header>
 
-      <nav class="nav">
+      <nav class="nav nav-primary" aria-label="Primary">
         <a data-nav href="index.html">Executive Dashboard</a>
+        <a data-nav href="project-setup.html">Project Setup</a>
         <a data-nav href="activities.html">Activity Master</a>
         <a data-nav href="gantt.html">Gantt & Dependencies</a>
         <a data-nav href="calendar.html">Calendar</a>
         <a data-nav href="network.html">Network Diagram</a>
         <a data-nav href="materials.html">Material Intelligence</a>
+        <a data-nav href="engine-description.html">Engine Description</a>
         <a data-nav href="intelligence.html">Delay, Risk & Optimization</a>
         <a data-nav href="risk-register.html">Risk Register</a>
         <a data-nav href="anomaly-center.html">Anomaly, Baseline & Actions</a>
@@ -153,12 +155,13 @@
             <button id="add-empty-btn" class="ghost" title="Add a blank row for manual entry in the grid">Add Empty Row</button>
             <button id="save-template-btn" class="ghost" title="Save current form as template">Save as Template</button>
             <button id="load-template-btn" class="ghost" title="Load from saved template">Load Template</button>
-            <button id="load-sample-btn" id="load-sample" class="ghost">Load Sample Dataset</button>
-            <label class="field" style="min-width: 220px"
-              >Default Editor
-              <input id="default-editor" type="text" placeholder="Planner name" />
-            </label>
+            <button type="button" id="load-sample-btn" class="ghost">Load Sample Dataset</button>
+            <span id="load-sample" class="sr-only" aria-hidden="true"></span>
           </div>
+          <p class="hint setup-crosslink-hint">
+            Default editor name and project onboarding are configured in
+            <a href="project-setup.html">Project Setup</a>.
+          </p>
         </div>
       </section>
 
