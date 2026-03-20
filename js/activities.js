@@ -337,12 +337,13 @@ function renderTable() {
   };
   dom.tableHead.innerHTML = `
     <tr>
-      ${canBulk ? '<th class="col-sticky"><input type="checkbox" id="select-all-rows" title="Select all visible" aria-label="Select all visible" /></th>' : ""}
-      <th class="col-sticky sortable ${sortClass("activityId")}" data-sort="activityId">#</th>
+      ${canBulk ? '<th class="col-sticky col-sticky-check"><input type="checkbox" id="select-all-rows" title="Select all visible" aria-label="Select all visible" /></th>' : ""}
+      <th class="col-sticky col-sticky-index sortable ${sortClass("activityId")}" data-sort="activityId">#</th>
       <th>Row Actions</th>
       ${columns.map((column) => {
         const isSortable = sortableKeys.has(column.key);
-        const sticky = column.key === "activityId" ? "col-sticky " : column.key === "activityName" ? "col-sticky col-sticky-2 " : "";
+        const sticky =
+          column.key === "activityId" ? "col-sticky col-sticky-id " : column.key === "activityName" ? "col-sticky col-sticky-2 " : "";
         const cls = isSortable ? sticky + sortClass(column.key) : sticky || "";
         return `<th class="${cls.trim() || ""}" ${isSortable ? `data-sort="${column.key}"` : ""}>${escapeHtml(column.label)}</th>`;
       }).join("")}
@@ -365,8 +366,8 @@ function renderTable() {
         const checked = viewState.selectedIds.has(row.activityId);
         return `
       <tr data-id="${escapeHtml(row.activityId)}">
-        ${canBulk ? `<td class="col-sticky"><input type="checkbox" class="row-select" data-id="${escapeHtml(row.activityId)}" ${checked ? "checked" : ""} /></td>` : ""}
-        <td class="col-sticky">${orderMap.get(row.activityId) ?? "-"}</td>
+        ${canBulk ? `<td class="col-sticky col-sticky-check"><input type="checkbox" class="row-select" data-id="${escapeHtml(row.activityId)}" ${checked ? "checked" : ""} /></td>` : ""}
+        <td class="col-sticky col-sticky-index">${orderMap.get(row.activityId) ?? "-"}</td>
         <td>
           <div class="cell-actions">
             <button type="button" class="ghost cell-act-icon cell-act-comments" data-comments="${escapeHtml(row.activityId)}" title="Comments" aria-label="Comments">💬<span class="cell-act-badge" aria-hidden="true">${(row.comments || []).length}</span></button>
@@ -383,7 +384,7 @@ function renderTable() {
         ${columns
           .map(
             (column) =>
-              `<td class="${column.key === "subActivity" ? "col-sub-activity" : ""}${column.key === "activityId" ? " col-sticky" : ""}${column.key === "activityName" ? " col-sticky col-sticky-2" : ""}">${buildControl(column, row)}</td>`,
+              `<td class="${column.key === "subActivity" ? "col-sub-activity" : ""}${column.key === "activityId" ? " col-sticky col-sticky-id" : ""}${column.key === "activityName" ? " col-sticky col-sticky-2" : ""}">${buildControl(column, row)}</td>`,
           )
           .join("")}
       </tr>

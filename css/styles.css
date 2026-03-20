@@ -1251,20 +1251,78 @@ th.sortable.sort-desc::after {
   box-shadow: 2px 0 4px rgba(0,0,0,0.06);
 }
 
-/* Tight row # / checkbox columns on activity grid */
-#activities-table-wrap tbody td.col-sticky:first-child {
-  width: 38px;
-  max-width: 44px;
-  text-align: center;
-  padding-left: 6px;
-  padding-right: 6px;
+/* Activity grid: checkbox + row # are separate sticky columns (distinct `left` offsets) */
+#activities-table-wrap {
+  --sticky-check-w: 52px;
+  --sticky-index-w: 56px;
+  --sticky-id-w: 124px;
 }
 
-#activities-table-wrap tbody td.col-sticky:nth-child(2) {
-  width: 44px;
-  max-width: 52px;
+#activities-table-wrap thead th.col-sticky,
+#activities-table-wrap tbody td.col-sticky {
+  box-sizing: border-box;
+}
+
+#activities-table-wrap .col-sticky-check {
+  left: 0;
+  z-index: 9;
+  width: var(--sticky-check-w);
+  min-width: var(--sticky-check-w);
+  max-width: var(--sticky-check-w);
+  padding: 10px 8px !important;
+  text-align: center;
+  vertical-align: middle;
+}
+
+#activities-table-wrap .col-sticky-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0 auto;
+  display: block;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+#activities-table-wrap .col-sticky-index {
+  left: 0;
+  z-index: 8;
+  width: var(--sticky-index-w);
+  min-width: var(--sticky-index-w);
+  max-width: var(--sticky-index-w);
+  padding: 10px 6px !important;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-dim, #64748b);
+}
+
+/* Row # sits to the right of the checkbox column when bulk selection is on */
+#activities-table-wrap thead th.col-sticky-check + th.col-sticky-index,
+#activities-table-wrap tbody td.col-sticky-check + td.col-sticky-index {
+  left: var(--sticky-check-w);
+}
+
+#activities-table-wrap .col-sticky-id {
+  z-index: 7;
+  min-width: 7.5rem;
+}
+
+/* Activity ID sticks after checkbox + index (row actions scroll away) */
+#activities-table-wrap:has(#select-all-rows) .col-sticky-id {
+  left: calc(var(--sticky-check-w) + var(--sticky-index-w));
+}
+
+#activities-table-wrap:not(:has(#select-all-rows)) .col-sticky-id {
+  left: var(--sticky-index-w);
+}
+
+/* Activity name sticks after ID column */
+#activities-table-wrap:has(#select-all-rows) .col-sticky.col-sticky-2 {
+  left: calc(var(--sticky-check-w) + var(--sticky-index-w) + var(--sticky-id-w));
+}
+
+#activities-table-wrap:not(:has(#select-all-rows)) .col-sticky.col-sticky-2 {
+  left: calc(var(--sticky-index-w) + var(--sticky-id-w));
 }
 
 tbody tr:nth-child(even) .col-sticky {
@@ -1276,9 +1334,9 @@ thead th.col-sticky {
   z-index: 6;
 }
 
-/* Second sticky column (Activity Name) - offset by Activity ID width */
-.col-sticky.col-sticky-2 {
-  left: 110px;
+thead th.col-sticky-check,
+thead th.col-sticky-index {
+  z-index: 10;
 }
 
 /* Last saved indicator */
