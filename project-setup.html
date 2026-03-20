@@ -53,38 +53,38 @@
         <div class="panel-body">
           <h2 class="ps-etw-title">PS-ETW · Project Setup &amp; Configuration</h2>
           <p class="ps-etw-lead">
-            Central onboarding for every programme in this shared system. Configure project metadata, thresholds, and team
+            Central onboarding for every project in this shared system. Configure project metadata, thresholds, and team
             roster; manage workspace defaults that apply across Activity Master and exports.
           </p>
         </div>
       </section>
 
-      <section class="panel programme-hub-panel">
-        <div class="panel-header programme-hub-header">
+      <section class="panel project-hub-panel">
+        <div class="panel-header project-hub-header">
           <div>
-            <h2>Programme hub</h2>
-            <span class="panel-subtitle">Create, import, export, rename, and remove programmes here only. Every other page switches the active programme and links back here for administration.</span>
+            <h2>Project hub</h2>
+            <span class="panel-subtitle">Create, import, export, rename, and remove projects here only. Every other page switches the active project and links back here for administration.</span>
           </div>
         </div>
         <div class="panel-body project-toolbar project-toolbar-full">
-          <div class="programme-hub-controls" data-role-hide="technician">
-            <label class="field programme-filter-field">
-              <span class="programme-filter-label">Filter programmes</span>
+          <div class="project-hub-controls" data-role-hide="technician">
+            <label class="field project-filter-field">
+              <span class="project-filter-label">Filter projects</span>
               <input
                 type="search"
                 id="project-list-filter"
-                class="programme-filter-input"
+                class="project-filter-input"
                 placeholder="Search by name or ID…"
                 autocomplete="off"
               />
             </label>
           </div>
-          <label class="field project-select-field programme-select-field">
-            <span class="programme-select-label">Active programme</span>
-            <select id="project-select" class="programme-switcher-select programme-hub-select"></select>
+          <label class="field project-select-field project-hub-select-field">
+            <span class="project-hub-select-label">Active project</span>
+            <select id="project-select" class="project-switcher-select project-hub-select"></select>
           </label>
-          <div class="row-actions programme-hub-actions">
-            <button type="button" id="project-add-btn" data-role-hide="technician">New programme</button>
+          <div class="row-actions project-hub-actions">
+            <button type="button" id="project-add-btn" data-role-hide="technician">New project</button>
             <button type="button" id="project-duplicate-btn" class="ghost" data-role-hide="technician">Duplicate</button>
             <button type="button" id="project-rename-btn" class="ghost" data-role-hide="technician">Rename</button>
             <button type="button" id="project-delete-btn" class="danger" data-role-hide="technician">Delete</button>
@@ -94,7 +94,7 @@
               <input id="project-import-input" type="file" accept=".json" hidden />
             </label>
           </div>
-          <div id="project-summary" class="programme-hub-summary small"></div>
+          <div id="project-summary" class="project-hub-summary small"></div>
         </div>
       </section>
 
@@ -109,7 +109,7 @@
         <div class="panel-body">
           <div class="ps-form-note" data-role-hide="technician">
             <span class="ps-form-note-icon" aria-hidden="true">✎</span>
-            <span>Blue-highlighted inputs are the primary editable cells for this programme record.</span>
+            <span>Blue-highlighted inputs are the primary editable cells for this project record.</span>
           </div>
           <div class="ps-field-grid" id="project-setup-fields">
             <label class="field ps-field-label"

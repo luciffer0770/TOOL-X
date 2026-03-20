@@ -26,7 +26,7 @@ const PROJECT_NAME_MAX_LENGTH = 120;
 /**
  * @param {object} opts
  * @param {() => void} [opts.onProjectChange]
- * @param {"full" | "switcher"} [opts.mode] full = Project Setup hub only; switcher = active programme + link
+ * @param {"full" | "switcher"} [opts.mode] full = Project Setup hub only; switcher = active project + link
  */
 export function initializeProjectToolbar({ onProjectChange, mode = "switcher" } = {}) {
   let attempts = 0;
@@ -107,20 +107,20 @@ export function initializeProjectToolbar({ onProjectChange, mode = "switcher" } 
         duplicateButton.hidden = !canManage;
         renameButton.hidden = !canManage;
         deleteButton.hidden = !canManage;
-        summary.textContent = `${projects.length} programmes · Active: ${activeProject.name} · ${activeProject.activities.length} activities`;
+        summary.textContent = `${projects.length} projects · Active: ${activeProject.name} · ${activeProject.activities.length} activities`;
       } else if (summary) {
-        summary.textContent = `${projects.length} programmes · ${activeProject.activities.length} activities in view`;
+        summary.textContent = `${projects.length} projects · ${activeProject.activities.length} activities in view`;
       }
     };
 
     select.addEventListener("change", () => {
       const changed = setActiveProject(select.value);
       if (!changed) {
-        notify("Unable to switch programme.", "error");
+        notify("Unable to switch project.", "error");
         render();
         return;
       }
-      notify("Active programme updated.", "success");
+      notify("Active project updated.", "success");
       render();
       runChangeHandler();
     });
@@ -136,14 +136,14 @@ export function initializeProjectToolbar({ onProjectChange, mode = "switcher" } 
         if (!canManage) return;
         const projects = getProjects();
         const result = await showModal({
-          title: "New programme",
-          body: "Programmes are created here so every sheet stays focused on delivery. Enter a display name.",
+          title: "New project",
+          body: "Projects are created here so every sheet stays focused on delivery. Enter a display name.",
           fields: [
             {
               id: "name",
-              label: "Programme name",
-              placeholder: `Programme ${projects.length + 1}`,
-              value: `Programme ${projects.length + 1}`,
+              label: "Project name",
+              placeholder: `Project ${projects.length + 1}`,
+              value: `Project ${projects.length + 1}`,
               required: true,
               maxLength: PROJECT_NAME_MAX_LENGTH,
             },
@@ -171,12 +171,12 @@ export function initializeProjectToolbar({ onProjectChange, mode = "switcher" } 
         if (!canManage) return;
         const active = getActiveProject();
         const result = await showModal({
-          title: "Duplicate programme",
+          title: "Duplicate project",
           body: `Copy "${active.name}" including activities, baselines, and actions.`,
           fields: [
             {
               id: "name",
-              label: "New programme name",
+              label: "New project name",
               placeholder: `${active.name} Copy`,
               value: `${active.name} Copy`,
               required: true,
@@ -202,12 +202,12 @@ export function initializeProjectToolbar({ onProjectChange, mode = "switcher" } 
         if (!canManage) return;
         const active = getActiveProject();
         const result = await showModal({
-          title: "Rename programme",
-          body: "Updates the name everywhere this programme appears.",
+          title: "Rename project",
+          body: "Updates the name everywhere this project appears.",
           fields: [
             {
               id: "name",
-              label: "Programme name",
+              label: "Project name",
               value: active.name,
               required: true,
               maxLength: PROJECT_NAME_MAX_LENGTH,
@@ -236,12 +236,12 @@ export function initializeProjectToolbar({ onProjectChange, mode = "switcher" } 
         if (!canManage) return;
         const active = getActiveProject();
         const result = await showModal({
-          title: "Delete programme",
-          body: `Permanently delete "${active.name}"? Type the programme name to confirm.`,
+          title: "Delete project",
+          body: `Permanently delete "${active.name}"? Type the project name to confirm.`,
           fields: [
             {
               id: "confirm",
-              label: "Type programme name to confirm",
+              label: "Type project name to confirm",
               placeholder: active.name,
               required: true,
             },
@@ -259,7 +259,7 @@ export function initializeProjectToolbar({ onProjectChange, mode = "switcher" } 
           notify(deleteResult.reason || "Could not delete.", "warning");
           return;
         }
-        notify("Programme deleted.", "warning");
+        notify("Project deleted.", "warning");
         render();
         runChangeHandler();
       });
@@ -270,7 +270,7 @@ export function initializeProjectToolbar({ onProjectChange, mode = "switcher" } 
         const active = getActiveProject();
         const filename = `project_${active.name.replace(/[^a-z0-9]/gi, "_")}_${new Date().toISOString().slice(0, 10)}.json`;
         triggerDownload(filename, json, "application/json;charset=utf-8;");
-        notify("Programme exported.", "success");
+        notify("Project exported.", "success");
       });
 
       importInput?.addEventListener("change", async (e) => {

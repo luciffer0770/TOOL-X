@@ -329,8 +329,8 @@ body {
   gap: 8px;
 }
 
-/* Compact programme switcher (all pages except Project Setup hub) */
-.programme-switcher-bar {
+/* Compact project switcher (all pages except Project Setup hub) */
+.project-switcher-bar {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -339,14 +339,14 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-.programme-switcher-inner {
+.project-switcher-inner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 20px;
 }
 
-.programme-switcher-field {
+.project-switcher-field {
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -356,7 +356,7 @@ body {
   width: 100%;
 }
 
-.programme-switcher-label {
+.project-switcher-label {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -364,12 +364,12 @@ body {
   color: var(--color-muted);
 }
 
-.programme-switcher-select {
+.project-switcher-select {
   width: 100%;
   max-width: 100%;
 }
 
-.programme-switcher-summary {
+.project-switcher-summary {
   font-size: 13px;
   color: var(--color-muted);
   flex: 1 1 180px;
@@ -377,7 +377,7 @@ body {
   min-width: 0;
 }
 
-.programme-switcher-link {
+.project-switcher-link {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-accent);
@@ -390,26 +390,26 @@ body {
   transition: background 0.15s, border-color 0.15s;
 }
 
-.programme-switcher-link:hover {
+.project-switcher-link:hover {
   background: #dbeafe;
   border-color: var(--color-accent);
 }
 
-/* Project Setup programme hub */
-.programme-hub-panel .programme-hub-header h2 {
+/* Project Setup project hub */
+.project-hub-panel .project-hub-header h2 {
   margin: 0 0 6px;
   font-size: 1.15rem;
 }
 
-.programme-hub-controls {
+.project-hub-controls {
   margin-bottom: 14px;
 }
 
-.programme-filter-field {
+.project-filter-field {
   max-width: 400px;
 }
 
-.programme-filter-label {
+.project-filter-label {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -417,23 +417,23 @@ body {
   color: var(--color-muted);
 }
 
-.programme-hub-actions {
+.project-hub-actions {
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.programme-hub-summary {
+.project-hub-summary {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--color-border);
   color: var(--color-muted);
 }
 
-.programme-select-field {
+.project-hub-select-field {
   max-width: 360px;
 }
 
-.programme-select-label {
+.project-hub-select-label {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -441,7 +441,7 @@ body {
   color: var(--color-muted);
 }
 
-.programme-hub-select {
+.project-hub-select {
   font-weight: 500;
 }
 

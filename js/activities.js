@@ -369,13 +369,13 @@ function renderTable() {
         <td class="col-sticky">${orderMap.get(row.activityId) ?? "-"}</td>
         <td>
           <div class="cell-actions">
-            <button type="button" class="ghost cell-act-comments" data-comments="${escapeHtml(row.activityId)}" title="Comments">Comments<span class="cell-act-badge">${(row.comments || []).length}</span></button>
+            <button type="button" class="ghost cell-act-icon cell-act-comments" data-comments="${escapeHtml(row.activityId)}" title="Comments" aria-label="Comments">💬<span class="cell-act-badge" aria-hidden="true">${(row.comments || []).length}</span></button>
             ${
               canModifyActivityStructure(currentUser)
-                ? `<button type="button" class="ghost" data-insert-above="${escapeHtml(row.activityId)}" title="Insert row above">Above</button>
-                   <button type="button" class="ghost" data-insert-below="${escapeHtml(row.activityId)}" title="Insert row below">Below</button>
-                   <button type="button" class="ghost" data-duplicate="${escapeHtml(row.activityId)}" title="Duplicate activity + dependencies">Dup</button>
-                   <button type="button" class="danger" data-delete="${escapeHtml(row.activityId)}">Del</button>`
+                ? `<button type="button" class="ghost cell-act-icon" data-insert-above="${escapeHtml(row.activityId)}" title="Insert row above" aria-label="Insert row above">⬆️</button>
+                   <button type="button" class="ghost cell-act-icon" data-insert-below="${escapeHtml(row.activityId)}" title="Insert row below" aria-label="Insert row below">⬇️</button>
+                   <button type="button" class="ghost cell-act-icon" data-duplicate="${escapeHtml(row.activityId)}" title="Duplicate activity and dependencies" aria-label="Duplicate row">📋</button>
+                   <button type="button" class="danger cell-act-icon" data-delete="${escapeHtml(row.activityId)}" title="Delete row" aria-label="Delete row">🗑️</button>`
                 : `<span class="small">Execution only</span>`
             }
           </div>
