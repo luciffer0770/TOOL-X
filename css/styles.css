@@ -492,29 +492,45 @@ button.danger {
   border-radius: 10px;
 }
 
-/* Activity Data Grid — same pattern as Gantt: normal panel; scroll only inside table viewport */
-.activities-chart-wrapper {
-  border-radius: 10px;
+/* Activity Data Grid — compact chrome + capped table height so the panel stays on-screen */
+.activities-grid-panel .panel-body {
+  padding-top: 8px;
+  padding-bottom: 10px;
 }
 
-.activities-chart-wrapper .activities-table-container {
+.activities-grid-panel .panel-body > .form-grid:first-of-type {
+  margin-bottom: 6px !important;
+  gap: 8px 10px !important;
+}
+
+.activities-grid-panel .pagination-controls {
+  margin: 4px 0 !important;
+}
+
+.activities-grid-panel .bulk-actions {
+  margin-bottom: 6px !important;
+}
+
+.activities-grid-panel .activities-table-container {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(169, 193, 228, 0.92);
+  border: 1px solid rgba(176, 199, 232, 0.95);
   border-radius: 10px;
   overflow: hidden;
-  background: #fafcff;
+  background: var(--bg-panel, #fafcff);
 }
 
-.activities-chart-wrapper .activities-table-container > .table-wrap {
+.activities-grid-panel .activities-table-container > .table-wrap {
   border: none;
   border-radius: 0;
 }
 
-/* Match Gantt chart vertical footprint: bounded height, scroll inside this box only */
 #activities-table-wrap {
-  max-height: min(70vh, 560px);
-  min-height: 320px;
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+  max-height: min(calc(100dvh - 420px), 40vh);
+  min-height: 180px;
   overflow: auto;
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
@@ -532,8 +548,8 @@ button.danger {
   z-index: 8;
 }
 
-/* Horizontal scroll synced with table, inside the sheet (not viewport-fixed) */
-.activities-chart-wrapper .activities-table-container .floating-x-scroll.activities-floating-x-scroll {
+/* Horizontal sync bar under the table (inside card), not fixed to viewport */
+.activities-grid-panel .activities-table-container .floating-x-scroll.activities-floating-x-scroll {
   position: relative;
   left: auto !important;
   width: 100% !important;
@@ -541,18 +557,18 @@ button.danger {
   flex-shrink: 0;
   height: 16px;
   border-radius: 0 0 9px 9px;
-  border: 1px solid rgba(169, 193, 228, 0.92);
+  border: 1px solid rgba(176, 199, 232, 0.95);
   border-top: none;
   box-shadow: none;
   background: rgba(236, 244, 255, 0.98);
 }
 
-[data-theme="dark"] .activities-chart-wrapper .activities-table-container .floating-x-scroll.activities-floating-x-scroll {
+[data-theme="dark"] .activities-grid-panel .activities-table-container .floating-x-scroll.activities-floating-x-scroll {
   background: rgba(30, 41, 59, 0.95);
   border-color: var(--color-border, #334155);
 }
 
-[data-theme="dark"] .activities-chart-wrapper .activities-table-container {
+[data-theme="dark"] .activities-grid-panel .activities-table-container {
   background: var(--color-surface, #1e293b);
   border-color: var(--color-border, #334155);
 }
