@@ -11,16 +11,32 @@ from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_file, send_from_directory
+from flask import Flask, jsonify, make_response, request, send_file, send_from_directory
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent
 app = Flask(__name__)
 app.secret_key = os.environ.get("ATLAS_SECRET_KEY", secrets.token_hex(32))
-CORS(app, supports_credentials=True)
+
+_cors_origins = os.environ.get("ATLAS_CORS_ORIGINS", "").strip()
+if _cors_origins:
+    _origins = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+    CORS(app, resources={r"/api/*": {"origins": _origins, "supports_credentials": True}})
+else:
+    CORS(app, supports_credentials=True)
 
 DB_PATH = Path(os.environ.get("ATLAS_DB_PATH", str(BASE_DIR / "atlas_data.db")))
+STATE_KEY = "industrial_planning_intelligence_state_v1"
+
+
+def state_api_open():
+    """If true, /api/state GET/PUT work without Bearer (local demo only — do not expose to internet)."""
+    return os.environ.get("ATLAS_OPEN_STATE_API", "").strip().lower() in ("1", "true", "yes")
+
+
+def state_requires_auth():
+    return not state_api_open()
 
 _DEFAULT_STATE = {
     "projects": [{"id": "PRJ-0001", "name": "Project 1", "activities": [], "baselines": [], "actions": []}],
@@ -37,6 +53,55 @@ DEFAULT_USERS = [
 
 def get_conn():
     return sqlite3.connect(str(DB_PATH))
+
+
+def migrate_atlas_schema(conn):
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(atlas_state)").fetchall()}
+    if "version" not in cols:
+        conn.execute("ALTER TABLE atlas_state ADD COLUMN version INTEGER NOT NULL DEFAULT 1")
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS atlas_audit_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            action TEXT NOT NULL,
+            details_json TEXT,
+            username TEXT,
+            user_id INTEGER,
+            client_ip TEXT,
+            state_version_after INTEGER
+        )
+        """
+    )
+
+
+def _client_ip():
+    try:
+        xff = request.headers.get("X-Forwarded-For") or ""
+        if xff:
+            return xff.split(",")[0].strip()[:128]
+        return (request.remote_addr or "")[:128]
+    except RuntimeError:
+        return ""
+
+
+def append_audit_event_conn(conn, action, details=None, user=None, state_version_after=None):
+    now = datetime.now(timezone.utc).isoformat()
+    uid = int(user["user_id"]) if user and user.get("user_id") is not None else None
+    uname = (user.get("username") if user else None) or None
+    djson = json.dumps(details, default=str) if details is not None else None
+    conn.execute(
+        """INSERT INTO atlas_audit_events (created_at, action, details_json, username, user_id, client_ip, state_version_after)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (now, action, djson, uname, uid, _client_ip() or None, state_version_after),
+    )
+
+
+def append_audit_event(action, details=None, user=None, state_version_after=None):
+    conn = get_conn()
+    append_audit_event_conn(conn, action, details, user, state_version_after)
+    conn.commit()
+    conn.close()
 
 
 def init_db():
@@ -62,9 +127,12 @@ def init_db():
         );
     """)
     conn.commit()
-    # Seed demo users if empty
+    migrate_atlas_schema(conn)
+    conn.commit()
+    # Seed demo users if empty (set ATLAS_SEED_DEMO_USERS=0 in production)
+    seed_demo = os.environ.get("ATLAS_SEED_DEMO_USERS", "1").strip().lower() not in ("0", "false", "no")
     cursor = conn.execute("SELECT COUNT(*) FROM atlas_users")
-    if cursor.fetchone()[0] == 0:
+    if seed_demo and cursor.fetchone()[0] == 0:
         for username, password, display_name, role in DEFAULT_USERS:
             conn.execute(
                 "INSERT INTO atlas_users (username, password_hash, display_name, role, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -92,32 +160,110 @@ def ensure_engine_blobs_table():
     conn.close()
 
 
-def load_state():
+def get_state_row(conn):
+    return conn.execute(
+        "SELECT value, COALESCE(version, 1) FROM atlas_state WHERE key = ?",
+        (STATE_KEY,),
+    ).fetchone()
+
+
+def load_state_bundle():
     try:
         conn = get_conn()
-        row = conn.execute(
-            "SELECT value FROM atlas_state WHERE key = ?",
-            ("industrial_planning_intelligence_state_v1",),
-        ).fetchone()
+        row = get_state_row(conn)
         conn.close()
-        return json.loads(row[0]) if row else _DEFAULT_STATE
+        if not row:
+            return _DEFAULT_STATE, 0
+        return json.loads(row[0]), int(row[1])
     except Exception:
-        return _DEFAULT_STATE
+        return _DEFAULT_STATE, 0
 
 
-def save_state(state):
+def load_state():
+    s, _ = load_state_bundle()
+    return s
+
+
+def persist_state_with_version(state_dict, expected_version, user_for_audit=None, open_mode=False):
+    payload = json.dumps(state_dict)
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_conn()
     try:
-        conn = get_conn()
-        conn.execute(
-            "INSERT OR REPLACE INTO atlas_state (key, value, updated_at) VALUES (?, ?, ?)",
-            ("industrial_planning_intelligence_state_v1", json.dumps(state), datetime.now(timezone.utc).isoformat()),
+        conn.execute("BEGIN IMMEDIATE")
+        row = get_state_row(conn)
+        audit_user = None
+        if user_for_audit:
+            audit_user = {"user_id": user_for_audit.get("id"), "username": user_for_audit.get("username")}
+
+        if open_mode:
+            if not row:
+                new_v = 1
+                conn.execute(
+                    "INSERT INTO atlas_state (key, value, updated_at, version) VALUES (?, ?, ?, ?)",
+                    (STATE_KEY, payload, now, new_v),
+                )
+            else:
+                new_v = int(row[1]) + 1
+                conn.execute(
+                    "UPDATE atlas_state SET value = ?, updated_at = ?, version = ? WHERE key = ?",
+                    (payload, now, new_v, STATE_KEY),
+                )
+            append_audit_event_conn(
+                conn,
+                "state.save",
+                {"projectCount": len(state_dict.get("projects") or []), "activeProjectId": state_dict.get("activeProjectId"), "openMode": True},
+                user=audit_user,
+                state_version_after=new_v,
+            )
+            conn.commit()
+            conn.close()
+            return True, new_v, None, None
+
+        if not row:
+            exp = 0 if expected_version is None else int(expected_version)
+            if exp != 0:
+                conn.rollback()
+                conn.close()
+                return False, None, "version_conflict", None
+            new_v = 1
+            conn.execute(
+                "INSERT INTO atlas_state (key, value, updated_at, version) VALUES (?, ?, ?, ?)",
+                (STATE_KEY, payload, now, new_v),
+            )
+        else:
+            cur_v = int(row[1])
+            if expected_version is None:
+                conn.rollback()
+                conn.close()
+                return False, cur_v, "missing_if_match", None
+            if int(expected_version) != cur_v:
+                conn.rollback()
+                conn.close()
+                return False, cur_v, "version_conflict", None
+            new_v = cur_v + 1
+            conn.execute(
+                "UPDATE atlas_state SET value = ?, updated_at = ?, version = ? WHERE key = ?",
+                (payload, now, new_v, STATE_KEY),
+            )
+
+        append_audit_event_conn(
+            conn,
+            "state.save",
+            {"projectCount": len(state_dict.get("projects") or []), "activeProjectId": state_dict.get("activeProjectId")},
+            user=audit_user,
+            state_version_after=new_v,
         )
         conn.commit()
         conn.close()
-        return True
+        return True, new_v, None, None
     except Exception as e:
-        print(f"[ATLAS] Save failed: {e}")
-        return False
+        try:
+            conn.rollback()
+            conn.close()
+        except Exception:
+            pass
+        print(f"[ATLAS] persist_state failed: {e}")
+        return False, None, "error", str(e)
 
 
 def verify_token(token):
@@ -163,6 +309,8 @@ def api_info():
                 "/api/backup",
                 "/api/restore",
                 "/api/engine-docs",
+                "/api/audit",
+                "/api/audit/log",
             ],
         }
     )
@@ -193,6 +341,12 @@ def engine_docs_upload():
     conn.execute(
         "INSERT INTO atlas_engine_blobs (id, project_id, filename, mime, data, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         (doc_id, project_id[:64], filename, mime, raw, now),
+    )
+    append_audit_event_conn(
+        conn,
+        "engine.upload",
+        {"docId": doc_id, "projectId": project_id[:64], "fileName": filename, "size": len(raw)},
+        user={"user_id": user["id"], "username": user["username"]},
     )
     conn.commit()
     conn.close()
@@ -252,16 +406,124 @@ def health():
 
 @app.route("/api/state", methods=["GET"])
 def get_state():
-    return jsonify(load_state())
+    if state_requires_auth() and not verify_token(bearer_token()):
+        return jsonify({"error": "Unauthorized"}), 401
+    s, ver = load_state_bundle()
+    resp = make_response(jsonify(s))
+    resp.headers["X-Atlas-State-Version"] = str(ver)
+    return resp
 
 
 @app.route("/api/state", methods=["PUT", "POST"])
 def put_state():
+    if state_requires_auth() and not verify_token(bearer_token()):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     try:
         data = request.get_json(force=True, silent=True) or {}
-        return jsonify({"ok": True}) if save_state(data) else (jsonify({"ok": False}), 500)
+        if not isinstance(data, dict):
+            return jsonify({"ok": False, "error": "invalid_body"}), 400
+        raw_if_match = request.headers.get("If-Match")
+        if raw_if_match:
+            raw_if_match = raw_if_match.strip().strip('"')
+        if state_api_open():
+            expected_version = None
+        else:
+            try:
+                expected_version = int(raw_if_match) if raw_if_match not in (None, "") else None
+            except ValueError:
+                return jsonify({"ok": False, "error": "invalid_if_match"}), 400
+
+        user = verify_token(bearer_token()) if bearer_token() else None
+        ok, new_v, err_code, err_msg = persist_state_with_version(
+            data,
+            expected_version,
+            user_for_audit=user,
+            open_mode=state_api_open(),
+        )
+        if not ok:
+            if err_code == "version_conflict":
+                _, cur_v = load_state_bundle()
+                return jsonify({"ok": False, "error": "version_conflict", "serverVersion": cur_v}), 409
+            if err_code == "missing_if_match":
+                _, cur_v = load_state_bundle()
+                return (
+                    jsonify(
+                        {
+                            "ok": False,
+                            "error": "missing_if_match",
+                            "serverVersion": cur_v,
+                            "hint": "Send If-Match header from GET /api/state (X-Atlas-State-Version)",
+                        }
+                    ),
+                    428,
+                )
+            return jsonify({"ok": False, "error": err_code or "save_failed", "message": err_msg}), 500
+        resp = make_response(jsonify({"ok": True, "version": new_v}))
+        resp.headers["X-Atlas-State-Version"] = str(new_v)
+        return resp
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/audit", methods=["GET"])
+def list_audit():
+    if not verify_token(bearer_token()):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    try:
+        limit = min(int(request.args.get("limit", 500)), 5000)
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except ValueError:
+        return jsonify({"ok": False, "error": "invalid_pagination"}), 400
+    conn = get_conn()
+    total = conn.execute("SELECT COUNT(*) FROM atlas_audit_events").fetchone()[0]
+    rows = conn.execute(
+        """SELECT id, created_at, action, details_json, username, user_id, client_ip, state_version_after
+           FROM atlas_audit_events ORDER BY id DESC LIMIT ? OFFSET ?""",
+        (limit, offset),
+    ).fetchall()
+    conn.close()
+    events = []
+    for r in rows:
+        details = None
+        if r[3]:
+            try:
+                details = json.loads(r[3])
+            except Exception:
+                details = {"_raw": r[3]}
+        events.append(
+            {
+                "id": r[0],
+                "at": r[1],
+                "action": r[2],
+                "details": details or {},
+                "username": r[4],
+                "userId": r[5],
+                "clientIp": r[6],
+                "stateVersionAfter": r[7],
+                "source": "server",
+            }
+        )
+    return jsonify({"ok": True, "events": events, "total": total, "limit": limit, "offset": offset})
+
+
+@app.route("/api/audit/log", methods=["POST"])
+def append_client_audit():
+    user = verify_token(bearer_token())
+    if not user:
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    data = request.get_json(force=True, silent=True) or {}
+    action = (data.get("action") or "").strip()
+    if not action or len(action) > 500:
+        return jsonify({"ok": False, "error": "action required"}), 400
+    details = data.get("details")
+    if details is not None and not isinstance(details, dict):
+        details = {"value": str(details)[:2000]}
+    append_audit_event(
+        action,
+        details,
+        user={"user_id": user["id"], "username": user["username"]},
+    )
+    return jsonify({"ok": True})
 
 
 # --- Auth API ---
@@ -291,6 +553,12 @@ def auth_login():
         conn.execute(
             "INSERT INTO atlas_sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
             (token, user_id, expires_at, now.isoformat()),
+        )
+        append_audit_event_conn(
+            conn,
+            "auth.login",
+            {"username": username, "displayName": display_name, "role": role},
+            user={"user_id": user_id, "username": username},
         )
         conn.commit()
         conn.close()
@@ -322,7 +590,15 @@ def auth_logout():
         token = token[7:]
     if token:
         try:
+            u = verify_token(token)
             conn = get_conn()
+            if u:
+                append_audit_event_conn(
+                    conn,
+                    "auth.logout",
+                    {"username": u["username"]},
+                    user={"user_id": u["id"], "username": u["username"]},
+                )
             conn.execute("DELETE FROM atlas_sessions WHERE token = ?", (token,))
             conn.commit()
             conn.close()
@@ -334,6 +610,8 @@ def auth_logout():
 # --- Backup / Restore ---
 @app.route("/api/backup")
 def backup():
+    if not verify_token(bearer_token()):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     try:
         return send_file(DB_PATH, as_attachment=True, download_name="atlas_backup.db")
     except Exception as e:
@@ -342,6 +620,8 @@ def backup():
 
 @app.route("/api/restore", methods=["POST"])
 def restore():
+    if not verify_token(bearer_token()):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     if "file" not in request.files:
         return jsonify({"ok": False, "error": "No file uploaded"}), 400
     f = request.files["file"]
@@ -352,7 +632,7 @@ def restore():
         f.save(str(backup_path))
         # Validate: try to read state
         conn = sqlite3.connect(str(backup_path))
-        row = conn.execute("SELECT value FROM atlas_state WHERE key = ?", ("industrial_planning_intelligence_state_v1",)).fetchone()
+        row = conn.execute("SELECT value FROM atlas_state WHERE key = ?", (STATE_KEY,)).fetchone()
         conn.close()
         if not row:
             backup_path.unlink(missing_ok=True)
@@ -364,6 +644,12 @@ def restore():
             shutil.copy(str(DB_PATH), str(pre_backup))
         shutil.copy(str(backup_path), str(DB_PATH))
         backup_path.unlink(missing_ok=True)
+        u = verify_token(bearer_token())
+        append_audit_event(
+            "system.restore",
+            {"source": "uploaded_db_backup"},
+            user={"user_id": u["id"], "username": u["username"]} if u else None,
+        )
         return jsonify({"ok": True})
     except Exception as e:
         (BASE_DIR / "atlas_data_restore_temp.db").unlink(missing_ok=True)

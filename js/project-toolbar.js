@@ -10,7 +10,7 @@ import {
   renameProject,
   setActiveProject,
 } from "./storage.js";
-import { canManageProjects, getCurrentUser } from "./auth.js";
+import { canManageProjects, getAuthBearerHeaders, getCurrentUser } from "./auth.js";
 
 async function hasBackend() {
   try {
@@ -303,7 +303,7 @@ export function initializeProjectToolbar({ onProjectChange, mode = "switcher" } 
           backupBtn.addEventListener("click", async () => {
             const hideLoading = showLoading("Preparing backup...");
             try {
-              const r = await fetch("/api/backup");
+              const r = await fetch("/api/backup", { headers: { ...getAuthBearerHeaders() } });
               if (!r.ok) throw new Error("Backup failed");
               const blob = await r.blob();
               const url = URL.createObjectURL(blob);
@@ -343,7 +343,11 @@ export function initializeProjectToolbar({ onProjectChange, mode = "switcher" } 
             try {
               const form = new FormData();
               form.append("file", file);
-              const r = await fetch("/api/restore", { method: "POST", body: form });
+              const r = await fetch("/api/restore", {
+                method: "POST",
+                headers: { ...getAuthBearerHeaders() },
+                body: form,
+              });
               const data = await r.json();
               if (data?.ok) {
                 notify("Restored. Reloading…", "success");

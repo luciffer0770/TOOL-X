@@ -217,18 +217,22 @@ If the file exists under the repo root, Flask serves it. Additionally, extension
 |--------|----------|-------------|
 | GET | `/api` | API info + endpoint list |
 | GET | `/api/health` | `{ "status": "ok" }` – used to detect backend |
-| GET | `/api/state` | Full JSON state document |
-| PUT/POST | `/api/state` | Replace state (JSON body) |
+| GET | `/api/state` | Full JSON state document (Bearer required by default; response header `X-Atlas-State-Version`) |
+| PUT/POST | `/api/state` | Replace state (JSON body; Bearer + `If-Match: <version>` required by default) |
 | POST | `/api/auth/login` | Body: `username`, `password`, `rememberMe` → `token`, `user` |
 | GET/POST | `/api/auth/me` | Validate Bearer token |
 | POST | `/api/auth/logout` | Invalidate session token |
-| GET | `/api/backup` | Download SQLite file |
-| POST | `/api/restore` | Upload `.db` (validated; backs up current DB first) |
+| GET | `/api/audit` | Paginated server audit events (Bearer) |
+| POST | `/api/audit/log` | Append audit row from client (Bearer, JSON `action` + optional `details`) |
+| GET | `/api/backup` | Download SQLite file (Bearer) |
+| POST | `/api/restore` | Upload `.db` (validated; backs up current DB first) (Bearer) |
 | POST | `/api/engine-docs` | Multipart upload (Bearer auth, `project_id`, `file`) → blob row |
 | GET | `/api/engine-docs/<id>` | Download attachment |
 | DELETE | `/api/engine-docs/<id>` | Delete blob |
 
-**Engine docs** require `Authorization: Bearer <token>` from login.
+**State, backup, restore, and audit list** use `Authorization: Bearer <token>` from login. **Engine docs** do as well.
+
+See **`docs/P0_TRUST_DEPLOYMENT.md`** for `ATLAS_OPEN_STATE_API`, `ATLAS_CORS_ORIGINS`, `ATLAS_SEED_DEMO_USERS`, and production notes.
 
 ---
 

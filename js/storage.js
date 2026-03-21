@@ -2,6 +2,7 @@ import { COLUMN_SCHEMA, generateActivityId, sanitizeActivity } from "./schema.js
 import { logAudit } from "./audit.js";
 import { idbGetState, idbSetState } from "./idb.js";
 import { notify } from "./common.js";
+import { getAuthBearerHeaders } from "./auth.js";
 
 const STORAGE_KEY = "industrial_planning_intelligence_state_v1";
 export const SAVE_STATUS_EVENT = "industrial_planning_save_status";
@@ -13,6 +14,14 @@ const SAVE_DEBOUNCE_MS = 450;
 let _useBackend = false;
 let _memoryCache = null;
 let _stateReadyPromise = null;
+/** Server optimistic-lock version from GET/PUT /api/state (header X-Atlas-State-Version). */
+let _serverStateVersion = 0;
+
+function parseStateVersionHeader(res) {
+  const h = res.headers.get("X-Atlas-State-Version");
+  const n = parseInt(h ?? "0", 10);
+  return Number.isFinite(n) ? n : 0;
+}
 
 /** Start loading state. Call once before app init. Resolves when state is ready (from API or localStorage). */
 export function stateReady() {
@@ -22,8 +31,19 @@ export function stateReady() {
       const health = await fetch("/api/health");
       if (health.ok) {
         _useBackend = true;
-        const res = await fetch("/api/state");
+        const res = await fetch("/api/state", { headers: { ...getAuthBearerHeaders() } });
+        if (res.status === 401) {
+          _serverStateVersion = 0;
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) _memoryCache = normalizeState(JSON.parse(raw));
+          } catch (_) {
+            _memoryCache = null;
+          }
+          return;
+        }
         if (res.ok) {
+          _serverStateVersion = parseStateVersionHeader(res);
           try {
             const data = await res.json();
             if (data && typeof data === "object") _memoryCache = data;
@@ -407,7 +427,11 @@ function flushPendingSave() {
     try {
       fetch("/api/state", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "If-Match": String(_serverStateVersion),
+          ...getAuthBearerHeaders(),
+        },
         body: toSave,
         keepalive: true,
       });
@@ -441,6 +465,8 @@ function doPersist(payload) {
       .then((result) => {
         if (result?.ok) {
           emitSaveStatus("saved", { savedAt: new Date().toISOString() });
+        } else if (result?.conflict) {
+          emitSaveStatus("conflict", { reloaded: true });
         } else {
           throw new Error("Save failed");
         }
@@ -463,15 +489,75 @@ function doPersist(payload) {
   }
 }
 
+async function reloadStateFromServerAfterConflict() {
+  const res = await fetch("/api/state", { headers: { ...getAuthBearerHeaders() } });
+  if (!res.ok) return;
+  _serverStateVersion = parseStateVersionHeader(res);
+  const data = await res.json();
+  if (data && typeof data === "object") {
+    _memoryCache = normalizeState(data);
+    emitStateChange();
+  }
+  emitSaveStatus("conflict", { reloaded: true, version: _serverStateVersion });
+  notify("Workspace was updated elsewhere — loaded the latest version from the server.", "warning");
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("industrial_planning_state_conflict", { detail: { version: _serverStateVersion } }),
+    );
+  }
+}
+
 async function putStateWithRetry(payload) {
+  const sendPut = () =>
+    fetch("/api/state", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "If-Match": String(_serverStateVersion),
+        ...getAuthBearerHeaders(),
+      },
+      body: payload,
+    });
+
   for (let attempt = 1; attempt <= SAVE_RETRY_ATTEMPTS; attempt++) {
     try {
-      const r = await fetch("/api/state", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: payload,
-      });
-      if (r.ok) return { ok: true };
+      let r = await sendPut();
+      if (r.ok) {
+        let body = {};
+        try {
+          body = await r.json();
+        } catch (_) {
+          body = {};
+        }
+        const hv = r.headers.get("X-Atlas-State-Version");
+        if (hv != null && hv !== "") _serverStateVersion = parseInt(hv, 10) || _serverStateVersion;
+        else if (typeof body.version === "number") _serverStateVersion = body.version;
+        return { ok: true };
+      }
+      if (r.status === 409) {
+        await reloadStateFromServerAfterConflict();
+        return { ok: false, conflict: true };
+      }
+      if (r.status === 428) {
+        await reloadStateFromServerAfterConflict();
+        r = await sendPut();
+        if (r.ok) {
+          let body = {};
+          try {
+            body = await r.json();
+          } catch (_) {
+            body = {};
+          }
+          const hv = r.headers.get("X-Atlas-State-Version");
+          if (hv != null && hv !== "") _serverStateVersion = parseInt(hv, 10) || _serverStateVersion;
+          else if (typeof body.version === "number") _serverStateVersion = body.version;
+          return { ok: true };
+        }
+        if (r.status === 409) {
+          await reloadStateFromServerAfterConflict();
+          return { ok: false, conflict: true };
+        }
+      }
       const errText = await r.text();
       throw new Error(errText || `HTTP ${r.status}`);
     } catch (e) {

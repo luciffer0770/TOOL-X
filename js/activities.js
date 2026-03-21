@@ -1670,6 +1670,9 @@ function initialize() {
           dom.lastSavedIndicator.textContent = "Save failed";
           dom.lastSavedIndicator.classList.add("last-saved-error");
           dom.lastSavedIndicator.classList.remove("last-saved-saving");
+        } else if (status === "conflict") {
+          dom.lastSavedIndicator.textContent = "Reloaded from server";
+          dom.lastSavedIndicator.classList.remove("last-saved-saving", "last-saved-error");
         }
       });
       refreshFromStorage();

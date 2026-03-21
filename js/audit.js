@@ -2,6 +2,7 @@
  * Audit trail – change history log.
  */
 import { escapeHtml } from "./common.js";
+import { getAuthBearerHeaders } from "./auth.js";
 
 const AUDIT_KEY = "atlas_planning_audit_v1";
 
@@ -27,6 +28,17 @@ function saveAuditLog(entries) {
   localStorage.setItem(AUDIT_KEY, JSON.stringify(trimmed));
 }
 
+function mirrorAuditToServer(action, details) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...getAuthBearerHeaders(),
+  };
+  if (!headers.Authorization) return;
+  fetch("/api/health")
+    .then((h) => (h.ok ? fetch("/api/audit/log", { method: "POST", headers, body: JSON.stringify({ action, details }) }) : null))
+    .catch(() => {});
+}
+
 export function logAudit(action, details = {}) {
   const entries = loadAuditLog();
   entries.push({
@@ -35,6 +47,7 @@ export function logAudit(action, details = {}) {
     ...details,
   });
   saveAuditLog(entries);
+  mirrorAuditToServer(action, details);
 }
 
 export function getAuditLog() {

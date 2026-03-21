@@ -6,6 +6,7 @@ import { initPage } from "./page-init.js";
 import { getAuditLog } from "./audit.js";
 import { getProjects } from "./storage.js";
 import { escapeHtml, notify, setActiveNavigation } from "./common.js";
+import { getAuthBearerHeaders } from "./auth.js";
 
 const ENTITY_RE = /\b(ACT|PRJ|DOC|RSK)-[A-Z0-9]+\b/i;
 
@@ -79,8 +80,45 @@ function normalizeEntry(raw, idx) {
   };
 }
 
-function loadNormalized() {
-  return getAuditLog().map((e, i) => normalizeEntry(e, i));
+function dedupeKeyForEntry(entry) {
+  const r = entry.raw || {};
+  if (r._serverAuditId != null) return `srv:${r._serverAuditId}`;
+  return `${r.at}|${r.action}|${r.activityId ?? ""}`;
+}
+
+async function loadNormalizedAsync() {
+  const local = getAuditLog().map((e, i) => normalizeEntry(e, i));
+  let serverNorm = [];
+  try {
+    const health = await fetch("/api/health");
+    if (!health.ok) return local;
+    const headers = { ...getAuthBearerHeaders() };
+    if (!headers.Authorization) return local;
+    const res = await fetch("/api/audit?limit=2500", { headers });
+    if (!res.ok) return local;
+    const j = await res.json();
+    const events = Array.isArray(j.events) ? j.events : [];
+    serverNorm = events.map((ev, i) => {
+      const details = ev.details && typeof ev.details === "object" ? { ...ev.details } : {};
+      const raw = {
+        at: ev.at,
+        action: ev.action,
+        user: ev.username || "server",
+        ...details,
+        _serverAuditId: ev.id,
+      };
+      return normalizeEntry(raw, 1_000_000 + i);
+    });
+  } catch (_) {
+    return local;
+  }
+  const byKey = new Map();
+  for (const e of serverNorm) byKey.set(dedupeKeyForEntry(e), e);
+  for (const e of local) {
+    const k = dedupeKeyForEntry(e);
+    if (!byKey.has(k)) byKey.set(k, e);
+  }
+  return Array.from(byKey.values()).sort((a, b) => new Date(b.at) - new Date(a.at));
 }
 
 const state = {
@@ -584,7 +622,7 @@ function renderApp() {
           <span class="audit-page-title-ico" aria-hidden="true">&#8987;</span>
           <h1 class="audit-page-title">Audit Log</h1>
         </div>
-        <p class="audit-page-sub">Complete tamper-evident trail of platform actions recorded in this browser. Data is stored locally with your session.</p>
+        <p class="audit-page-sub">Browser audit trail merged with server events when you use the Flask backend and are signed in. Local entries remain as a cache when offline.</p>
       </div>
       <div class="audit-page-header-actions">
         <button type="button" class="ghost audit-header-btn" id="audit-export-csv">&#8595; Export CSV</button>
@@ -704,16 +742,17 @@ function bindHandlers(sortedFull) {
   document.getElementById("audit-export-csv")?.addEventListener("click", () => exportCsv(sortedFull));
   document.getElementById("audit-export-pdf")?.addEventListener("click", () => exportPdf(sortedFull));
 
-  document.getElementById("audit-refresh")?.addEventListener("click", () => {
+  document.getElementById("audit-refresh")?.addEventListener("click", async () => {
     state.loading = true;
     renderApp();
-    requestAnimationFrame(() => {
-      state.allEntries = loadNormalized();
-      state.loading = false;
+    try {
+      state.allEntries = await loadNormalizedAsync();
       state.page = 1;
-      renderApp();
       notify("Audit log refreshed.", "success");
-    });
+    } finally {
+      state.loading = false;
+      renderApp();
+    }
   });
 
   document.getElementById("audit-search")?.addEventListener("input", (e) => {
@@ -889,8 +928,10 @@ function bindHandlers(sortedFull) {
 }
 
 function refreshEntries() {
-  state.allEntries = loadNormalized();
-  renderApp();
+  loadNormalizedAsync().then((entries) => {
+    state.allEntries = entries;
+    renderApp();
+  });
 }
 
 initPage({
@@ -898,8 +939,13 @@ initPage({
   onReady() {
     setActiveNavigation();
     applyDatePreset();
-    state.allEntries = loadNormalized();
+    state.loading = true;
     renderApp();
+    loadNormalizedAsync().then((entries) => {
+      state.allEntries = entries;
+      state.loading = false;
+      renderApp();
+    });
     window.addEventListener("industrial_planning_state_changed", refreshEntries);
     window.addEventListener("storage", (e) => {
       if (e.key === "atlas_planning_audit_v1") refreshEntries();
