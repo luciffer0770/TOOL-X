@@ -22,11 +22,15 @@
     "step7_console": "passed"
   },
   "finalUrls": {
-    "afterQuickDemo": "http://127.0.0.1:8080/index.html?dev=1",
+    "afterQuickDemo": "http://127.0.0.1:8080/index.html",
     "activities": "http://127.0.0.1:8080/activities.html",
     "gantt": "http://127.0.0.1:8080/gantt.html"
   },
-  "consoleErrors": [],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "Failed to load resource: the server responded with a status of 404 (File not found)"
+  ],
   "consoleWarnings": [],
   "screenshotPaths": {
     "step2": "browser-test-results/screenshot-01-login-loaded.png",
@@ -36,5 +40,5 @@
     "step6b": "browser-test-results/screenshot-05-gantt.png"
   },
   "passed": true,
-  "timestamp": "2026-03-02T14:58:20.745Z"
+  "timestamp": "2026-03-21T06:50:57.692Z"
 }

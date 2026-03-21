@@ -2424,3 +2424,9 @@ table tbody tr:hover {
 [data-theme="dark"] {
   color-scheme: dark;
 }
+
+[data-theme="dark"] #activities-table-wrap thead th {
+  background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
+  box-shadow: 0 1px 0 var(--color-border);
+  color: var(--color-text);
+}

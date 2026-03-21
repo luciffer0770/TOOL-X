@@ -427,17 +427,23 @@ function refreshFloatingScrollbar() {
   if (!dom.tableWrap || !dom.floatingXScroll || !dom.floatingXTrack) return;
 
   const hasHorizontalOverflow = dom.tableWrap.scrollWidth > dom.tableWrap.clientWidth + 1;
+  const docked = dom.floatingXScroll.classList.contains("activities-floating-x-scroll");
   const tableRect = dom.tableWrap.getBoundingClientRect();
   const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
   const tableOnScreen = tableRect.bottom > 0 && tableRect.top < viewportHeight;
-  const shouldShow = hasHorizontalOverflow && tableOnScreen;
+  const shouldShow = docked ? hasHorizontalOverflow : hasHorizontalOverflow && tableOnScreen;
   dom.floatingXScroll.hidden = !shouldShow;
 
   if (!shouldShow) return;
 
   dom.floatingXTrack.style.width = `${dom.tableWrap.scrollWidth}px`;
-  dom.floatingXScroll.style.left = `${Math.max(12, tableRect.left)}px`;
-  dom.floatingXScroll.style.width = `${Math.max(220, tableRect.width)}px`;
+  if (docked) {
+    dom.floatingXScroll.style.left = "";
+    dom.floatingXScroll.style.width = "";
+  } else {
+    dom.floatingXScroll.style.left = `${Math.max(12, tableRect.left)}px`;
+    dom.floatingXScroll.style.width = `${Math.max(220, tableRect.width)}px`;
+  }
 
   if (!uiState.syncingTableScroll) {
     uiState.syncingFloatingScroll = true;

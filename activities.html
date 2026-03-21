@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Activity Master | ATLAS</title>
-    <link rel="stylesheet" href="./css/styles.css?v=atlas20260326" />
+    <link rel="stylesheet" href="./css/styles.css?v=atlas20260402" />
   </head>
   <body>
     <div class="atlas-version-banner" role="status">ATLAS – Latest build loaded</div>
@@ -248,7 +248,7 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel activities-grid-panel">
         <div class="panel-header">
           <h2>Activity Data Grid</h2>
           <span class="panel-subtitle" id="activity-grid-stats"></span>
@@ -316,10 +316,10 @@
                 <tbody id="activities-body"></tbody>
               </table>
             </div>
+            <div id="activities-floating-scroll" class="floating-x-scroll activities-floating-x-scroll" hidden>
+              <div id="activities-floating-scroll-track"></div>
+            </div>
             <div id="activities-card-grid" class="activities-card-grid"></div>
-          </div>
-          <div id="activities-floating-scroll" class="floating-x-scroll" hidden>
-            <div id="activities-floating-scroll-track"></div>
           </div>
         </div>
       </section>
@@ -328,6 +328,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script type="module" src="./js/activities.js?v=atlas20260326"></script>
+    <script type="module" src="./js/activities.js?v=atlas20260402"></script>
   </body>
 </html>
