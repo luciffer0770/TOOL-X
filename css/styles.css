@@ -492,7 +492,25 @@ button.danger {
   border-radius: 10px;
 }
 
-/* Activity Data Grid — large table viewport in-screen; scroll inside table only; sticky header */
+/* Activity Data Grid — table sized to fit on one screen with filters (not nearly full dvh) */
+.activities-grid-panel .panel-body {
+  padding-top: 8px;
+  padding-bottom: 10px;
+}
+
+.activities-grid-panel .panel-body > .form-grid:first-of-type {
+  margin-bottom: 6px !important;
+  gap: 8px 10px !important;
+}
+
+.activities-grid-panel .pagination-controls {
+  margin: 4px 0 !important;
+}
+
+.activities-grid-panel .bulk-actions {
+  margin-bottom: 6px !important;
+}
+
 .activities-grid-panel .activities-table-container {
   display: flex;
   flex-direction: column;
@@ -511,12 +529,12 @@ button.danger {
   flex: none;
   width: 100%;
   box-sizing: border-box;
-  /* Fills most of the viewport below chrome; clamp keeps short windows usable */
-  height: clamp(360px, calc(100vh - 240px), calc(100vh - 160px));
-  height: clamp(360px, calc(100dvh - 240px), calc(100dvh - 160px));
-  max-height: calc(100vh - 160px);
-  max-height: calc(100dvh - 160px);
-  min-height: 320px;
+  /* Room for shell header, project bar, grid filters/pagination/bulk; hard vh cap keeps panel on one screen */
+  height: min(calc(100vh - 420px), 40vh);
+  max-height: min(calc(100vh - 420px), 40vh);
+  height: min(calc(100dvh - 420px), 40vh);
+  max-height: min(calc(100dvh - 420px), 40vh);
+  min-height: 180px;
   overflow: auto;
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
