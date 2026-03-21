@@ -52,6 +52,19 @@ flowchart LR
 | PWA         | **`sw.js`** service worker; offline cache list in-repo |
 | Tests       | **Playwright** – `npm run test:browser` (expects static server, default `http://127.0.0.1:8080`) |
 
+### Cloud agent / “Ports” preview (HTTP 502)
+
+Forwarded URLs (e.g. `*.agent.cvm.dev`) hit the container’s **non-loopback** interface. If you start Python’s static server **without** `--bind 0.0.0.0`, it listens only on `127.0.0.1` and the preview returns **502 / “unable to handle this request”**.
+
+Use:
+
+```bash
+PORT=8080 npm run serve:static
+# or: bash serve-static.sh
+```
+
+Then open **`/login.html`** on the preview URL. For the full Flask API + static files, use **`./start.sh`** (already binds `0.0.0.0:5000`).
+
 ---
 
 ## Project structure

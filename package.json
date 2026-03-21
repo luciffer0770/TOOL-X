@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "serve:static": "bash serve-static.sh",
     "test:browser": "node tests/run-browser-test.js",
     "postinstall": "npx playwright install chromium"
   },
