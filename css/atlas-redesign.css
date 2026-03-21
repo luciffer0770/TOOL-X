@@ -484,7 +484,6 @@ body {
   margin: 0;
   padding: 24px clamp(16px, 2.5vw, 48px) 40px;
   flex: 1;
-  min-height: 0;
   box-sizing: border-box;
 }
 
